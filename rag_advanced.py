@@ -5,7 +5,7 @@ Documents   : Thai law PDFs in d:/Doc/TSR_Mitre/
 Embeddings  : intfloat/multilingual-e5-large (with query/passage prefixes)
 Vector store: FAISS (Dense)
 Keyword store: BM25 (Sparse)
-Reranker    : BAAI/bge-reranker-m3 (Multilingual Cross-Encoder)
+Reranker    : BAAI/bge-reranker-v2-m3 (Multilingual Cross-Encoder)
 LLM         : Anthropic claude-haiku-4-5
 
 Usage:
@@ -49,7 +49,7 @@ DOCS_DIR      = Path(r"d:\Doc\TSR_Mitre")
 INDEX_DIR     = DOCS_DIR / "advanced_index"
 BM25_PATH     = INDEX_DIR / "bm25_retriever.pkl"
 EMBED_MODEL   = "intfloat/multilingual-e5-large"
-RERANK_MODEL  = "BAAI/bge-reranker-m3" # Excellent multilingual reranker
+RERANK_MODEL  = "BAAI/bge-reranker-v2-m3" # Excellent multilingual reranker
 CHUNK_SIZE    = 800
 CHUNK_OVERLAP = 150
 RETRIEVE_K    = 10   # Fetch top 10 from each (FAISS / BM25)
