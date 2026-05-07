@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #000000;
+  --color-secondary: #1F2937;
+  --color-neutral: #777777;
+  
+  --color-background: #F3F4F6;
+  --color-surface: #FFFFFF;
+}
+
+:root {
+  --background: var(--color-background);
+  --foreground: var(--color-primary);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+@utility card {
+  @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+}
+
+@utility btn-primary {
+  @apply bg-[#000000] text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-[#1F2937];
+}
+
+@utility btn-secondary {
+  @apply bg-gray-100 text-[#1F2937] px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-200;
+}
+
+@utility btn-inverted {
+  @apply bg-[#1F2937] text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-black;
+}
+
+@utility btn-outlined {
+  @apply bg-white border border-gray-300 text-[#1F2937] px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-50;
+}

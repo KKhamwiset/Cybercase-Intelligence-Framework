@@ -45,8 +45,10 @@ except ImportError:
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-DOCS_DIR      = Path(r"d:\Doc\TSR_Mitre")
-INDEX_DIR     = DOCS_DIR / "advanced_index"
+_SCRIPT_DIR   = Path(__file__).resolve().parent          # RAG/Python/
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent                # TSR_Mitre/
+DOCS_DIR      = _PROJECT_ROOT / "Documents"
+INDEX_DIR     = _SCRIPT_DIR.parent / "advanced_index"    # RAG/advanced_index/
 BM25_PATH     = INDEX_DIR / "bm25_retriever.pkl"
 EMBED_MODEL   = "intfloat/multilingual-e5-large"
 RERANK_MODEL  = "BAAI/bge-reranker-v2-m3" # Excellent multilingual reranker

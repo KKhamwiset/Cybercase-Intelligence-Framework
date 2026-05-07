@@ -52,8 +52,10 @@ except ImportError:
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-DOCS_DIR      = Path(r"d:\Doc\TSR_Mitre")
-INDEX_DIR     = DOCS_DIR / "llamaindex_faiss"
+_SCRIPT_DIR   = Path(__file__).resolve().parent          # RAG/Python/
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent                # TSR_Mitre/
+DOCS_DIR      = _PROJECT_ROOT / "Documents"
+INDEX_DIR     = _SCRIPT_DIR.parent / "llamaindex_faiss"  # RAG/llamaindex_faiss/
 EMBED_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
 EMBED_DIM     = 384          # all-MiniLM-L6-v2 output dimension
 CHUNK_SIZE    = 800

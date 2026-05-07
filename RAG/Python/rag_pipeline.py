@@ -42,8 +42,10 @@ except ImportError:
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-DOCS_DIR      = Path(r"d:\Doc\TSR_Mitre")
-INDEX_DIR     = DOCS_DIR / "faiss_index"
+_SCRIPT_DIR   = Path(__file__).resolve().parent          # RAG/Python/
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent                # TSR_Mitre/
+DOCS_DIR      = _PROJECT_ROOT / "Documents"
+INDEX_DIR     = _SCRIPT_DIR.parent / "faiss_index"       # RAG/faiss_index/
 EMBED_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
 CHUNK_SIZE    = 800
 CHUNK_OVERLAP = 150
