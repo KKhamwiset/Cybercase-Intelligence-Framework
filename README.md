@@ -2,18 +2,20 @@
 
 TSR Mitre is an advanced Retrieval-Augmented Generation (RAG) platform specialized in analyzing and querying Thai legal documents, particularly focusing on the Cybersecurity Act, PDPA, and Electronic Transactions Acts.
 
-It features a modern Next.js frontend, a robust FastAPI backend, and leverages powerful vector search and LLM capabilities to provide accurate, cited answers to complex legal queries.
+It features a modern Next.js frontend, a high-performance ElysiaJS backend running on Bun, and leverages powerful vector search and LLM capabilities to provide accurate, cited answers to complex legal queries.
 
 ## Project Structure
 
 *   `Documents/`: Source Thai law PDF documents.
 *   `RAG/`: Core retrieval and generation pipelines using LangChain, LlamaIndex, and FAISS.
 *   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
-*   `backend/`: FastAPI application providing API endpoints, backed by an async PostgreSQL database.
+*   `backend/`: ElysiaJS application (Bun runtime) providing API endpoints, backed by PostgreSQL and Prisma ORM.
 
 ## Quick Start
 
-### 1. Python Environment Setup
+### 1. Environment Setup
+
+#### Python (for RAG CLI tools)
 Create a virtual environment to manage Python dependencies:
 ```bash
 # In the project root directory
@@ -21,32 +23,33 @@ python -m venv env_mitre
 ```
 
 Activate the virtual environment:
-*   **Windows:**
-    ```bash
-    .\env_mitre\Scripts\activate
-    ```
-*   **macOS/Linux:**
-    ```bash
-    source env_mitre/bin/activate
-    ```
+*   **Windows:** `.\env_mitre\Scripts\activate`
+*   **macOS/Linux:** `source env_mitre/bin/activate`
 
 Install the required Python packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Database Setup (SKIPPED)
+#### Bun (for Backend)
+The backend requires the **Bun** runtime. If you don't have it installed on Windows, run:
+```powershell
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+### 2. Database Setup
 You need a running PostgreSQL database. You can use the provided `docker-compose.yml`:
 ```bash
 docker-compose up -d
 ```
 
-### 3. Backend Setup
-Create a `.env` file in the `backend/` directory (see `.env.example`). Ensure your virtual environment is activated.
+### 3. Backend Setup (ElysiaJS)
+Create a `.env` file in the `backend/` directory (see `.env` example).
 ```bash
 cd backend
-alembic upgrade head
-uvicorn app.main:app --reload
+bun install
+npx prisma generate
+bun run dev
 ```
 The backend will be available at `http://localhost:8000`.
 

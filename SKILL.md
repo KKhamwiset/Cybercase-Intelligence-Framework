@@ -8,8 +8,8 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 **Tech Stack:**
 *   **Frontend:** Next.js 15 (App Router, TypeScript, React). Tailwind CSS Modules.
-*   **Backend:** FastAPI (Python), providing REST APIs.
-*   **Database:** PostgreSQL, accessed via SQLAlchemy (async with `asyncpg`) and managed by Alembic.
+*   **Backend:** ElysiaJS (TypeScript), running on the **Bun** runtime.
+*   **Database:** PostgreSQL, accessed via **Prisma ORM**.
 *   **RAG Engine:** LangChain, LlamaIndex, FAISS, SentenceTransformers, and Anthropic's Claude (Haiku).
 
 ## 2. Directory Structure & Ownership
@@ -19,7 +19,7 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 *   `/RAG/Jupyter/` - Sandbox notebooks for experimentation.
 *   `/RAG/*_index/` - Generated FAISS/BM25 indices. Do not manually edit.
 *   `/frontend/` - Next.js application. All UI work happens here.
-*   `/backend/` - FastAPI application. All API and database logic happens here.
+*   `/backend/` - ElysiaJS application. All API and database logic happens here.
 
 ## 3. Coding Conventions & Constraints
 
@@ -28,10 +28,11 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 *   **Aesthetics:** Prioritize high-quality, modern UI designs. Use glassmorphism, smooth animations, and dark mode themes as established in the current UI.
 *   **State:** Use React hooks. For API calls, use the functions defined in `frontend/src/lib/api.ts`.
 
-### Backend (FastAPI & SQLAlchemy)
-*   **Async First:** The database uses `asyncpg` and `AsyncSession`. Ensure all database queries are awaited.
-*   **Alembic:** Any changes to SQLAlchemy models in `backend/app/models/` must be followed by an Alembic migration (`alembic revision --autogenerate -m "..."`).
-*   **Configuration:** Use `pydantic-settings` (`backend/app/config.py`). Sensitive keys (like `ANTHROPIC_API_KEY` or `DATABASE_URL`) must be loaded from `.env` and never hardcoded.
+### Backend (ElysiaJS & Prisma)
+*   **Bun Runtime:** The backend runs exclusively on Bun. Use `bun` commands for package management and running scripts.
+*   **Prisma:** Any changes to the database schema in `backend/prisma/schema.prisma` must be followed by client generation (`npx prisma generate`) and database sync (`npx prisma db push`).
+*   **Validation:** Use Elysia's native `t` (TypeBox) object for strict request/response validation in routes.
+*   **Configuration:** Use `backend/src/config.ts`. Sensitive keys must be loaded from `.env` and never hardcoded.
 
 ### RAG Scripts
 *   **Pathing:** Scripts use `__file__` to dynamically resolve paths to `/Documents/` and index directories. Do not use hardcoded absolute paths (e.g., `C:\...`).
@@ -39,16 +40,23 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 ## 4. Common Commands
 
+*   **Install Bun (Windows):** `powershell -c "irm bun.sh/install.ps1 | iex"`
 *   **Run Frontend:** `cd frontend && npm run dev`
-*   **Run Backend:** `cd backend && uvicorn app.main:app --reload`
-*   **Run Migrations:** `cd backend && alembic upgrade head`
+*   **Run Backend:** `cd backend && bun run dev`
+*   **Generate Prisma Client:** `cd backend && npx prisma generate`
+*   **Sync DB Schema:** `cd backend && npx prisma db push`
 *   **Test RAG:** `cd RAG/Python && python rag_pipeline.py --test`
 
 ## 5. Common Pitfalls
 
 * **RAG Pathing:** When running RAG scripts, ensure you are in the `/RAG/Python/` directory. Scripts rely on `__file__` to find `/Documents/`. Running them from the project root will cause `FileNotFoundError`.
 
-* **Alembic Migrations:** Always run `alembic upgrade head` after modifying models. If the migration doesn't detect changes, manually create one: `alembic revision --autogenerate -m "Description of changes"`.
+* **Prisma Sync:** Always run `npx prisma generate` after modifying `schema.prisma`. If you need to push changes to the database during development, use `npx prisma db push`.
 * **Vector Store Updates:** When updating the vector store with new documents, you must delete the old index directory (e.g., `faiss_index/`) before running the build script again, unless the script is designed to handle incremental updates.
 
 * **Styling Dependencies:** If you encounter errors like `PostCSS error: No PostCSS config found`, ensure that the `postcss`, `tailwindcss`, and `autoprefixer` packages are installed in the frontend dependencies (`package.json`). If missing, run: `cd frontend && npm install postcss tailwindcss autoprefixer`.
+
+
+## 6. Machine Environment
+
+* **Windows:** All team members use this project on Windows. Bun is installed natively. Do not assume the environment is Linux/Mac. Always use `powershell` or `bash` (via Git Bash or WSL) to run the project.
