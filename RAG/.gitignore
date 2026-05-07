@@ -1,0 +1,28 @@
+# ==============================================================================
+# RAG Pipeline & Jupyter Notebooks
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# Environments
+.env
+
+# Logs
+*.log
+
+# Vector Stores and Indexes (Uncomment if you want to ignore vector databases to save space)
+# *.faiss
+# *.pkl
+# *.json
+
+# Misc
+.DS_Store
