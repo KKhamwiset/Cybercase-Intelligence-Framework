@@ -25,7 +25,7 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 ## 3. Coding Conventions & Constraints
 
 ### Python ENV 
-* **Activated env:** If the env folder is persist make sure to activated it first before further running a command 
+* **Activated env:** If the env folder is persist make sure to activated it first before further running a command else run the command via global script.
 
 ### Frontend (Next.js)
 *   **Styling:** Tailwind CSS as Primary, CSS Modules as Secondary
