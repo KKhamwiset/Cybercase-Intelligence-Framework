@@ -2,6 +2,7 @@
 
 This document defines the scope, technical stack, and conventions for AI Agents working on the TSR Mitre project. It helps ensure consistency and prevents regressions.
 
+
 ## 1. Project Architecture
 
 The TSR Mitre project is a full-stack web application designed for retrieving and analyzing Thai legal documents (Cybersecurity Act, PDPA, Electronic Transactions Act, etc.) using Retrieval-Augmented Generation (RAG).
@@ -23,8 +24,11 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 ## 3. Coding Conventions & Constraints
 
+### Python ENV 
+* **Activated env:** If the env folder is persist make sure to activated it first before further running a command 
+
 ### Frontend (Next.js)
-*   **Styling:** Use standard CSS Modules (`.module.css`). **Do not use Tailwind CSS** unless explicitly instructed by the user. Follow the existing design system tokens defined in `frontend/src/app/globals.css`.
+*   **Styling:** Tailwind CSS as Primary, CSS Modules as Secondary
 *   **Aesthetics:** Prioritize high-quality, modern UI designs. Use glassmorphism, smooth animations, and dark mode themes as established in the current UI.
 *   **State:** Use React hooks. For API calls, use the functions defined in `frontend/src/lib/api.ts`.
 
@@ -60,3 +64,9 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 ## 6. Machine Environment
 
 * **Windows:** All team members use this project on Windows. Bun is installed natively. Do not assume the environment is Linux/Mac. Always use `powershell` or `bash` (via Git Bash or WSL) to run the project.
+
+## 7. Login to env
+
+* `doppler login`
+* `doppler setup`
+* `doppler run --command="echo \$env_tsr_mitre"`
