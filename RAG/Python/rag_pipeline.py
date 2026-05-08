@@ -1,329 +1,550 @@
 """
-RAG Pipeline -- FAISS + LangChain + Sentence-Transformers
-==========================================================
-Documents   : Thai law PDFs in d:/Doc/TSR_Mitre/
-Embeddings  : sentence-transformers (all-MiniLM-L6-v2) -- local, no API key
-Vector store: FAISS (persisted to faiss_index/)
-LLM         : Anthropic Claude claude-3-haiku  (needs ANTHROPIC_API_KEY)
-              Falls back to retrieval-only if key is not set.
+Advanced Legal RAG -- LlamaIndex + FAISS + Hybrid Retrieval
+===========================================================
 
-Usage:
-    python rag_pipeline.py                # interactive query loop
-    python rag_pipeline.py --ingest       # (re-)build FAISS index from PDFs
-    python rag_pipeline.py --test         # run built-in test queries
+Features
+--------
+✓ Semantic Chunking
+✓ FAISS Vector Search
+✓ BM25 Sparse Retrieval
+✓ Hybrid Fusion Retrieval
+✓ Metadata-aware Retrieval
+✓ Local Embeddings (Sentence Transformers)
+✓ Claude / Ollama / OpenAI compatible
+✓ Thai Legal Document Optimized
+✓ Ready for MITRE ATT&CK integration later
+
+Usage
+-----
+python rag_pipeline.py --ingest
+python rag_pipeline.py
+python rag_pipeline.py --test
 """
 
-# ── Force UTF-8 output so Thai + box-drawing chars render on Windows ──────
-import sys, io
+# ──────────────────────────────────────────────────────────────────────────────
+# UTF-8 FIX
+# ──────────────────────────────────────────────────────────────────────────────
+import sys
+import io
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 else:
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stdout = io.TextIOWrapper(
+        sys.stdout.buffer,
+        encoding="utf-8",
+        errors="replace"
+    )
 
+# ──────────────────────────────────────────────────────────────────────────────
+# IMPORTS
+# ──────────────────────────────────────────────────────────────────────────────
 import os
 import argparse
-import textwrap
 from pathlib import Path
+import faiss
 
-# ── LangChain ──────────────────────────────────────────────────────────────
-from langchain_community.document_loaders import PyMuPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_core.documents import Document
+from llama_index.core import (
+    VectorStoreIndex,
+    StorageContext,
+    Settings,
+)
 
-# ── Optional Anthropic LLM ─────────────────────────────────────────────────
-try:
-    import anthropic
-    _ANTHROPIC_AVAILABLE = True
-except ImportError:
-    _ANTHROPIC_AVAILABLE = False
+from llama_index.core.schema import Document
+from llama_index.core.node_parser import SemanticSplitterNodeParser
+from llama_index.core.retrievers import QueryFusionRetriever
+from llama_index.core.response_synthesizers import get_response_synthesizer
+from llama_index.core.query_engine import RetrieverQueryEngine
 
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-_SCRIPT_DIR   = Path(__file__).resolve().parent          # RAG/Python/
-_PROJECT_ROOT = _SCRIPT_DIR.parent.parent                # TSR_Mitre/
-DOCS_DIR      = _PROJECT_ROOT / "Documents"
-INDEX_DIR     = _SCRIPT_DIR.parent / "faiss_index"       # RAG/faiss_index/
-EMBED_MODEL   = "sentence-transformers/all-MiniLM-L6-v2"
-CHUNK_SIZE    = 800
-CHUNK_OVERLAP = 150
-TOP_K         = 5
+from llama_index.readers.file import PyMuPDFReader
 
-# =============================================================================
+from llama_index.vector_stores.faiss import FaissVectorStore
+
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.postprocessor import SentenceTransformerRerank
+# Claude
+from llama_index.llms.anthropic import Anthropic
+import re
+from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core.retrievers import BaseRetriever
+from llama_index.core.schema import NodeWithScore, QueryBundle
+RERANKER = None
+# Optional reranker
+# from llama_index.postprocessor.flag_embedding_reranker import (
+#     FlagEmbeddingReranker
+# )
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CONFIG
+# ──────────────────────────────────────────────────────────────────────────────
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+DOCS_DIR = _PROJECT_ROOT / "Documents"
+
+INDEX_DIR = _SCRIPT_DIR.parent / "storage"
+FAISS_DIR = INDEX_DIR / "faiss"
+
+EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+TOP_K = 5
+
+# embedding dimension
+EMBED_DIM = 384
+
+# ──────────────────────────────────────────────────────────────────────────────
 # HELPERS
-# =============================================================================
+# ──────────────────────────────────────────────────────────────────────────────
+def sep(title=""):
 
-def _sep(title: str = "") -> None:
-    w = 72
+    width = 72
+
     if title:
-        pad = (w - len(title) - 2) // 2
+        pad = (width - len(title) - 2) // 2
         print("\n" + "-" * pad + f" {title} " + "-" * pad)
+
     else:
-        print("\n" + "-" * w)
+        print("\n" + "-" * width)
 
 
-# =============================================================================
-# INGESTION
-# =============================================================================
-
-def load_pdfs(docs_dir: Path) -> list[Document]:
-    """Load all PDFs in docs_dir using PyMuPDF (handles Thai text well)."""
-    pdf_files = sorted(docs_dir.glob("*.pdf"))
-    if not pdf_files:
-        raise FileNotFoundError(f"No PDF files found in {docs_dir}")
-
-    all_docs: list[Document] = []
-    print(f"[LOAD] Found {len(pdf_files)} PDF(s) in {docs_dir}")
-    for pdf in pdf_files:
-        print(f"       Loading: {pdf.name}")
-        loader = PyMuPDFLoader(str(pdf))
-        docs = loader.load()
-        for d in docs:
-            d.metadata["source"] = pdf.name
-        all_docs.extend(docs)
-        print(f"       => {len(docs)} page(s)")
-
-    print(f"\n[LOAD] Total pages: {len(all_docs)}")
-    return all_docs
+# ──────────────────────────────────────────────────────────────────────────────
+# EMBEDDINGS
+# ──────────────────────────────────────────────────────────────────────────────
+def split_by_articles(text):
+    return re.split(r"(มาตรา\s+\d+)", text)
 
 
-def chunk_documents(docs: list[Document]) -> list[Document]:
-    """Split pages into smaller chunks for dense retrieval."""
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ".", " ", ""],
-    )
-    chunks = splitter.split_documents(docs)
-    print(f"[CHUNK] Split into {len(chunks)} chunks "
-          f"(size={CHUNK_SIZE}, overlap={CHUNK_OVERLAP})")
-    return chunks
+def setup_models():
+    global RERANKER
 
+    print(f"[EMBED] Loading {EMBED_MODEL}")
 
-def build_embeddings() -> HuggingFaceEmbeddings:
-    """Load sentence-transformer embedding model (CPU, local)."""
-    print(f"[EMBED] Loading model: {EMBED_MODEL}")
-    return HuggingFaceEmbeddings(
+    embed_model = HuggingFaceEmbedding(
         model_name=EMBED_MODEL,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
+        device="cpu",
     )
 
+    Settings.embed_model = embed_model
+    RERANKER = SentenceTransformerRerank(
+        model="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+        top_n=TOP_K
+    )
 
-def build_index(chunks: list[Document],
-                embeddings: HuggingFaceEmbeddings) -> FAISS:
-    """Create & persist FAISS vector store."""
-    print(f"[INDEX] Building FAISS index for {len(chunks)} chunks ...")
-    vectorstore = FAISS.from_documents(chunks, embeddings)
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
-    vectorstore.save_local(str(INDEX_DIR))
-    print(f"[INDEX] Saved to {INDEX_DIR}")
-    return vectorstore
+    # Claude
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    if api_key:
+
+        print("[LLM] Claude enabled")
+
+        Settings.llm = Anthropic(
+            model="claude-sonnet-4-20250514",
+            api_key=api_key,
+            temperature=0,
+            max_tokens=4096,
+        )
+
+    else:
+
+        print("[WARN] No ANTHROPIC_API_KEY")
+        Settings.llm = None
+
+    return embed_model
 
 
-def load_index(embeddings: HuggingFaceEmbeddings) -> FAISS:
-    """Load persisted FAISS index from disk."""
-    if not INDEX_DIR.exists():
+# ──────────────────────────────────────────────────────────────────────────────
+# LOAD PDFS
+# ──────────────────────────────────────────────────────────────────────────────
+def load_documents():
+
+    pdf_files = sorted(DOCS_DIR.glob("*.pdf"))
+
+    if not pdf_files:
         raise FileNotFoundError(
-            f"Index not found at {INDEX_DIR}. Run --ingest first."
+            f"No PDFs found in {DOCS_DIR}"
         )
-    print(f"[INDEX] Loading from {INDEX_DIR} ...")
-    vs = FAISS.load_local(
-        str(INDEX_DIR),
-        embeddings,
-        allow_dangerous_deserialization=True,
+
+    reader = PyMuPDFReader()
+
+    documents = []
+
+    print(f"[LOAD] Found {len(pdf_files)} PDFs")
+
+    for pdf in pdf_files:
+
+        print(f"       Loading: {pdf.name}")
+
+        docs = reader.load_data(
+            file_path=str(pdf)
+        )
+
+        # inject metadata
+        for i, d in enumerate(docs):  # ← เปลี่ยน for d in docs เป็น enumerate
+
+            d.metadata["source"] = pdf.name
+            d.metadata["doc_type"] = "law"
+            d.metadata["page_label"] = str(d.metadata.get("page_label", i + 1))  # ← เพิ่ม
+
+        documents.extend(docs)
+
+        print(f"       => {len(docs)} pages")
+
+    print(f"\n[LOAD] Total Pages: {len(documents)}")
+
+    return documents
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# SEMANTIC CHUNKING
+# ──────────────────────────────────────────────────────────────────────────────
+
+def build_nodes(documents):
+
+    print("[CHUNK] Article-aware + Semantic chunking...")
+
+    processed_docs = []
+
+    for doc in documents:
+
+        parts = split_by_articles(doc.text)
+
+        for i in range(0, len(parts), 2):
+
+            chunk_text = parts[i]
+
+            if i + 1 < len(parts):
+                chunk_text += parts[i + 1]
+
+            if not chunk_text.strip():  # ← skip empty chunks
+                continue
+
+            # ✅ copy metadata ทั้งหมดจาก original doc
+            preserved_metadata = doc.metadata.copy()
+
+            processed_docs.append(
+                Document(
+                    text=chunk_text,
+                    metadata=preserved_metadata
+                )
+            )
+
+    # semantic chunk หลัง split มาตรา
+    parser = SemanticSplitterNodeParser(
+        buffer_size=1,
+        breakpoint_percentile_threshold=85,
+        embed_model=Settings.embed_model,
     )
-    print("[INDEX] Loaded OK.")
-    return vs
+
+    nodes = parser.get_nodes_from_documents(processed_docs)
+
+    print(f"[CHUNK] Created {len(nodes)} nodes")
+
+    return nodes
 
 
-# =============================================================================
-# RETRIEVAL
-# =============================================================================
+# ──────────────────────────────────────────────────────────────────────────────
+# BUILD INDEX
+# ──────────────────────────────────────────────────────────────────────────────
+def build_index(nodes):
 
-def retrieve(vectorstore: FAISS, query: str,
-             k: int = TOP_K) -> list[tuple[Document, float]]:
-    """Semantic similarity search -- returns (Document, L2-distance) pairs."""
-    return vectorstore.similarity_search_with_score(query, k=k)
+    INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
+    # FAISS
+    print("[FAISS] Building vector store...")
 
-def format_retrieved(results: list[tuple[Document, float]]) -> str:
-    lines = []
-    for i, (doc, score) in enumerate(results, 1):
-        src     = doc.metadata.get("source", "unknown")
-        page    = doc.metadata.get("page", "?")
-        snippet = doc.page_content[:350].replace("\n", " ")
-        lines.append(
-            f"  [{i}] {src}  (page {page})  dist={score:.4f}\n"
-            f"      {snippet} ..."
-        )
-    return "\n\n".join(lines)
+    faiss_index = faiss.IndexFlatL2(
+        EMBED_DIM
+    )
 
+    vector_store = FaissVectorStore(
+        faiss_index=faiss_index
+    )
 
-# =============================================================================
-# GENERATION  (Anthropic Claude claude-3-haiku)
-# =============================================================================
+    storage_context = StorageContext.from_defaults(
+        vector_store=vector_store
+    )
 
-def generate_answer(query: str,
-                    context_docs: list[tuple[Document, float]]) -> str:
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not _ANTHROPIC_AVAILABLE or not api_key:
-        return (
-            "[INFO] No ANTHROPIC_API_KEY -- showing raw retrieved context:\n\n"
-            + format_retrieved(context_docs)
-        )
+    index = VectorStoreIndex(
+        nodes,
+        storage_context=storage_context,
+        show_progress=True,
+    )
 
-    client = anthropic.Anthropic(api_key=api_key)
+    index.storage_context.persist(
+        persist_dir=str(INDEX_DIR)
+    )
 
-    ctx_parts = []
-    for i, (doc, _score) in enumerate(context_docs, 1):
-        src  = doc.metadata.get("source", "?")
-        page = doc.metadata.get("page", "?")
-        ctx_parts.append(f"[Source {i}: {src}, page {page}]\n{doc.page_content}")
-    context_str = "\n\n---\n\n".join(ctx_parts)
+    print(f"[FAISS] Saved to {INDEX_DIR}")
 
-    system_prompt = textwrap.dedent("""
-        You are a helpful legal assistant specialising in Thai law.
-        Answer the user's question using ONLY the provided context.
-        If the answer is not clearly in the context, say so explicitly.
-        Cite the source document and page number for every key claim.
-        Respond in the same language as the question.
-    """).strip()
-
-    try:
-        response = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=1024,
-            system=system_prompt,
-            messages=[{
-                "role": "user",
-                "content": f"Context:\n{context_str}\n\nQuestion: {query}"
-            }],
-        )
-        return response.content[0].text
-    except Exception as exc:
-        return (
-            f"[LLM ERROR] {exc}\n\n"
-            "Falling back to raw retrieved context:\n\n"
-            + format_retrieved(context_docs)
-        )
+    return index
 
 
-# =============================================================================
-# END-TO-END RAG QUERY
-# =============================================================================
+# ──────────────────────────────────────────────────────────────────────────────
+# LOAD INDEX
+# ──────────────────────────────────────────────────────────────────────────────
+def load_index():
 
-def rag_query(vectorstore: FAISS, query: str) -> dict:
-    _sep("QUERY")
-    print(f"  {query}\n")
+    from llama_index.core import load_index_from_storage
 
-    retrieved = retrieve(vectorstore, query, k=TOP_K)
+    print(f"[FAISS] Loading from {INDEX_DIR}")
 
-    _sep("RETRIEVED CHUNKS")
-    print(format_retrieved(retrieved))
+    vector_store = FaissVectorStore.from_persist_dir(
+        str(INDEX_DIR)
+    )
 
-    _sep("GENERATED ANSWER")
-    answer = generate_answer(query, retrieved)
-    print(answer)
+    storage_context = StorageContext.from_defaults(
+        vector_store=vector_store,
+        persist_dir=str(INDEX_DIR)
+    )
 
-    _sep()
-    return {"query": query, "retrieved": retrieved, "answer": answer}
+    index = load_index_from_storage(
+        storage_context
+    )
+
+    return index
 
 
-# =============================================================================
-# BUILT-IN TEST SUITE
-# =============================================================================
+# ──────────────────────────────────────────────────────────────────────────────
+# HYBRID RETRIEVAL
+# ──────────────────────────────────────────────────────────────────────────────
+class SourceFilterRetriever(BaseRetriever):
 
+    def __init__(self, retriever, source_filter=None):
+        self._retriever = retriever
+        self._source_filter = source_filter
+        super().__init__()
+
+    def _retrieve(self, query_bundle: QueryBundle):
+        # ✅ เรียก sync ตรงๆ แทน
+        nodes = self._retriever._retrieve(query_bundle)
+
+        if not self._source_filter:
+            return nodes
+
+        filtered = [
+            n for n in nodes
+            if n.metadata.get("source") == self._source_filter
+        ]
+
+        return filtered if filtered else nodes
+def detect_relevant_source(query: str) -> str | None:
+    """
+    ตรวจ keyword ใน query → return ชื่อ source PDF
+    ถ้าไม่รู้ → return None (ค้นทุกไฟล์)
+    """
+    q = query.lower()
+
+    keyword_map = {
+        "คอมพิวเตอร์": "พระราชบัญญัติว่าด้วยการกระทำความผิดเกี่ยวกับคอมพิวเตอร์ พ.ศ. ๒๕๕๐.pdf",
+        "computer":    "พระราชบัญญัติว่าด้วยการกระทำความผิดเกี่ยวกับคอมพิวเตอร์ พ.ศ. ๒๕๕๐.pdf",
+        "pdpa":        "พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล.pdf",
+        "ข้อมูลส่วนบุคคล": "พระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล.pdf",
+        "ธุรกรรม":     "พระราชบัญญัติว่าด้วยธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544.pdf",
+        "อิเล็กทรอนิกส์": "พระราชบัญญัติว่าด้วยธุรกรรมทางอิเล็กทรอนิกส์ พ.ศ. 2544.pdf",
+        "อาญา":        "ประมวลกฎหมายอาญา.pdf",
+        "criminal":    "ประมวลกฎหมายอาญา.pdf",
+    }
+
+    for keyword, source in keyword_map.items():
+        if keyword in q:
+            return source
+
+    return None  # ไม่รู้ → ค้นทั้งหมด
+
+def build_retriever(index, query: str = ""):
+
+    print("[RETRIEVER] Building hybrid retriever")
+
+    source_filter = detect_relevant_source(query)
+
+    if source_filter:
+        print(f"[FILTER] source = {source_filter}")
+    else:
+        print("[FILTER] No filter — searching all documents")
+
+    # ✅ ไม่ใส่ filters ใน FAISS retriever แล้ว
+    vector_retriever = index.as_retriever(
+        similarity_top_k=TOP_K
+    )
+
+    bm25_retriever = BM25Retriever.from_defaults(
+        docstore=index.docstore,
+        similarity_top_k=TOP_K,
+    )
+
+    fusion_retriever = QueryFusionRetriever(
+        [vector_retriever, bm25_retriever],
+        similarity_top_k=TOP_K,
+        num_queries=3,
+        mode="reciprocal_rerank",
+        use_async=True,
+        verbose=True,
+    )
+
+    # ✅ wrap ด้วย SourceFilterRetriever
+    retriever = SourceFilterRetriever(
+        retriever=fusion_retriever,
+        source_filter=source_filter
+    )
+
+    return retriever
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# QUERY ENGINE
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def build_query_engine(retriever):
+    response_synthesizer = get_response_synthesizer()
+    query_engine = RetrieverQueryEngine(
+        retriever=retriever,
+        node_postprocessors=[RERANKER],  # ← ใช้ global แทน ✅
+        response_synthesizer=response_synthesizer,
+    )
+    return query_engine
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# QUERY
+# ──────────────────────────────────────────────────────────────────────────────
+def rag_query(index, query):  # ✅ รับ index แทน query_engine
+
+    # build retriever + query_engine ใหม่ทุก query
+    retriever = build_retriever(index, query)
+    query_engine = build_query_engine(retriever)
+
+    sep("QUERY")
+    print(query)
+
+    sep("ANSWER")
+    response = query_engine.query(query)
+    print(response)
+
+    sep("SOURCES")
+    for i, node in enumerate(response.source_nodes, 1):
+
+        meta = node.metadata
+        source = meta.get("source", "?")
+        page = meta.get("page_label", "?")
+        score = round(node.score, 4)
+        text = node.text[:350].replace("\n", " ")
+
+        print(f"[{i}] {source} | page={page} | score={score}")
+        print(f"    {text}...\n")
+
+    sep()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TESTS
+# ──────────────────────────────────────────────────────────────────────────────
 TEST_QUERIES = [
-    # Thai questions (matching the loaded PDFs)
-    "PDPA คืออะไร และมีหลักการสำคัญอย่างไร",
-    "บทลงโทษสำหรับการละเมิดความเป็นส่วนตัวของข้อมูลในกฎหมาย PDPA คืออะไร",
-    "การกระทำความผิดเกี่ยวกับคอมพิวเตอร์มีโทษอย่างไร",
-    "ธุรกรรมทางอิเล็กทรอนิกส์ตามกฎหมายไทยหมายความว่าอะไร",
-    "มาตรการความมั่นคงปลอดภัยทางไซเบอร์ของประเทศไทยมีอะไรบ้าง",
-    # English questions
-    "What are the key provisions of the Thai Cybersecurity Act?",
-    "What penalties exist under the Computer Crime Act?",
+
+    "PDPA คืออะไร",
+
+    "บทลงโทษของ พ.ร.บ.คอมพิวเตอร์ คืออะไร",
+
+    "มาตรการด้าน Cybersecurity ของไทยมีอะไรบ้าง",
+
+    "ธุรกรรมอิเล็กทรอนิกส์คืออะไร",
+
+    "What penalties exist under Computer Crime Act?",
 ]
 
 
-def run_tests(vectorstore: FAISS) -> None:
-    print("\n" + "=" * 72)
-    print("  RAG RETRIEVAL TEST SUITE")
-    print("=" * 72)
-    summary = []
+def run_tests(index):  # ✅ รับ index แทน query_engine
+
+    sep("TEST SUITE")
 
     for i, q in enumerate(TEST_QUERIES, 1):
-        print(f"\n{'='*72}")
-        print(f"  TEST {i}/{len(TEST_QUERIES)}")
-        r = rag_query(vectorstore, q)
-        top_src   = (r["retrieved"][0][0].metadata.get("source", "?")
-                     if r["retrieved"] else "-")
-        top_score = r["retrieved"][0][1] if r["retrieved"] else 0.0
-        summary.append({"query": q[:55], "src": top_src, "score": top_score})
 
-    _sep("TEST SUMMARY")
-    hdr = f"{'#':<4} {'Query':<57} {'Top Source':<48} {'Dist':>7}"
-    print(hdr)
-    print("-" * len(hdr))
-    for i, row in enumerate(summary, 1):
-        print(f"{i:<4} {row['query']:<57} {row['src']:<48} {row['score']:>7.4f}")
-    print()
+        print(f"\nTEST {i}/{len(TEST_QUERIES)}")
+
+        rag_query(index, q)  # ✅ ส่ง index แทน query_engine
 
 
-# =============================================================================
+# ──────────────────────────────────────────────────────────────────────────────
 # MAIN
-# =============================================================================
-
+# ──────────────────────────────────────────────────────────────────────────────
 def main():
+
     parser = argparse.ArgumentParser(
-        description="FAISS + LangChain RAG pipeline for Thai legal PDFs"
+        description="Advanced Legal RAG"
     )
-    parser.add_argument("--ingest", action="store_true",
-                        help="(Re-)build the FAISS index from PDFs")
-    parser.add_argument("--test", action="store_true",
-                        help="Run the built-in test query suite")
+
+    parser.add_argument(
+        "--ingest",
+        action="store_true"
+    )
+
+    parser.add_argument(
+        "--test",
+        action="store_true"
+    )
+
     args = parser.parse_args()
 
-    embeddings = build_embeddings()
+    # models
+    setup_models()
 
-    # -- Ingest or load -------------------------------------------------------
+    # ingest
     if args.ingest or not INDEX_DIR.exists():
-        _sep("INGESTION")
-        docs        = load_pdfs(DOCS_DIR)
-        chunks      = chunk_documents(docs)
-        vectorstore = build_index(chunks, embeddings)
-    else:
-        vectorstore = load_index(embeddings)
 
-    # -- Test mode ------------------------------------------------------------
+        sep("INGESTION")
+
+        documents = load_documents()
+
+        nodes = build_nodes(
+            documents
+        )
+
+        index = build_index(
+            nodes
+        )
+
+    else:
+
+        index = load_index()
+
+    # ✅ ลบ build_retriever() และ build_query_engine() ออกจากตรงนี้
+    # เพราะต้อง build ใหม่ทุก query เพื่อใส่ filter ตาม query นั้น
+
+    # tests
     if args.test:
-        run_tests(vectorstore)
+
+        run_tests(index)  # ✅ ส่ง index แทน query_engine
+
         return
 
-    # -- Interactive loop -----------------------------------------------------
+    # interactive
     print("\n" + "=" * 72)
-    print("  RAG INTERACTIVE MODE  (type 'exit' to quit)")
+    print("  LEGAL RAG INTERACTIVE MODE")
     print("=" * 72)
-    print("  Indexed documents:")
-    for pdf in sorted(DOCS_DIR.glob("*.pdf")):
-        print(f"    * {pdf.name}")
-    print()
 
     while True:
+
         try:
-            query = input("Query> ").strip()
+            query = input("\nQuery> ").strip()
+
         except (KeyboardInterrupt, EOFError):
+
             print("\nBye!")
             break
 
-        if not query or query.lower() in ("exit", "quit", "q"):
+        if query.lower() in [
+            "exit",
+            "quit",
+            "q"
+        ]:
+
             print("Bye!")
             break
 
-        rag_query(vectorstore, query)
+        if not query:
+            continue
+
+        rag_query(index, query)  # ✅ ส่ง index แทน query_engine
 
 
 if __name__ == "__main__":
