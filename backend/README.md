@@ -1,36 +1,46 @@
-# TSR Mitre Backend (ElysiaJS)
+# TSR Mitre - FastAPI Backend
 
-This is the high-performance backend for the TSR Mitre RAG platform, built with [ElysiaJS](https://elysiajs.com/) and running on the [Bun](https://bun.sh/) runtime.
+This is the Python-based backend for the TSR Mitre RAG platform.
 
 ## Tech Stack
-- **Runtime**: Bun
-- **Framework**: ElysiaJS
-- **ORM**: Prisma
-- **Database**: PostgreSQL
-- **Validation**: TypeBox
+- **FastAPI**: Web framework.
+- **SQLAlchemy**: ORM.
+- **Alembic**: Database migrations.
+- **Pydantic**: Data validation and settings.
+- **Asyncpg**: Async PostgreSQL driver.
 
 ## Getting Started
 
-1. **Install Dependencies**:
-   ```bash
-   bun install
-   ```
+### 1. Setup Environment
+Ensure you have the virtual environment activated from the root directory.
 
-2. **Generate Prisma Client**:
-   ```bash
-   npx prisma generate
-   ```
+```bash
+# From project root
+.\env_mitre\Scripts\activate
+```
 
-3. **Configure Environment**:
-   Ensure you have a `.env` file with your `DATABASE_URL`.
+### 2. Configuration
+Create a `.env` file in this directory based on the defaults in `app/config.py`.
 
-4. **Development**:
-   To start the development server with hot-reload:
-   ```bash
-   bun run dev
-   ```
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/tsr_mitre
+CORS_ORIGINS=http://localhost:3000
+DEBUG=True
+ANTHROPIC_API_KEY=your_key_here
+```
 
-## API Documentation
-The API is available at `http://localhost:8000`. 
-- Health Check: `GET /api/v1/health`
-- Users API: `GET /api/v1/users`, `POST /api/v1/users`
+### 3. Database Migrations
+Run the migrations to set up the database schema.
+
+```bash
+alembic upgrade head
+```
+
+### 4. Run the Server
+Start the FastAPI server with hot-reload.
+
+```bash
+uvicorn app.main:app --reload
+```
+
+The API documentation will be available at `http://localhost:8000/docs`.
