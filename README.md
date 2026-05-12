@@ -31,20 +31,37 @@ Install the required Python packages:
 pip install -r requirements.txt
 ```
 
-### 2. Database Setup
+### 2. Environment Management (Doppler)
+This project uses **Doppler** to manage environment variables securely. This replaces the need for manual `.env` files.
+
+#### Login & Setup
+If you haven't already, authenticate and select the project configuration:
+```bash
+doppler login
+doppler setup
+```
+
+#### Running with Secrets
+To run any command with environment variables injected:
+```bash
+doppler run -- <command>
+```
+
+### 3. Database Setup
 You need a running PostgreSQL database. You can use the provided `docker-compose.yml`:
 ```bash
 docker-compose up -d
 ```
 
-### 3. Backend Setup (FastAPI)
-Create a `.env` file in the `backend/` directory (see `backend/app/config.py` for default values).
+### 4. Backend Setup (FastAPI)
+You don't need a `.env` file if you use Doppler.
 ```bash
 cd backend
-# Run migrations if necessary
-alembic upgrade head
-# Start the server
-uvicorn app.main:app --reload
+# Run migrations using Doppler secrets
+doppler run -- alembic upgrade head
+
+# Start the server with Doppler secrets
+doppler run -- uvicorn app.main:app --reload
 ```
 The backend will be available at `http://localhost:8000`.
 

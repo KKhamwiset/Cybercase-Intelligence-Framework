@@ -63,10 +63,13 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 * **Windows:** All team members use this project on Windows. Bun is installed natively. Do not assume the environment is Linux/Mac. Always use `powershell` or `bash` (via Git Bash or WSL) to run the project.
 
-## 7. Login to env
+## 7. Environment Management (Doppler)
 
-* `doppler login`
-* `doppler setup`
-* `doppler run --command="echo \$env_tsr_mitre"`
+We use Doppler for centralized secret management.
 
-##
+*   **Login:** `doppler login` (one-time authentication)
+*   **Setup:** `doppler setup` (select project and config for the current directory)
+*   **Run with Secrets:** `doppler run -- <your-command>` (injects secrets as environment variables)
+*   **Download to .env (Optional):** `doppler secrets download --no-header --format=docker > .env`
+
+**Important:** Never commit `.env` files to Git. Doppler allows us to keep secrets out of the codebase while sharing them across the team.
