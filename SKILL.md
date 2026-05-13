@@ -17,7 +17,6 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 *   `/Documents/` - Contains raw source PDFs. Do not modify these unless explicitly instructed.
 *   `/RAG/Python/` - Core RAG scripts (`rag_pipeline.py`, `rag_advanced.py`, etc.).
-*   `/RAG/Jupyter/` - Sandbox notebooks for experimentation.
 *   `/RAG/*_index/` - Generated FAISS/BM25 indices. Do not manually edit.
 *   `/frontend/` - Next.js application. All UI work happens here.
 *   `/backend/` - FastAPI application. All API and database logic happens here.
