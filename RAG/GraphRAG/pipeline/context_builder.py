@@ -5,8 +5,8 @@ Assembles the final context from Vector + Graph retrieval results
 into a structured prompt for the LLM.
 """
 
-from RAG.GraphRAG.retrieval.hybrid_retriever import GraphRAGResult
-from RAG.GraphRAG.config import FINAL_TOP_K
+from retrieval.hybrid_retriever import GraphRAGResult
+from config import FINAL_TOP_K
 
 
 def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> str:

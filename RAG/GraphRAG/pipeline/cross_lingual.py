@@ -13,7 +13,7 @@ import re
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from RAG.GraphRAG.config import ANTHROPIC_API_KEY, LLM_MODEL
+from config import ANTHROPIC_API_KEY, LLM_MODEL
 
 
 # ──────────────────────────────────────────────────────────────────────────────

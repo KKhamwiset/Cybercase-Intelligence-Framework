@@ -9,9 +9,9 @@ relationship descriptions for GraphRAG expansion.
 from neo4j import GraphDatabase
 from typing import Optional
 
-from RAG.GraphRAG.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, sep
-from RAG.GraphRAG.models import AttackEntity, AttackRelationship, Technique, Software
-from RAG.GraphRAG.ingestion.stix_parser import StixParser
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, sep
+from models import AttackEntity, AttackRelationship, Technique, Software
+from .stix_parser import StixParser
 
 
 class GraphLoader:

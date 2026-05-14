@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from typing import Optional
 from sentence_transformers import SentenceTransformer
 
-from RAG.GraphRAG.config import VECTOR_TOP_K, FINAL_TOP_K
-from RAG.GraphRAG.retrieval.vector_retriever import VectorRetriever, VectorResult
-from RAG.GraphRAG.retrieval.graph_retriever import GraphRetriever, SubgraphResult
+from config import VECTOR_TOP_K, FINAL_TOP_K
+from .vector_retriever import VectorRetriever, VectorResult
+from .graph_retriever import GraphRetriever, SubgraphResult
 
 
 @dataclass

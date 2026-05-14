@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from RAG.GraphRAG.models import (
+from models import (
     AttackEntity,
     Technique,
     Group,
@@ -384,7 +384,7 @@ class StixParser:
 
 def parse_all_domains() -> StixParser:
     """Parse all configured ATT&CK domain files and return a unified parser."""
-    from RAG.GraphRAG.config import ATTACK_DOMAINS
+    from config import ATTACK_DOMAINS
 
     parser = StixParser()
 

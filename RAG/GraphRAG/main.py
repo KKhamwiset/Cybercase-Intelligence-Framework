@@ -2,10 +2,10 @@
 MITRE ATT&CK GraphRAG — CLI Entrypoint
 ========================================
 Usage:
-    python -m RAG.GraphRAG.main --ingest       # Parse STIX data → load Neo4j + ChromaDB
-    python -m RAG.GraphRAG.main --test          # Run test queries
-    python -m RAG.GraphRAG.main                 # Interactive mode
-    python -m RAG.GraphRAG.main --retrieve-only # Retrieval without LLM (for debugging)
+    python main.py --ingest       # Parse STIX data → load Neo4j + ChromaDB
+    python main.py --test          # Run test queries
+    python main.py                 # Interactive mode
+    python main.py --retrieve-only # Retrieval without LLM (for debugging)
 """
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ else:
 import argparse
 from sentence_transformers import SentenceTransformer
 
-from RAG.GraphRAG.config import (
+from config import (
     EMBED_MODEL,
     CHROMA_DIR,
     ENTERPRISE_ATTACK_JSON,
@@ -41,9 +41,9 @@ from RAG.GraphRAG.config import (
 # ──────────────────────────────────────────────────────────────────────────────
 def run_ingest():
     """Parse STIX data and load into Neo4j + ChromaDB."""
-    from RAG.GraphRAG.ingestion.stix_parser import StixParser
-    from RAG.GraphRAG.ingestion.graph_loader import GraphLoader
-    from RAG.GraphRAG.ingestion.vector_loader import VectorLoader
+    from ingestion.stix_parser import StixParser
+    from ingestion.graph_loader import GraphLoader
+    from ingestion.vector_loader import VectorLoader
 
     sep("STIX PARSING")
 
@@ -104,7 +104,7 @@ TEST_QUERIES = [
 
 def run_tests(retrieve_only: bool = False):
     """Run test queries."""
-    from RAG.GraphRAG.pipeline.chain import GraphRAGChain
+    from pipeline.chain import GraphRAGChain
 
     chain = GraphRAGChain()
 
@@ -134,7 +134,7 @@ def run_tests(retrieve_only: bool = False):
 # ──────────────────────────────────────────────────────────────────────────────
 def run_interactive(retrieve_only: bool = False):
     """Interactive query mode."""
-    from RAG.GraphRAG.pipeline.chain import GraphRAGChain
+    from pipeline.chain import GraphRAGChain
 
     chain = GraphRAGChain()
 
@@ -181,10 +181,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m RAG.GraphRAG.main --ingest          # Load data into Neo4j + ChromaDB
-  python -m RAG.GraphRAG.main --test            # Run test queries (full pipeline)
-  python -m RAG.GraphRAG.main --test --retrieve-only  # Test retrieval without LLM
-  python -m RAG.GraphRAG.main                   # Interactive mode
+  python main.py --ingest          # Load data into Neo4j + ChromaDB
+  python main.py --test            # Run test queries (full pipeline)
+  python main.py --test --retrieve-only  # Test retrieval without LLM
+  python main.py                   # Interactive mode
         """,
     )
 

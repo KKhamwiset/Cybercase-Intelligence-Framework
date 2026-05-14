@@ -15,7 +15,7 @@ from sentence_transformers import SentenceTransformer
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from RAG.GraphRAG.config import (
+from config import (
     ANTHROPIC_API_KEY,
     LLM_MODEL,
     LLM_MAX_TOKENS,
@@ -24,9 +24,9 @@ from RAG.GraphRAG.config import (
     VECTOR_TOP_K,
     sep,
 )
-from RAG.GraphRAG.pipeline.cross_lingual import CrossLingualLayer
-from RAG.GraphRAG.pipeline.context_builder import build_context, build_generation_prompt
-from RAG.GraphRAG.retrieval.hybrid_retriever import HybridRetriever
+from .cross_lingual import CrossLingualLayer
+from .context_builder import build_context, build_generation_prompt
+from retrieval.hybrid_retriever import HybridRetriever
 
 
 class GraphRAGChain:

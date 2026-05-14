@@ -18,7 +18,7 @@ from neo4j import GraphDatabase
 from dataclasses import dataclass, field
 from typing import Optional
 
-from RAG.GraphRAG.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GRAPH_EXPANSION_DEPTH
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GRAPH_EXPANSION_DEPTH
 
 
 @dataclass

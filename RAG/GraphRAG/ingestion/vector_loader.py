@@ -14,7 +14,7 @@ from chromadb.config import Settings as ChromaSettings
 from sentence_transformers import SentenceTransformer
 from typing import Optional
 
-from RAG.GraphRAG.config import (
+from config import (
     CHROMA_DIR,
     EMBED_MODEL,
     E5_PASSAGE_PREFIX,
@@ -22,8 +22,8 @@ from RAG.GraphRAG.config import (
     CHROMA_COLLECTION_RELATIONSHIPS,
     sep,
 )
-from RAG.GraphRAG.models import AttackEntity, AttackRelationship
-from RAG.GraphRAG.ingestion.stix_parser import StixParser
+from models import AttackEntity, AttackRelationship
+from .stix_parser import StixParser
 
 
 class VectorLoader:

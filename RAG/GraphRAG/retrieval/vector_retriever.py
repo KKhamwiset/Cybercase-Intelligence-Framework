@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from dataclasses import dataclass
 from typing import Optional
 
-from RAG.GraphRAG.config import (
+from config import (
     CHROMA_DIR,
     EMBED_MODEL,
     E5_QUERY_PREFIX,
