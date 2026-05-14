@@ -9,34 +9,33 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 **Tech Stack:**
 *   **Frontend:** Next.js 15 (App Router, TypeScript, React). Tailwind CSS Modules.
-*   **Backend:** ElysiaJS (TypeScript), running on the **Bun** runtime.
-*   **Database:** PostgreSQL, accessed via **Prisma ORM**.
+*   **Backend:** FastAPI (Python), running on standard Python runtime.
+*   **Database:** PostgreSQL, accessed via **SQLAlchemy** and **Alembic** for migrations.
 *   **RAG Engine:** LangChain, LlamaIndex, FAISS, SentenceTransformers, and Anthropic's Claude (Haiku).
 
 ## 2. Directory Structure & Ownership
 
 *   `/Documents/` - Contains raw source PDFs. Do not modify these unless explicitly instructed.
 *   `/RAG/Python/` - Core RAG scripts (`rag_pipeline.py`, `rag_advanced.py`, etc.).
-*   `/RAG/Jupyter/` - Sandbox notebooks for experimentation.
 *   `/RAG/*_index/` - Generated FAISS/BM25 indices. Do not manually edit.
 *   `/frontend/` - Next.js application. All UI work happens here.
-*   `/backend/` - ElysiaJS application. All API and database logic happens here.
+*   `/backend/` - FastAPI application. All API and database logic happens here.
 
 ## 3. Coding Conventions & Constraints
 
 ### Python ENV 
-* **Activated env:** If the env folder is persist make sure to activated it first before further running a command else run the command via global script.
+* **Activated env:** Ensure the `env_mitre` virtual environment is activated before running backend or RAG commands.
 
 ### Frontend (Next.js)
 *   **Styling:** Tailwind CSS as Primary, CSS Modules as Secondary
 *   **Aesthetics:** Prioritize high-quality, modern UI designs. Use glassmorphism, smooth animations, and dark mode themes as established in the current UI.
 *   **State:** Use React hooks. For API calls, use the functions defined in `frontend/src/lib/api.ts`.
 
-### Backend (ElysiaJS & Prisma)
-*   **Bun Runtime:** The backend runs exclusively on Bun. Use `bun` commands for package management and running scripts.
-*   **Prisma:** Any changes to the database schema in `backend/prisma/schema.prisma` must be followed by client generation (`npx prisma generate`) and database sync (`npx prisma db push`).
-*   **Validation:** Use Elysia's native `t` (TypeBox) object for strict request/response validation in routes.
-*   **Configuration:** Use `backend/src/config.ts`. Sensitive keys must be loaded from `.env` and never hardcoded.
+### Backend (FastAPI & SQLAlchemy)
+*   **FastAPI:** The backend follows standard FastAPI patterns with routers in `app/routers/` and models in `app/models/`.
+*   **Alembic:** Use Alembic for database migrations. Run `alembic revision --autogenerate -m "description"` to create migrations and `alembic upgrade head` to apply them.
+*   **Validation:** Use Pydantic models for request/response validation.
+*   **Configuration:** Use `backend/app/config.py`. Configuration is loaded via `pydantic-settings` from environment variables or a `.env` file.
 
 ### RAG Scripts
 *   **Pathing:** Scripts use `__file__` to dynamically resolve paths to `/Documents/` and index directories. Do not use hardcoded absolute paths (e.g., `C:\...`).
@@ -44,18 +43,16 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 ## 4. Common Commands
 
-*   **Install Bun (Windows):** `powershell -c "irm bun.sh/install.ps1 | iex"`
 *   **Run Frontend:** `cd frontend && npm run dev`
-*   **Run Backend:** `cd backend && bun run dev`
-*   **Generate Prisma Client:** `cd backend && npx prisma generate`
-*   **Sync DB Schema:** `cd backend && npx prisma db push`
+*   **Run Backend:** `cd backend && uvicorn app.main:app --reload`
+*   **Apply Migrations:** `cd backend && alembic upgrade head`
 *   **Test RAG:** `cd RAG/Python && python rag_pipeline.py --test`
 
 ## 5. Common Pitfalls
 
 * **RAG Pathing:** When running RAG scripts, ensure you are in the `/RAG/Python/` directory. Scripts rely on `__file__` to find `/Documents/`. Running them from the project root will cause `FileNotFoundError`.
 
-* **Prisma Sync:** Always run `npx prisma generate` after modifying `schema.prisma`. If you need to push changes to the database during development, use `npx prisma db push`.
+* **Alembic Sync:** Always run `alembic upgrade head` after pulling changes that include new migrations.
 * **Vector Store Updates:** When updating the vector store with new documents, you must delete the old index directory (e.g., `faiss_index/`) before running the build script again, unless the script is designed to handle incremental updates.
 
 * **Styling Dependencies:** If you encounter errors like `PostCSS error: No PostCSS config found`, ensure that the `postcss`, `tailwindcss`, and `autoprefixer` packages are installed in the frontend dependencies (`package.json`). If missing, run: `cd frontend && npm install postcss tailwindcss autoprefixer`.
@@ -65,10 +62,13 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 
 * **Windows:** All team members use this project on Windows. Bun is installed natively. Do not assume the environment is Linux/Mac. Always use `powershell` or `bash` (via Git Bash or WSL) to run the project.
 
-## 7. Login to env
+## 7. Environment Management (Doppler)
 
-* `doppler login`
-* `doppler setup`
-* `doppler run --command="echo \$env_tsr_mitre"`
+We use Doppler for centralized secret management.
 
-##
+*   **Login:** `doppler login` (one-time authentication)
+*   **Setup:** `doppler setup` (select project and config for the current directory)
+*   **Run with Secrets:** `doppler run -- <your-command>` (injects secrets as environment variables)
+*   **Download to .env (Optional):** `doppler secrets download --no-header --format=docker > .env`
+
+**Important:** Never commit `.env` files to Git. Doppler allows us to keep secrets out of the codebase while sharing them across the team.

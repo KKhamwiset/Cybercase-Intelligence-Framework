@@ -2,20 +2,20 @@
 
 TSR Mitre is an advanced Retrieval-Augmented Generation (RAG) platform specialized in analyzing and querying Thai legal documents, particularly focusing on the Cybersecurity Act, PDPA, and Electronic Transactions Acts.
 
-It features a modern Next.js frontend, a high-performance ElysiaJS backend running on Bun, and leverages powerful vector search and LLM capabilities to provide accurate, cited answers to complex legal queries.
+It features a modern Next.js frontend, a high-performance FastAPI backend, and leverages powerful vector search and LLM capabilities to provide accurate, cited answers to complex legal queries.
 
 ## Project Structure
 
 *   `Documents/`: Source Thai law PDF documents.
 *   `RAG/`: Core retrieval and generation pipelines using LangChain, LlamaIndex, and FAISS.
 *   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
-*   `backend/`: ElysiaJS application (Bun runtime) providing API endpoints, backed by PostgreSQL and Prisma ORM.
+*   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy.
 
 ## Quick Start
 
 ### 1. Environment Setup
 
-#### Python (for RAG CLI tools)
+#### Python (for RAG and Backend)
 Create a virtual environment to manage Python dependencies:
 ```bash
 # In the project root directory
@@ -31,30 +31,42 @@ Install the required Python packages:
 pip install -r requirements.txt
 ```
 
-#### Bun (for Backend)
-The backend requires the **Bun** runtime. If you don't have it installed on Windows, run:
-```powershell
-powershell -c "irm bun.sh/install.ps1 | iex"
+### 2. Environment Management (Doppler)
+This project uses **Doppler** to manage environment variables securely. This replaces the need for manual `.env` files.
+
+#### Login & Setup
+If you haven't already, authenticate and select the project configuration:
+```bash
+doppler login
+doppler setup
 ```
 
-### 2. Database Setup
+#### Running with Secrets
+To run any command with environment variables injected:
+```bash
+doppler run -- <command>
+```
+
+### 3. Database Setup
 You need a running PostgreSQL database. You can use the provided `docker-compose.yml`:
 ```bash
 docker-compose up -d
 ```
 
-### 3. Backend Setup (ElysiaJS)
-Create a `.env` file in the `backend/` directory (see `.env` example).
+### 4. Backend Setup (FastAPI)
+You don't need a `.env` file if you use Doppler.
 ```bash
 cd backend
-bun install
-npx prisma generate
-bun run dev
+# Run migrations using Doppler secrets
+doppler run -- alembic upgrade head
+
+# Start the server with Doppler secrets
+doppler run -- uvicorn app.main:app --reload
 ```
 The backend will be available at `http://localhost:8000`.
 
 ### 4. Frontend Setup
-Create a `.env.local` file in the `frontend/` directory (see `.env.local.example`).
+Create a `.env.local` file in the `frontend/` directory.
 ```bash
 cd frontend
 npm install
@@ -62,7 +74,7 @@ npm run dev
 ```
 The frontend will be available at `http://localhost:3000`.
 
-### 4. RAG CLI Tools
+### 5. RAG CLI Tools
 You can also run the RAG pipelines directly via CLI for testing:
 ```bash
 cd RAG/Python

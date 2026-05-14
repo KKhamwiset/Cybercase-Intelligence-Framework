@@ -1,0 +1,17 @@
+**/.git
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.env
+**/.env.*
+**/env_mitre
+**/storage
+**/advanced_index
+**/Documents
+**/Mitre_ATT&CK Doc
+README.md
+SKILL.md
+docker-compose.yml
