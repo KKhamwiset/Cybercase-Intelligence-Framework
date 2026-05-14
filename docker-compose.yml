@@ -1,4 +1,19 @@
 services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: tsr_mitre_neo4j
+    restart: always
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
   db:
     image: postgres:15-alpine
     container_name: tsr_mitre_db
@@ -42,3 +57,5 @@ services:
 
 volumes:
   postgres_data:
+  neo4j_data:
+  neo4j_logs:
