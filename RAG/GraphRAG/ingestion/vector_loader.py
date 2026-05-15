@@ -10,11 +10,11 @@ Uses multilingual-e5-large with "passage: " prefix for documents.
 """
 
 import chromadb
-from chromadb.config import Settings as ChromaSettings
+from chromadb import Settings as ChromaSettings
 from sentence_transformers import SentenceTransformer
 from typing import Optional
 
-from config import (
+from ..config import (
     CHROMA_DIR,
     EMBED_MODEL,
     E5_PASSAGE_PREFIX,
@@ -22,7 +22,7 @@ from config import (
     CHROMA_COLLECTION_RELATIONSHIPS,
     sep,
 )
-from models import AttackEntity, AttackRelationship
+from ..models import AttackEntity, AttackRelationship
 from .stix_parser import StixParser
 
 
