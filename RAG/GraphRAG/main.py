@@ -30,8 +30,6 @@ from sentence_transformers import SentenceTransformer
 from config import (
     EMBED_MODEL,
     CHROMA_DIR,
-    ENTERPRISE_ATTACK_JSON,
-    MOBILE_ATTACK_JSON,
     sep,
 )
 
@@ -41,29 +39,13 @@ from config import (
 # ──────────────────────────────────────────────────────────────────────────────
 def run_ingest():
     """Parse STIX data and load into Neo4j + ChromaDB."""
-    from ingestion.stix_parser import StixParser
+    from ingestion.stix_parser import parse_all_domains
     from ingestion.graph_loader import GraphLoader
     from ingestion.vector_loader import VectorLoader
 
     sep("STIX PARSING")
 
-    parser = StixParser()
-
-    # Parse enterprise
-    if ENTERPRISE_ATTACK_JSON.exists():
-        parser.parse_file(ENTERPRISE_ATTACK_JSON, domain="enterprise")
-    else:
-        print(f"[ERROR] {ENTERPRISE_ATTACK_JSON} not found!")
-        return
-
-    # Parse mobile
-    if MOBILE_ATTACK_JSON.exists():
-        parser.parse_file(MOBILE_ATTACK_JSON, domain="mobile")
-    else:
-        print(f"[WARN] {MOBILE_ATTACK_JSON} not found — skipping mobile domain")
-        print(f"       Download from: https://raw.githubusercontent.com/mitre-attack/attack-stix-data/master/mobile-attack/mobile-attack.json")
-
-    print(f"\n[PARSE] Total: {len(parser.entities)} entities, {len(parser.relationships)} relationships")
+    parser = parse_all_domains()
 
     # Load into Neo4j
     sep("NEO4J INGESTION")
