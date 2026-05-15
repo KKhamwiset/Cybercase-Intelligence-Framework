@@ -14,9 +14,11 @@ load_dotenv()
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent.parent
 
-# STIX data files
-ENTERPRISE_ATTACK_JSON = _PROJECT_ROOT / "enterprise-attack.json"
-MOBILE_ATTACK_JSON = _PROJECT_ROOT / "mobile-attack.json"
+# STIX data folders (each contains versioned .json bundles)
+_STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
+ENTERPRISE_ATTACK_DIR = _STIX_DATA_DIR / "enterprise-attack"
+MOBILE_ATTACK_DIR = _STIX_DATA_DIR / "mobile-attack"
+ICS_ATTACK_DIR = _STIX_DATA_DIR / "ics-attack"
 
 # ChromaDB persistent storage
 CHROMA_DIR = _SCRIPT_DIR / "chroma_db"
@@ -66,8 +68,8 @@ CHROMA_COLLECTION_RELATIONSHIPS = "mitre_relationships"
 # DOMAINS
 # ──────────────────────────────────────────────────────────────────────────────
 ATTACK_DOMAINS = {
-    "enterprise": ENTERPRISE_ATTACK_JSON,
-    "mobile": MOBILE_ATTACK_JSON,
+    "enterprise": ENTERPRISE_ATTACK_DIR,
+    "mobile": MOBILE_ATTACK_DIR
 }
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -100,6 +100,17 @@ class StixParser:
         self._tactic_shortname_to_id: dict[str, str] = {}
         self._data_component_to_source: dict[str, str] = {}
 
+    def parse_folder(self, folder: Path, domain: str = "enterprise") -> None:
+        """Parse all STIX bundle JSON files in a folder."""
+        json_files = sorted(folder.glob("*.json"))
+        if not json_files:
+            print(f"[WARN] No JSON files found in {folder}")
+            return
+
+        print(f"\n[PARSE] Found {len(json_files)} JSON file(s) in {folder.name}/")
+        for filepath in json_files:
+            self.parse_file(filepath, domain=domain)
+
     def parse_file(self, filepath: Path, domain: str = "enterprise") -> None:
         """Parse a single STIX bundle JSON file."""
         print(f"[PARSE] Loading {filepath.name} ({filepath.stat().st_size / 1e6:.1f} MB)")
@@ -383,16 +394,19 @@ class StixParser:
 
 
 def parse_all_domains() -> StixParser:
-    """Parse all configured ATT&CK domain files and return a unified parser."""
+    """Parse all configured ATT&CK domain folders and return a unified parser."""
     from config import ATTACK_DOMAINS
 
     parser = StixParser()
 
-    for domain_name, filepath in ATTACK_DOMAINS.items():
-        if filepath.exists():
-            parser.parse_file(filepath, domain=domain_name)
+    for domain_name, folder_path in ATTACK_DOMAINS.items():
+        if folder_path.is_dir():
+            parser.parse_folder(folder_path, domain=domain_name)
+        elif folder_path.exists() and folder_path.suffix == ".json":
+            # Fallback: if a single file is passed instead of a folder
+            parser.parse_file(folder_path, domain=domain_name)
         else:
-            print(f"[WARN] {filepath.name} not found, skipping {domain_name} domain")
+            print(f"[WARN] {folder_path} not found, skipping {domain_name} domain")
 
     print(f"\n[PARSE] Total: {len(parser.entities)} entities, {len(parser.relationships)} relationships")
     return parser
