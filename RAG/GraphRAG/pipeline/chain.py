@@ -3,10 +3,15 @@ LangChain LCEL Chain for MITRE ATT&CK GraphRAG
 ================================================
 Orchestrates the full cross-lingual GraphRAG pipeline:
 
-    Thai Query → Translate → English Query → Vector Search → Graph Expand
-    → Context Assembly → LLM Generation (Thai Response)
+    Thai Query
+      → [Stage 1] Query Translate LLM  → English Query
+      → Hybrid Retrieval (Vector + Graph)
+      → Context Assembly
+      → [Stage 2] Reasoning LLM        → Simplified English Narrative
+      → [Stage 3] Translation LLM      → Thai Output  (skipped for English queries)
 
-Uses LangChain Expression Language (LCEL) for composability.
+Each stage is a distinct LLM call with its own system prompt, ensuring clear
+separation of concerns between jargon simplification and language translation.
 """
 
 from typing import Optional
@@ -26,7 +31,17 @@ from config import (
 )
 from .cross_lingual import CrossLingualLayer
 from .context_builder import build_context, build_generation_prompt
-from retrieval.hybrid_retriever import HybridRetriever
+from retrieval.hybrid_retriever import HybridRetriever, GraphRAGResult
+
+
+def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
+    """Print the top retrieval sources for verbose/debug output."""
+    sep("SOURCES")
+    for i, vr in enumerate(graphrag_result.vector_results[:top_n], 1):
+        name = vr.metadata.get("name", vr.metadata.get("source_name", "?"))
+        entity_type = vr.metadata.get("node_label", vr.metadata.get("edge_label", "?"))
+        attack_id = vr.metadata.get("attack_id", "")
+        print(f"  [{i}] {entity_type}: {name} {f'({attack_id})' if attack_id else ''} — score: {vr.score:.3f}")
 
 
 class GraphRAGChain:
@@ -46,17 +61,27 @@ class GraphRAGChain:
         self.translator = CrossLingualLayer()
         self.retriever = HybridRetriever(embed_model=self.embed_model)
 
-        # LLM for generation
+        # Stage 2: Reasoning LLM — simplifies jargon into plain English
+        # Stage 3: Translation LLM — renders simplified English into Thai
+        # Both use the same underlying model; prompts enforce the stage boundary.
         if ANTHROPIC_API_KEY:
-            self.llm = ChatAnthropic(
+            self.reasoning_llm = ChatAnthropic(
                 model=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
                 max_tokens=LLM_MAX_TOKENS,
             )
-            print(f"[CHAIN] LLM: {LLM_MODEL}")
+            self.translation_llm = ChatAnthropic(
+                model=LLM_MODEL,
+                api_key=ANTHROPIC_API_KEY,
+                temperature=LLM_TEMPERATURE,
+                max_tokens=LLM_MAX_TOKENS,
+            )
+            print(f"[CHAIN] Reasoning LLM : {LLM_MODEL}")
+            print(f"[CHAIN] Translation LLM: {LLM_MODEL}")
         else:
-            self.llm = None
+            self.reasoning_llm = None
+            self.translation_llm = None
             print("[CHAIN] No LLM configured (ANTHROPIC_API_KEY not set)")
 
         print("[CHAIN] GraphRAG chain ready")
@@ -68,81 +93,93 @@ class GraphRAGChain:
     def query(self, user_query: str, verbose: bool = True) -> str:
         """Execute the full GraphRAG pipeline.
 
+        Pipeline:
+            1. Translate Thai query → English (query translate LLM)
+            2. Hybrid retrieval  (Vector + Graph)
+            3. Reasoning LLM    → simplified English narrative
+            4. Translation LLM  → Thai output  (skipped for English queries)
+
         Args:
             user_query: The user's query (Thai or English).
             verbose: Print intermediate steps.
 
         Returns:
-            The generated response (in Thai if query was Thai).
+            Simplified English answer (English queries) or Thai answer (Thai queries).
         """
         if verbose:
             sep("QUERY")
             print(f"  Input: {user_query}")
 
-        # ── Step 1: Detect language & translate ───────────────────────────
+        # ── Step 1: Detect language & translate query ──────────────────────
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
         english_query = self.translator.translate_query(user_query)
 
         if verbose and english_query != user_query:
             print(f"  Translated: {english_query}")
 
-        # ── Step 2: Hybrid retrieval (Vector + Graph) ─────────────────────
+        # ── Step 2: Hybrid retrieval (Vector + Graph) ──────────────────────
         graphrag_result = self.retriever.retrieve(english_query, top_k=VECTOR_TOP_K)
 
-        # ── Step 3: Build context ─────────────────────────────────────────
+        # ── Step 3: Build context ──────────────────────────────────────────
         context = build_context(graphrag_result)
 
         if verbose:
             sep("CONTEXT PREVIEW")
-            # Show first 500 chars of context
             print(context[:500] + "..." if len(context) > 500 else context)
 
-        # ── Step 4: Generate response ─────────────────────────────────────
-        if not self.llm:
-            # No LLM → return raw context
+        # ── Step 4: Reasoning LLM — simplified English ────────────────────
+        if not self.reasoning_llm:
+            # No LLM configured → return raw context
             if verbose:
                 sep("RAW CONTEXT (No LLM)")
             return context
 
-        user_prompt = build_generation_prompt(
+        reasoning_user_prompt = build_generation_prompt(
             context=context,
             original_query=user_query,
             english_query=english_query,
-            respond_in_thai=respond_in_thai,
+            respond_in_thai=False,   # Reasoning LLM always outputs English
         )
 
-        system_prompt = (
-            CrossLingualLayer.get_system_prompt()
-            if respond_in_thai
-            else "You are a cybersecurity expert specializing in MITRE ATT&CK. Answer questions accurately using only the provided context."
-        )
+        if verbose:
+            sep("STAGE 2 — REASONING LLM (English simplification)")
 
-        messages = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ]
+        reasoning_response = self.reasoning_llm.invoke([
+            SystemMessage(content=CrossLingualLayer.get_reasoning_system_prompt()),
+            HumanMessage(content=reasoning_user_prompt),
+        ])
+        simplified_english = reasoning_response.content
 
         if verbose:
-            sep("GENERATING RESPONSE")
+            sep("SIMPLIFIED ENGLISH NARRATIVE")
+            print(simplified_english)
 
-        response = self.llm.invoke(messages)
-        answer = response.content
+        # ── Step 5: Translation LLM — Thai output (Thai queries only) ─────
+        if not respond_in_thai:
+            # English query → return simplified English directly
+            if verbose:
+                sep("ANSWER (English)")
+                print(simplified_english)
+                _print_sources(graphrag_result)
+                sep()
+            return simplified_english
 
         if verbose:
-            sep("ANSWER")
-            print(answer)
+            sep("STAGE 3 — TRANSLATION LLM (English → Thai)")
 
-            # Show sources
-            sep("SOURCES")
-            for i, vr in enumerate(graphrag_result.vector_results[:5], 1):
-                name = vr.metadata.get("name", vr.metadata.get("source_name", "?"))
-                entity_type = vr.metadata.get("node_label", vr.metadata.get("edge_label", "?"))
-                attack_id = vr.metadata.get("attack_id", "")
-                print(f"  [{i}] {entity_type}: {name} {f'({attack_id})' if attack_id else ''} — score: {vr.score:.3f}")
+        translation_response = self.translation_llm.invoke([
+            SystemMessage(content=CrossLingualLayer.get_translation_system_prompt()),
+            HumanMessage(content=simplified_english),
+        ])
+        thai_answer = translation_response.content
 
+        if verbose:
+            sep("ANSWER (Thai)")
+            print(thai_answer)
+            _print_sources(graphrag_result)
             sep()
 
-        return answer
+        return thai_answer
 
     def retrieve_only(self, user_query: str) -> str:
         """Run retrieval without LLM generation (for testing/debugging).

@@ -1,12 +1,15 @@
 """
 Cross-Lingual Translation Layer
 =================================
-Handles Thai ↔ English translation for the cross-lingual RAG pipeline.
+Handles language routing for the cross-lingual RAG pipeline.
 
-Strategy:
-  - Pre-retrieval:  Thai query → English query (for vector/graph search)
-  - Post-generation: LLM system prompt instructs Thai output
-  - Technical terms (ATT&CK IDs, technique names, group names) are preserved as-is
+Pipeline stages:
+  1. Pre-retrieval  : Thai query  → English query  (query translate LLM)
+  2. Reasoning      : English context → Simplified English narrative (reasoning LLM)
+  3. Translation    : Simplified English → Thai output (translation LLM)
+
+Technical terms (ATT&CK IDs, technique names, group names) are preserved as-is
+throughout all stages.
 """
 
 import re
@@ -32,23 +35,75 @@ Rules:
 Thai query: {query}"""
 
 # ──────────────────────────────────────────────────────────────────────────────
-# THAI RESPONSE SYSTEM PROMPT
+# STAGE 2 — REASONING LLM SYSTEM PROMPT
+# Role: Simplify cybersecurity/forensic jargon into plain English concepts.
+# Language: English IN → English OUT only. Never produce Thai.
 # ──────────────────────────────────────────────────────────────────────────────
-THAI_SYSTEM_PROMPT = """คุณเป็นผู้เชี่ยวชาญด้าน Cybersecurity ที่มีความรู้ลึกเกี่ยวกับ MITRE ATT&CK Framework
-คุณต้องตอบคำถามเป็นภาษาไทยเสมอ โดยปฏิบัติตามกฎต่อไปนี้:
+REASONING_SYSTEM_PROMPT = """You are a cybersecurity incident analyst specialising in MITRE ATT&CK. \
+Your sole task is to rewrite the provided incident context into plain, conceptually clear English \
+that a non-technical reader can follow — without losing any factual detail or altering the \
+sequence of events.
 
-1. ตอบเป็นภาษาไทย แต่คงศัพท์เทคนิคเป็นภาษาอังกฤษ เช่น:
-   - ชื่อ Technique, Tactic, Group, Software, Campaign, Mitigation → ภาษาอังกฤษ
-   - ATT&CK ID (T1566, G0016, S0154) → ภาษาอังกฤษ
-   - ศัพท์เฉพาะ เช่น Phishing, Lateral Movement, Credential Dumping → ภาษาอังกฤษ
+Core rules
+----------
+1. OUTPUT LANGUAGE: English only. You must never produce Thai text, not even a single word.
+   Translation is handled by a separate downstream stage — do not attempt it here.
 
-2. จัดรูปแบบคำตอบให้อ่านง่าย ใช้ bullet points หรือ numbered lists เมื่อเหมาะสม
+2. SIMPLIFY JARGON — replace technical terms with intuitive equivalents, for example:
+   - "enumerate"                → "scan / check what exists"
+   - "privilege escalation"     → "gain higher-level access"
+   - "lateral movement"         → "move to other systems on the same network"
+   - "persistence mechanism"    → "method to stay active after restart"
+   - "credential dumping"       → "extract stored passwords / login credentials"
+   - "exfiltration"             → "secretly copy and send data out"
+   - "command-and-control (C2)" → "remote control channel used by the attacker"
+   - "spearphishing"            → "targeted deceptive email sent to a specific person"
+   - "defense evasion"          → "actions taken to avoid being detected"
+   - Apply the same principle to any other MITRE-style or forensic term.
 
-3. อ้างอิงข้อมูลจาก context ที่ได้รับเท่านั้น ถ้าไม่มีข้อมูลในContext ให้บอกว่าไม่พบข้อมูล
+3. PRESERVE STRUCTURE — keep the actor → action → target → outcome flow intact.
+   Do not reorder events. Do not merge steps that refer to different actors or targets.
 
-4. ถ้ามีข้อมูลความสัมพันธ์จาก Graph Context ให้อธิบายความเชื่อมโยงระหว่าง entities ด้วย
+4. PRESERVE IDENTIFIERS — ATT&CK IDs (T1566, G0016, S0154, TA0001, etc.), \
+group names, software names, and CVE numbers must appear exactly as-is.
 
-5. ระบุ ATT&CK ID กำกับทุกครั้งที่กล่าวถึง technique, group, software หรือ mitigation"""
+5. COMPRESS CAREFULLY — you may compress verbose multi-step descriptions into a \
+cohesive narrative, but every distinct action and outcome must remain present.
+
+6. NO FABRICATION — do not introduce facts, tools, actors, or conclusions that are \
+not explicitly stated in the input context.
+
+7. NO INTERPRETATION — do not infer intent, assign blame, add legal framing, \
+or speculate about motivation beyond what the context states.
+
+8. NO VAGUE SUMMARIES — "the attacker did various malicious things" is unacceptable. \
+Every simplification must remain specific and traceable to the source text.
+
+Output format
+-------------
+Return a clean, flowing English narrative (plain paragraphs or short labelled sections \
+if the incident has distinct phases). No markdown headers, no bullet lists unless the \
+original structure genuinely calls for them. No preamble such as "Here is the simplified \
+version:". Begin directly with the incident description."""
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# STAGE 3 — TRANSLATION LLM PROMPT
+# Role: Render the simplified English narrative into Thai.
+# Technical identifiers (ATT&CK IDs, names) must be kept in English.
+# ──────────────────────────────────────────────────────────────────────────────
+TRANSLATE_TO_THAI_SYSTEM_PROMPT = """คุณเป็นนักแปลด้านความปลอดภัยไซเบอร์ที่เชี่ยวชาญ MITRE ATT&CK
+หน้าที่ของคุณคือแปลข้อความภาษาอังกฤษที่ได้รับมาเป็นภาษาไทยที่ถูกต้อง ชัดเจน และอ่านง่าย
+
+กฎการแปล:
+1. แปลเนื้อหาเป็นภาษาไทย — ห้ามคงประโยคภาษาอังกฤษไว้ทั้งประโยค
+2. คงรักษาคำศัพท์เหล่านี้ไว้เป็นภาษาอังกฤษตามเดิม:
+   - ATT&CK ID: T1566, G0016, S0154, TA0001 เป็นต้น
+   - ชื่อ Technique, Tactic, Group, Software, Campaign, Mitigation
+   - CVE ID, ชื่อ tool, ชื่อ malware, ชื่อผู้โจมตี
+3. จัดรูปแบบให้อ่านง่าย ใช้ bullet points หรือหัวข้อย่อยเมื่อเหมาะสม
+4. อ้างอิงเฉพาะข้อมูลที่มีอยู่ในข้อความต้นฉบับเท่านั้น ห้ามเพิ่มข้อมูลใหม่
+5. ถ้าข้อความต้นฉบับระบุว่าไม่พบข้อมูล ให้แปลว่า "ไม่พบข้อมูลที่เกี่ยวข้อง"""""
 
 
 def _is_thai(text: str) -> bool:
@@ -111,11 +166,24 @@ class CrossLingualLayer:
         return translated
 
     @staticmethod
-    def get_system_prompt() -> str:
-        """Get the Thai response system prompt for the generation LLM."""
-        return THAI_SYSTEM_PROMPT
+    def get_reasoning_system_prompt() -> str:
+        """Return the system prompt for the Reasoning LLM (Stage 2).
+
+        This prompt instructs the LLM to simplify cybersecurity jargon into
+        plain English. The output is always English — never Thai.
+        """
+        return REASONING_SYSTEM_PROMPT
+
+    @staticmethod
+    def get_translation_system_prompt() -> str:
+        """Return the system prompt for the Translation LLM (Stage 3).
+
+        This prompt instructs the LLM to render the simplified English
+        narrative into Thai, preserving all ATT&CK identifiers as-is.
+        """
+        return TRANSLATE_TO_THAI_SYSTEM_PROMPT
 
     @staticmethod
     def should_respond_in_thai(query: str) -> bool:
-        """Determine if the response should be in Thai based on the query language."""
+        """Determine if the final output should be in Thai based on the query language."""
         return _is_thai(query)
