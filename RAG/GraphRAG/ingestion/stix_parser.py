@@ -408,5 +408,12 @@ def parse_all_domains() -> StixParser:
         else:
             print(f"[WARN] {folder_path} not found, skipping {domain_name} domain")
 
-    print(f"\n[PARSE] Total: {len(parser.entities)} entities, {len(parser.relationships)} relationships")
+    # Deduplicate entities and relationships (since many exist across multiple versioned files)
+    unique_entities = {e.stix_id: e for e in parser.entities}
+    parser.entities = list(unique_entities.values())
+
+    unique_rels = {r.stix_id: r for r in parser.relationships}
+    parser.relationships = list(unique_rels.values())
+
+    print(f"\n[PARSE] Total Deduplicated: {len(parser.entities)} entities, {len(parser.relationships)} relationships")
     return parser

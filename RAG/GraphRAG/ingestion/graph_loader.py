@@ -42,6 +42,7 @@ class GraphLoader:
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Tactic) REQUIRE n.stix_id IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:DataSource) REQUIRE n.stix_id IS UNIQUE",
             "CREATE CONSTRAINT IF NOT EXISTS FOR (n:DataComponent) REQUIRE n.stix_id IS UNIQUE",
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:Entity) REQUIRE n.stix_id IS UNIQUE",
         ]
         with self.driver.session() as session:
             for c in constraints:
@@ -66,25 +67,35 @@ class GraphLoader:
     # NODE CREATION
     # ──────────────────────────────────────────────────────────────────────
     def load_entities(self, entities: list[AttackEntity]) -> int:
-        """Load all entities as nodes into Neo4j. Returns count loaded."""
+        """Load all entities as nodes into Neo4j in bulk batches. Returns count loaded."""
         sep("Loading Nodes into Neo4j")
+        
+        from collections import defaultdict
+
+        unique_entities = {e.stix_id: e for e in entities}
+        entities_by_label = defaultdict(list)
+        for entity in unique_entities.values():
+            entities_by_label[entity.node_label].append(self._entity_to_props(entity))
+
         count = 0
+        batch_size = 5000
 
         with self.driver.session() as session:
-            for entity in entities:
-                props = self._entity_to_props(entity)
-                label = entity.node_label
-
-                # Use MERGE to avoid duplicates (same entity may appear in enterprise + mobile)
-                query = f"""
-                MERGE (n:{label} {{stix_id: $stix_id}})
-                SET n += $props
-                """
-                session.run(query, stix_id=entity.stix_id, props=props)
-                count += 1
-
-                if count % 200 == 0:
-                    print(f"        Loaded {count} nodes...")
+            for label, props_list in entities_by_label.items():
+                for i in range(0, len(props_list), batch_size):
+                    batch = props_list[i:i+batch_size]
+                    
+                    # Add :Entity base label to leverage global index during edge creation
+                    query = f"""
+                    UNWIND $batch AS props
+                    MERGE (n:{label} {{stix_id: props.stix_id}})
+                    SET n:Entity, n += props
+                    """
+                    session.run(query, batch=batch)
+                    count += len(batch)
+                    
+                    if count % 10000 == 0 or count == len(unique_entities):
+                        print(f"        Loaded {count} nodes...")
 
         print(f"[NEO4J] Loaded {count} nodes total")
         return count
@@ -125,46 +136,54 @@ class GraphLoader:
     def load_relationships(self, relationships):
         sep("Loading Edges into Neo4j")
 
-        batch_size = 1000
+        from collections import defaultdict
+
+        # Deduplicate relationships in Python to guarantee uniqueness
+        unique_rels = {r.stix_id: r for r in relationships}
+        
+        # Group relationships by their edge label
+        rels_by_label = defaultdict(list)
+        for r in unique_rels.values():
+            rels_by_label[r.edge_label].append(r)
+
+        batch_size = 5000
         count = 0
+        total_rels = len(unique_rels)
 
         with self.driver.session() as session:
-            for i in range(0, len(relationships), batch_size):
-                batch = relationships[i:i+batch_size]
+            for edge_label, rel_list in rels_by_label.items():
+                for i in range(0, len(rel_list), batch_size):
+                    batch = rel_list[i:i+batch_size]
 
-                rel_data = [
-                    {
-                    "source_ref": r.source_ref,
-                    "target_ref": r.target_ref,
-                    "rel_id": r.stix_id,
-                    "description": r.description[:5000] if r.description else "",
-                    "edge_label": r.edge_label,
-                    }
-                    for r in batch
-                ]
+                    rel_data = [
+                        {
+                            "source_ref": r.source_ref,
+                            "target_ref": r.target_ref,
+                            "rel_id": r.stix_id,
+                            "description": r.description[:5000] if r.description else "",
+                        }
+                        for r in batch
+                    ]
 
-                query = """
-                UNWIND $rels AS rel
-                MATCH (src {stix_id: rel.source_ref})
-                MATCH (tgt {stix_id: rel.target_ref})
-                CALL apoc.create.relationship(
-                    src,
-                    rel.edge_label,
-                    {
-                        stix_id: rel.rel_id,
+                    # Use :Entity constraint for O(1) matching without scanning
+                    # Use CREATE instead of MERGE since we deduplicated in Python and cleared the DB
+                    query = f"""
+                    UNWIND $rels AS rel
+                    MATCH (src:Entity {{stix_id: rel.source_ref}})
+                    MATCH (tgt:Entity {{stix_id: rel.target_ref}})
+                    CREATE (src)-[r:{edge_label} {{
+                        stix_id: rel.rel_id, 
                         description: rel.description
-                    },
-                    tgt
-                ) YIELD rel AS r
-                RETURN count(r)
-                """
+                    }}]->(tgt)
+                    """
 
-                session.run(query, rels=rel_data)
+                    session.run(query, rels=rel_data)
+                    count += len(batch)
+                    
+                    if count % 10000 == 0 or count == total_rels:
+                        print(f"        Loaded {count} edges...")
 
-                count += len(batch)
-                print(f"        Loaded {count} edges...")
-
-        print(f"[NEO4J] Loaded {count} edges")
+        print(f"[NEO4J] Loaded {count} edges total")
 
     # ──────────────────────────────────────────────────────────────────────
     # FULL LOAD
