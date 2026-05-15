@@ -32,6 +32,7 @@ from config import (
 from .cross_lingual import CrossLingualLayer
 from .context_builder import build_context, build_generation_prompt
 from retrieval.hybrid_retriever import HybridRetriever, GraphRAGResult
+from .router import QueryRouter
 
 
 def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
@@ -60,6 +61,7 @@ class GraphRAGChain:
         # Initialize components
         self.translator = CrossLingualLayer()
         self.retriever = HybridRetriever(embed_model=self.embed_model)
+        self.router = QueryRouter()
 
         # Stage 2: Reasoning LLM — simplifies jargon into plain English
         # Stage 3: Translation LLM — renders simplified English into Thai
@@ -109,6 +111,35 @@ class GraphRAGChain:
         if verbose:
             sep("QUERY")
             print(f"  Input: {user_query}")
+
+        # ── Step 0: Route Query ───────────────────────────────────────────
+        route = self.router.route_query(user_query)
+        if verbose:
+            print(f"  Route: {route}")
+
+        if route == "GENERAL_EXPLANATION":
+            if not self.reasoning_llm:
+                return "Cannot answer general explanation without an LLM."
+            
+            system_prompt = "You are a cybersecurity expert. Provide a clear, concise, and accurate explanation for the user's query."
+            if CrossLingualLayer.should_respond_in_thai(user_query):
+                system_prompt += " Answer in Thai."
+            
+            if verbose:
+                sep("GENERAL EXPLANATION")
+                print("Skipping retrieval and using direct LLM knowledge...")
+
+            response = self.reasoning_llm.invoke([
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_query),
+            ])
+            
+            answer = response.content
+            if verbose:
+                print(answer)
+                sep()
+                
+            return answer
 
         # ── Step 1: Detect language & translate query ──────────────────────
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
