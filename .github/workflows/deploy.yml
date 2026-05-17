@@ -1,0 +1,83 @@
+name: Build and Deploy TSR Mitre
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # ============ BACKEND ============
+      - name: Build Backend image
+        run: docker build -t kkhw/tsr_mitre-backend:latest -f backend/Dockerfile .
+
+      - name: Push Backend image
+        run: docker push kkhw/tsr_mitre-backend:latest
+
+      - name: Trigger Railway deploy - Backend
+        env:
+          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
+          SERVICE_ID: ${{ secrets.BACKEND_SERVICE_ID_RAILWAY }}
+        run: |
+          # 1. Fetch the latest deployment ID for the service
+          DEPLOYMENT_ID=$(curl -s -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"query { service(id: \\\"$SERVICE_ID\\\") { deployments(first: 1) { edges { node { id } } } } }\"}" \
+            | jq -r '.data.service.deployments.edges[0].node.id')
+
+          echo "Latest Deployment ID: $DEPLOYMENT_ID"
+
+          if [ -z "$DEPLOYMENT_ID" ] || [ "$DEPLOYMENT_ID" == "null" ]; then
+            echo "Error: Could not find a deployment for service $SERVICE_ID"
+            exit 1
+          fi
+
+          # 2. Trigger the redeploy
+          curl -X POST https://backboard.railway.com/graphql/v2 \
+          -H "Authorization: Bearer $RAILWAY_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d "{\"query\":\"mutation deploymentRedeploy(\$id: String!) { deploymentRedeploy(id: \$id) { id status } }\",\"variables\":{\"id\":\"$DEPLOYMENT_ID\"}}"
+
+      # ============ FRONTEND ============
+      - name: Build Frontend image
+        run: docker build -t kkhw/tsr_mitre-frontend:latest ./frontend
+
+      - name: Push Frontend image
+        run: docker push kkhw/tsr_mitre-frontend:latest
+
+      - name: Trigger Railway deploy - Frontend
+        env:
+          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
+          SERVICE_ID: ${{ secrets.FRONTEND_SERVICE_ID_RAILWAY }}
+        run: |
+          # 1. Fetch the latest deployment ID for the service
+          DEPLOYMENT_ID=$(curl -s -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer $RAILWAY_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"query { service(id: \\\"$SERVICE_ID\\\") { deployments(first: 1) { edges { node { id } } } } }\"}" \
+            | jq -r '.data.service.deployments.edges[0].node.id')
+
+          echo "Latest Deployment ID: $DEPLOYMENT_ID"
+
+          if [ -z "$DEPLOYMENT_ID" ] || [ "$DEPLOYMENT_ID" == "null" ]; then
+            echo "Error: Could not find a deployment for service $SERVICE_ID"
+            exit 1
+          fi
+
+          # 2. Trigger the redeploy
+          curl -X POST https://backboard.railway.com/graphql/v2 \
+          -H "Authorization: Bearer $RAILWAY_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d "{\"query\":\"mutation deploymentRedeploy(\$id: String!) { deploymentRedeploy(id: \$id) { id status } }\",\"variables\":{\"id\":\"$DEPLOYMENT_ID\"}}"
