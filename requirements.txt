@@ -2,14 +2,21 @@
 # Core — directly imported by project source files
 # ──────────────────────────────────────────────────────────────────────────────
 anthropic>=0.100.0
+asyncpg>=0.30.0
 chromadb>=0.6.0
+fastapi>=0.115.0
+langchain>=0.3.0
 langchain-anthropic>=1.4.3
+langchain-community>=0.3.0
 langchain-core>=1.3.3
 neo4j>=5.0.0
 pydantic>=2.13.0
+pydantic-settings>=2.7.0
 python-dotenv>=1.0.0
 sentence-transformers>=5.4.0
+sqlalchemy>=2.0.0
 stix2>=3.0.0
+uvicorn>=0.34.0
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Transitive — required by the packages above
