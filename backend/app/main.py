@@ -1,6 +1,7 @@
 """
 FastAPI Application — TSR_Mitre Backend
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,16 +9,21 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine
-from app.routers import health, user
+from app.routers import health, rag, user
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
     # Startup: verify DB connection
-    async with engine.connect() as conn:
-        await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
-    print("[STARTUP] Database connection verified.")
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+        print("[STARTUP] Database connection verified.")
+    except Exception as e:
+        print(f"[STARTUP] Database connection failed: {e}")
+        print("[STARTUP] Backend will start, but database endpoints will fail.")
+
     yield
     # Shutdown: dispose engine pool
     await engine.dispose()
@@ -43,3 +49,4 @@ app.add_middleware(
 # ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(user.router, prefix="/api/v1")
+app.include_router(rag.router, prefix="/api/v1")

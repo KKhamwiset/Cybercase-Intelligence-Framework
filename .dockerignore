@@ -10,8 +10,9 @@
 **/env_mitre
 **/storage
 **/advanced_index
-**/Documents
-**/Mitre_ATT&CK Doc
+# We need these for the RAG engine in Docker
+# **/Documents
+# **/Mitre_ATT&CK Doc
 README.md
 SKILL.md
 docker-compose.yml

@@ -1,4 +1,5 @@
 # Production-ready Dockerfile for TSR_Mitre FastAPI Backend
+# Using root context for build
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -9,14 +10,22 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from root (build context should be project root)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy backend requirements and install
+# Use --extra-index-url for CPU-only torch to save space
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision torchaudio \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
 COPY backend/app ./app
 COPY backend/alembic ./alembic
 COPY backend/alembic.ini .
+
+# Copy RAG engine and MITRE data
+COPY RAG ./RAG
+COPY ["Mitre_ATT&CK Doc", "./Mitre_ATT&CK Doc/"]
+COPY Documents ./Documents
 
 # Expose FastAPI port
 EXPOSE 8000

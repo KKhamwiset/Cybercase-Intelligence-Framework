@@ -1,19 +1,12 @@
-services:
-  neo4j:
-    image: neo4j:5-community
-    container_name: tsr_mitre_neo4j
-    restart: always
-    environment:
-      NEO4J_AUTH: ${NEO4J_USER:-neo4j}/${NEO4J_PASSWORD:-password}
-      NEO4J_PLUGINS: '["apoc"]'
-      NEO4J_server_memory_heap_max__size: 1G
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
+# ── Secrets via Doppler ────────────────────────────────────────────────────────
+# Run with: doppler run -- docker compose up --build
+# Doppler injects all secrets as shell env vars; Docker Compose reads them via ${VAR} expansion.
+# Local override: doppler secrets download --no-header --format=docker > .env
+# ──────────────────────────────────────────────────────────────────────────────
 
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # Neo4j is cloud-hosted — no local service needed.
   db:
     image: postgres:15-alpine
     container_name: tsr_mitre_db
@@ -23,23 +16,39 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-tsr_mitre}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tsr_mitre}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: tsr_mitre_backend
     restart: always
+    env_file:
+      - .env
     environment:
+      # Override DATABASE_URL to point to local docker db
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tsr_mitre}
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
+  # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -57,5 +66,3 @@ services:
 
 volumes:
   postgres_data:
-  neo4j_data:
-  neo4j_logs:

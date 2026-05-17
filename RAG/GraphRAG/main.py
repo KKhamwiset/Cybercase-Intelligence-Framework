@@ -8,31 +8,26 @@ Usage:
     python main.py --retrieve-only # Retrieval without LLM (for debugging)
 """
 
+import argparse
+import io
+import sys
+
+from config import (
+    CHROMA_DIR,
+    EMBED_MODEL,
+    sep,
+)
+from sentence_transformers import SentenceTransformer
+
 # ──────────────────────────────────────────────────────────────────────────────
 # UTF-8 FIX FOR WINDOWS
 # ──────────────────────────────────────────────────────────────────────────────
-import sys
-import io
-sys.stdout.reconfigure(encoding='utf-8')
-sys.stderr.reconfigure(encoding='utf-8')
 if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore
 else:
-    sys.stdout = io.TextIOWrapper(
-        sys.stdout.buffer, encoding="utf-8", errors="replace"
-    )
-
-# ──────────────────────────────────────────────────────────────────────────────
-# IMPORTS
-# ──────────────────────────────────────────────────────────────────────────────
-import argparse
-from sentence_transformers import SentenceTransformer
-
-from config import (
-    EMBED_MODEL,
-    CHROMA_DIR,
-    sep,
-)
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -40,8 +35,8 @@ from config import (
 # ──────────────────────────────────────────────────────────────────────────────
 def run_ingest():
     """Parse STIX data and load into Neo4j + ChromaDB."""
-    from ingestion.stix_parser import parse_all_domains
     from ingestion.graph_loader import GraphLoader
+    from ingestion.stix_parser import parse_all_domains
     from ingestion.vector_loader import VectorLoader
 
     sep("STIX PARSING")
@@ -104,7 +99,7 @@ TEST_QUERIES = [
     "ผู้ต้องหาเป็น insider ภายในองค์กร ทำการคัดลอกฐานข้อมูลลูกค้าออกไปผ่าน external drive โดยไม่มีการตรวจจับ",
     "ผู้ต้องหาใช้ fake login page ที่เหมือนระบบจริงอย่างมาก หลอกให้พนักงานกรอกข้อมูล credential แล้วส่งกลับไปยัง server ของผู้โจมตี",
     "ผู้ต้องหาใช้ session hijacking ขโมย session cookie ของผู้ใช้งานที่ login อยู่ แล้วเข้าใช้งานระบบแทนผู้ใช้จริง",
-    "ผู้ต้องหาใช้ botnet ขนาดใหญ่ยิง traffic เข้าสู่เว็บไซต์องค์กรอย่างต่อเนื่อง ทำให้ระบบล่มและไม่สามารถให้บริการได้"
+    "ผู้ต้องหาใช้ botnet ขนาดใหญ่ยิง traffic เข้าสู่เว็บไซต์องค์กรอย่างต่อเนื่อง ทำให้ระบบล่มและไม่สามารถให้บริการได้",
 ]
 
 
@@ -148,8 +143,8 @@ def run_interactive(retrieve_only: bool = False):
 
     print(f"\n{'=' * 72}")
     print(f"  MITRE ATT&CK GraphRAG — Interactive Mode ({mode})")
-    print(f"  Type 'quit' or 'q' to exit")
-    print(f"  Supports Thai and English queries")
+    print("  Type 'quit' or 'q' to exit")
+    print("  Supports Thai and English queries")
     print(f"{'=' * 72}")
 
     try:

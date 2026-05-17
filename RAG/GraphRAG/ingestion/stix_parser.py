@@ -14,19 +14,18 @@ Key design decisions:
 
 import json
 from pathlib import Path
-from typing import Any
 
 from models import (
     AttackEntity,
-    Technique,
-    Group,
-    Software,
-    Campaign,
-    Mitigation,
-    Tactic,
-    DataSource,
-    DataComponent,
     AttackRelationship,
+    Campaign,
+    DataComponent,
+    DataSource,
+    Group,
+    Mitigation,
+    Software,
+    Tactic,
+    Technique,
 )
 
 
@@ -75,7 +74,7 @@ RELATIONSHIP_TYPE_MAP = {
 
 # Map STIX type → node label for determining source/target labels
 STIX_TYPE_TO_LABEL = {
-    "attack-pattern": "Technique",     # will differentiate subtechnique later
+    "attack-pattern": "Technique",  # will differentiate subtechnique later
     "intrusion-set": "Group",
     "tool": "Software",
     "malware": "Software",
@@ -113,7 +112,9 @@ class StixParser:
 
     def parse_file(self, filepath: Path, domain: str = "enterprise") -> None:
         """Parse a single STIX bundle JSON file."""
-        print(f"[PARSE] Loading {filepath.name} ({filepath.stat().st_size / 1e6:.1f} MB)")
+        print(
+            f"[PARSE] Loading {filepath.name} ({filepath.stat().st_size / 1e6:.1f} MB)"
+        )
 
         with open(filepath, "r", encoding="utf-8") as f:
             bundle = json.load(f)
@@ -199,7 +200,7 @@ class StixParser:
         for e in self.entities:
             entity_counts[e.node_label] = entity_counts.get(e.node_label, 0) + 1
 
-        print(f"\n[PARSE] Entities parsed:")
+        print("\n[PARSE] Entities parsed:")
         for label, count in sorted(entity_counts.items()):
             print(f"        {label}: {count}")
 
@@ -207,7 +208,7 @@ class StixParser:
         for r in self.relationships:
             edge_counts[r.edge_label] = edge_counts.get(r.edge_label, 0) + 1
 
-        print(f"\n[PARSE] Relationships parsed:")
+        print("\n[PARSE] Relationships parsed:")
         for label, count in sorted(edge_counts.items()):
             print(f"        {label}: {count}")
 
@@ -415,5 +416,7 @@ def parse_all_domains() -> StixParser:
     unique_rels = {r.stix_id: r for r in parser.relationships}
     parser.relationships = list(unique_rels.values())
 
-    print(f"\n[PARSE] Total Deduplicated: {len(parser.entities)} entities, {len(parser.relationships)} relationships")
+    print(
+        f"\n[PARSE] Total Deduplicated: {len(parser.entities)} entities, {len(parser.relationships)} relationships"
+    )
     return parser
