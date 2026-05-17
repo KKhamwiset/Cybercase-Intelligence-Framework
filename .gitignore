@@ -17,8 +17,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -105,6 +105,6 @@ yarn-error.log*
 # Usually alembic/versions/ is tracked, but we ignore pycache and compiled files
 alembic/versions/*.pyc
 alembic/versions/__pycache__/
-# Ignore alembic.ini if it contains sensitive database URIs 
+# Ignore alembic.ini if it contains sensitive database URIs
 # (Uncomment below if you don't want to track alembic.ini)
 # alembic.ini
