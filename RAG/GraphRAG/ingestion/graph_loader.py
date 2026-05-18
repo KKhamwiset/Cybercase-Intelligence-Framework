@@ -6,11 +6,12 @@ Creates nodes with labels matching schema_design.md and edges with
 relationship descriptions for GraphRAG expansion.
 """
 
-from neo4j import GraphDatabase
-from typing import Optional
+from typing import Any, cast
 
-from ..config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, sep
-from ..models import AttackEntity, AttackRelationship, Technique, Software
+from neo4j import GraphDatabase, Query
+
+from ..config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER, sep
+from ..models import AttackEntity, Software, Technique
 from .stix_parser import StixParser
 
 
@@ -27,7 +28,7 @@ class GraphLoader:
     def clear_database(self):
         """Remove all existing nodes and relationships."""
         with self.driver.session() as session:
-            session.run("MATCH (n) DETACH DELETE n")
+            session.run(Query("MATCH (n) DETACH DELETE n"))
         print("[NEO4J] Database cleared")
 
     def create_constraints(self):
@@ -46,7 +47,7 @@ class GraphLoader:
         ]
         with self.driver.session() as session:
             for c in constraints:
-                session.run(c)
+                session.run(Query(cast(Any, c)))
         print("[NEO4J] Constraints created")
 
     def create_indexes(self):
@@ -60,7 +61,7 @@ class GraphLoader:
         ]
         with self.driver.session() as session:
             for idx in indexes:
-                session.run(idx)
+                session.run(Query(cast(Any, idx)))
         print("[NEO4J] Indexes created")
 
     # ──────────────────────────────────────────────────────────────────────
@@ -69,7 +70,7 @@ class GraphLoader:
     def load_entities(self, entities: list[AttackEntity]) -> int:
         """Load all entities as nodes into Neo4j in bulk batches. Returns count loaded."""
         sep("Loading Nodes into Neo4j")
-        
+
         from collections import defaultdict
 
         unique_entities = {e.stix_id: e for e in entities}
@@ -83,17 +84,17 @@ class GraphLoader:
         with self.driver.session() as session:
             for label, props_list in entities_by_label.items():
                 for i in range(0, len(props_list), batch_size):
-                    batch = props_list[i:i+batch_size]
-                    
+                    batch = props_list[i : i + batch_size]
+
                     # Add :Entity base label to leverage global index during edge creation
                     query = f"""
                     UNWIND $batch AS props
                     MERGE (n:{label} {{stix_id: props.stix_id}})
                     SET n:Entity, n += props
                     """
-                    session.run(query, batch=batch)
+                    session.run(Query(cast(Any, query)), batch=batch)
                     count += len(batch)
-                    
+
                     if count % 10000 == 0 or count == len(unique_entities):
                         print(f"        Loaded {count} nodes...")
 
@@ -102,7 +103,7 @@ class GraphLoader:
 
     def _entity_to_props(self, entity: AttackEntity) -> dict:
         """Convert entity to Neo4j property dict."""
-        props = {
+        props: dict[str, Any] = {
             "stix_id": entity.stix_id,
             "attack_id": entity.attack_id,
             "name": entity.name,
@@ -120,13 +121,13 @@ class GraphLoader:
             props["aliases"] = entity.aliases
 
         if hasattr(entity, "aliases") and not isinstance(entity, Software):
-            props["aliases"] = entity.aliases
+            props["aliases"] = getattr(entity, "aliases")
 
         if hasattr(entity, "shortname"):
-            props["shortname"] = entity.shortname
+            props["shortname"] = getattr(entity, "shortname")
 
         if hasattr(entity, "platforms") and not isinstance(entity, Technique):
-            props["platforms"] = entity.platforms
+            props["platforms"] = getattr(entity, "platforms")
 
         return props
 
@@ -140,7 +141,7 @@ class GraphLoader:
 
         # Deduplicate relationships in Python to guarantee uniqueness
         unique_rels = {r.stix_id: r for r in relationships}
-        
+
         # Group relationships by their edge label
         rels_by_label = defaultdict(list)
         for r in unique_rels.values():
@@ -153,14 +154,16 @@ class GraphLoader:
         with self.driver.session() as session:
             for edge_label, rel_list in rels_by_label.items():
                 for i in range(0, len(rel_list), batch_size):
-                    batch = rel_list[i:i+batch_size]
+                    batch = rel_list[i : i + batch_size]
 
                     rel_data = [
                         {
                             "source_ref": r.source_ref,
                             "target_ref": r.target_ref,
                             "rel_id": r.stix_id,
-                            "description": r.description[:5000] if r.description else "",
+                            "description": r.description[:5000]
+                            if r.description
+                            else "",
                         }
                         for r in batch
                     ]
@@ -172,14 +175,14 @@ class GraphLoader:
                     MATCH (src:Entity {{stix_id: rel.source_ref}})
                     MATCH (tgt:Entity {{stix_id: rel.target_ref}})
                     CREATE (src)-[r:{edge_label} {{
-                        stix_id: rel.rel_id, 
+                        stix_id: rel.rel_id,
                         description: rel.description
                     }}]->(tgt)
                     """
 
-                    session.run(query, rels=rel_data)
+                    session.run(Query(cast(Any, query)), rels=rel_data)
                     count += len(batch)
-                    
+
                     if count % 10000 == 0 or count == total_rels:
                         print(f"        Loaded {count} edges...")
 
@@ -198,6 +201,12 @@ class GraphLoader:
 
         # Print final stats
         with self.driver.session() as session:
-            node_count = session.run("MATCH (n) RETURN count(n) AS c").single()["c"]
-            edge_count = session.run("MATCH ()-[r]->() RETURN count(r) AS c").single()["c"]
+            node_record = session.run(Query("MATCH (n) RETURN count(n) AS c")).single()
+            node_count = node_record["c"] if node_record else 0
+
+            edge_record = session.run(
+                Query("MATCH ()-[r]->() RETURN count(r) AS c")
+            ).single()
+            edge_count = edge_record["c"] if edge_record else 0
+
             print(f"\n[NEO4J] Final: {node_count} nodes, {edge_count} edges")

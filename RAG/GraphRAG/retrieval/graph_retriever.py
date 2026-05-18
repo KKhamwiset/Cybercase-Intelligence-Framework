@@ -14,16 +14,17 @@ For a given entity (e.g., Technique T1566), fetches:
   - DataComponents that DETECT it
 """
 
-from neo4j import GraphDatabase
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional, cast
 
-from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, GRAPH_EXPANSION_DEPTH
+from config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER
+from neo4j import GraphDatabase, Query
 
 
 @dataclass
 class GraphNode:
     """A node from the graph expansion."""
+
     stix_id: str
     name: str
     label: str
@@ -34,6 +35,7 @@ class GraphNode:
 @dataclass
 class GraphEdge:
     """An edge from the graph expansion."""
+
     edge_label: str
     source_name: str
     target_name: str
@@ -43,6 +45,7 @@ class GraphEdge:
 @dataclass
 class SubgraphResult:
     """Result of a graph expansion query."""
+
     center_node: Optional[GraphNode] = None
     neighbors: list[GraphNode] = field(default_factory=list)
     edges: list[GraphEdge] = field(default_factory=list)
@@ -129,10 +132,10 @@ class GraphRetriever:
         with self.driver.session() as session:
             # Get center node
             center = session.run(
-                """
+                Query("""
                 MATCH (n {stix_id: $stix_id})
                 RETURN n, labels(n) AS labels
-                """,
+                """),
                 stix_id=stix_id,
             ).single()
 
@@ -152,17 +155,19 @@ class GraphRetriever:
 
             # Get all outgoing relationships
             outgoing = session.run(
-                """
+                Query("""
                 MATCH (n {stix_id: $stix_id})-[r]->(m)
                 RETURN type(r) AS rel_type, r.description AS rel_desc,
                        m.stix_id AS target_id, m.name AS target_name,
                        m.attack_id AS target_attack_id, labels(m) AS target_labels
-                """,
+                """),
                 stix_id=stix_id,
             )
 
             for record in outgoing:
-                target_label = record["target_labels"][0] if record["target_labels"] else "Unknown"
+                target_label = (
+                    record["target_labels"][0] if record["target_labels"] else "Unknown"
+                )
 
                 result.neighbors.append(
                     GraphNode(
@@ -184,17 +189,19 @@ class GraphRetriever:
 
             # Get all incoming relationships
             incoming = session.run(
-                """
+                Query("""
                 MATCH (m)-[r]->(n {stix_id: $stix_id})
                 RETURN type(r) AS rel_type, r.description AS rel_desc,
                        m.stix_id AS source_id, m.name AS source_name,
                        m.attack_id AS source_attack_id, labels(m) AS source_labels
-                """,
+                """),
                 stix_id=stix_id,
             )
 
             for record in incoming:
-                source_label = record["source_labels"][0] if record["source_labels"] else "Unknown"
+                source_label = (
+                    record["source_labels"][0] if record["source_labels"] else "Unknown"
+                )
 
                 result.neighbors.append(
                     GraphNode(
@@ -219,7 +226,7 @@ class GraphRetriever:
     def query_cypher(self, cypher: str, params: Optional[dict] = None) -> list[dict]:
         """Execute an arbitrary Cypher query and return results as dicts."""
         with self.driver.session() as session:
-            result = session.run(cypher, parameters=params or {})
+            result = session.run(Query(cast(Any, cypher)), parameters=params or {})
             return [dict(record) for record in result]
 
     def get_multi_hop_path(
@@ -231,15 +238,16 @@ class GraphRetriever:
         Lazarus Group and WannaCry?"
         """
         with self.driver.session() as session:
-            result = session.run(
-                f"""
+            query = f"""
                 MATCH path = shortestPath(
                     (a {{name: $start_name}})-[*1..{max_hops}]-(b {{name: $end_name}})
                 )
                 RETURN [n IN nodes(path) | n.name] AS node_names,
                        [r IN relationships(path) | type(r)] AS rel_types
                 LIMIT 3
-                """,
+                """
+            result = session.run(
+                Query(cast(Any, query)),
                 start_name=start_name,
                 end_name=end_name,
             )
