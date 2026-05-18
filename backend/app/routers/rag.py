@@ -10,7 +10,7 @@ from pydantic import BaseModel
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 try:
-    from RAG.GraphRAG.pipeline.chain import GraphRAGChain
+    from app.services.rag.pipeline.chain import GraphRAGChain
 
     rag_chain = GraphRAGChain()
 except ImportError as e:
