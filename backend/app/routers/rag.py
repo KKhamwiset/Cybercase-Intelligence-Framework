@@ -10,7 +10,7 @@ from pydantic import BaseModel
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 try:
-    from app.services.rag.pipeline.chain import GraphRAGChain
+    from RAG.GraphRAG.pipeline.chain import GraphRAGChain
 
     rag_chain = GraphRAGChain()
 except ImportError as e:
@@ -25,16 +25,6 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 class QueryRequest(BaseModel):
     query: str
-
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
-
-
-class ChatContinueRequest(BaseModel):
-    query: str
-    history: list[ChatMessage]
 
 
 class QueryResponse(BaseModel):
@@ -56,25 +46,4 @@ async def query_rag(request: QueryRequest):
         return QueryResponse(answer=answer)
     except Exception as e:
         print(f"[RAG] Error processing query: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/chatcontinue", response_model=QueryResponse)
-async def chat_continue(request: ChatContinueRequest):
-    """
-    Endpoint for continuous chat that accepts current query and history.
-    """
-    if not rag_chain:
-        raise HTTPException(
-            status_code=503, detail="RAG engine not initialized or available"
-        )
-
-    try:
-        # For now, we pass the query to the RAG engine.
-        # In the future, you can incorporate 'request.history' into the prompt
-        # to provide context-aware answers.
-        answer = rag_chain.query(request.query)
-        return QueryResponse(answer=answer)
-    except Exception as e:
-        print(f"[RAG] Error processing chat: {e}")
         raise HTTPException(status_code=500, detail=str(e))

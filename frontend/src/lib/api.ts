@@ -1,10 +1,9 @@
 ﻿/**
  * API Client for TSR Mitre Backend
  */
-import axios from "axios";
+import axios from 'axios';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 interface HealthStatus {
   status: string;
@@ -37,53 +36,19 @@ interface QueryResponse {
   answer: string;
 }
 
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
 export async function queryRag(query: string): Promise<string> {
   try {
-    const response = await axios.post<QueryResponse>(
-      `${API_BASE_URL}/rag/query`,
-      {
-        query: query,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
+    const response = await axios.post<QueryResponse>(`${API_BASE_URL}/rag/query`, {
+      query: query
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+      }
+    });
 
     return response.data.answer;
   } catch (error) {
     console.error("RAG query failed:", error);
-    throw error;
-  }
-}
-
-export async function chatContinue(
-  query: string,
-  history: ChatMessage[],
-): Promise<string> {
-  try {
-    const response = await axios.post<QueryResponse>(
-      `${API_BASE_URL}/rag/chatcontinue`,
-      {
-        query: query,
-        history: history,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    return response.data.answer;
-  } catch (error) {
-    console.error("Chat continue failed:", error);
     throw error;
   }
 }
