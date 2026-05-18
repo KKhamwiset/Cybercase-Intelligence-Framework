@@ -10,8 +10,8 @@ from typing import Any, cast
 
 from neo4j import GraphDatabase, Query
 
-from ..config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER, sep
-from ..models import AttackEntity, Software, Technique
+from config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USER, sep
+from models import AttackEntity, Software, Technique
 from .stix_parser import StixParser
 
 
