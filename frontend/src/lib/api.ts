@@ -37,21 +37,26 @@ interface QueryResponse {
   answer: string;
 }
 
-export interface ChatMessage {
+export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-}
+};
 
-export async function chatContinue(
+/**
+ * Sends a query to the RAG engine and returns the answer.
+ * Currently uses queryRag as a backend.
+ */
+export const chatContinue = async (
   query: string,
   _history: ChatMessage[] = [],
-): Promise<string> {
-  // Currently, the backend queryRag endpoint only takes a single query string.
-  // We can expand this later to support full history if the backend supports it.
+): Promise<string> => {
   return queryRag(query);
-}
+};
 
-export async function queryRag(query: string): Promise<string> {
+/**
+ * Direct call to the RAG query endpoint.
+ */
+export const queryRag = async (query: string): Promise<string> => {
   try {
     const response = await axios.post<QueryResponse>(
       `${API_BASE_URL}/rag/query`,
@@ -70,4 +75,4 @@ export async function queryRag(query: string): Promise<string> {
     console.error("RAG query failed:", error);
     throw error;
   }
-}
+};
