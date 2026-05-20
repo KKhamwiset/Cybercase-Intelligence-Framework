@@ -43,9 +43,12 @@ E5_PASSAGE_PREFIX = "passage: "
 # ──────────────────────────────────────────────────────────────────────────────
 # NEO4J
 # ──────────────────────────────────────────────────────────────────────────────
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+# NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+# NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+# NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+NEO4J_URI = "neo4j+s://71750b02.databases.neo4j.io"
+NEO4J_USER = "71750b02"
+NEO4J_PASSWORD = "4iS9NVZOgemWn3ZPwskAIAUJASd7DEw1Pi7RSRasP6I"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LLM (Claude)

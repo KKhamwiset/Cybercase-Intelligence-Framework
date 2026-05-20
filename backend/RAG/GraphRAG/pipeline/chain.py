@@ -18,7 +18,6 @@ from typing import Optional
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from sentence_transformers import SentenceTransformer
 
 from ..config import (
@@ -30,6 +29,7 @@ from ..config import (
     VECTOR_TOP_K,
     sep,
 )
+from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer
 from .router import QueryRouter
@@ -71,15 +71,15 @@ class GraphRAGChain:
         if ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore
                 model=LLM_MODEL,
-                anthropicApiKey=ANTHROPIC_API_KEY,
+                api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                maxTokens=LLM_MAX_TOKENS,
+                max_tokens=LLM_MAX_TOKENS,
             )
             self.translation_llm = ChatAnthropic(  # type: ignore
                 model=LLM_MODEL,
-                anthropicApiKey=ANTHROPIC_API_KEY,
+                api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                maxTokens=LLM_MAX_TOKENS,
+                max_tokens=LLM_MAX_TOKENS,
             )
             print(f"[CHAIN] Reasoning LLM : {LLM_MODEL}")
             print(f"[CHAIN] Translation LLM: {LLM_MODEL}")
