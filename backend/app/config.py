@@ -2,6 +2,8 @@
 Application configuration — loaded from environment / .env file.
 """
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -40,7 +42,21 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",")]
+        # Always allow localhost for development
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+        # Add origins from environment variable if they exist
+        if self.cors_origins:
+            env_origins = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+            for o in env_origins:
+                # Ensure protocol is present
+                if not o.startswith("http"):
+                    origins.append(f"https://{o}")
+                    origins.append(f"http://{o}")
+                else:
+                    origins.append(o)
+
+        return list(set(origins))  # Deduplicate
 
     # ── App ──────────────────────────────────────────────────────────────
     debug: bool = True

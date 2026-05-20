@@ -6,10 +6,16 @@ try:
 
     rag_chain = GraphRAGChain()
 except ImportError as e:
+    import traceback
+
     print(f"[RAG] Failed to import GraphRAGChain: {e}")
+    traceback.print_exc()
     rag_chain = None
 except Exception as e:
+    import traceback
+
     print(f"[RAG] Error initializing GraphRAGChain: {e}")
+    traceback.print_exc()
     rag_chain = None
 
 router = APIRouter(prefix="/rag", tags=["rag"])
