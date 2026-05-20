@@ -16,8 +16,7 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 ## 2. Directory Structure & Ownership
 
 *   `/Documents/` - Contains raw source PDFs. Do not modify these unless explicitly instructed.
-*   `/RAG/Python/` - Core RAG scripts (`rag_pipeline.py`, `rag_advanced.py`, etc.).
-*   `/RAG/*_index/` - Generated FAISS/BM25 indices. Do not manually edit.
+*   `/backend/RAG/GraphRAG/` - Core GraphRAG pipeline and evaluation.
 *   `/frontend/` - Next.js application. All UI work happens here.
 *   `/backend/` - FastAPI application. All API and database logic happens here.
 
@@ -46,11 +45,11 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 *   **Run Frontend:** `cd frontend && npm run dev`
 *   **Run Backend:** `cd backend && uvicorn app.main:app --reload`
 *   **Apply Migrations:** `cd backend && alembic upgrade head`
-*   **Test RAG:** `cd RAG/Python && python rag_pipeline.py --test`
+*   **Test RAG:** `cd backend/RAG/GraphRAG && python main.py --test`
 
 ## 5. Common Pitfalls
 
-* **RAG Pathing:** When running RAG scripts, ensure you are in the `/RAG/Python/` directory. Scripts rely on `__file__` to find `/Documents/`. Running them from the project root will cause `FileNotFoundError`.
+* **RAG Pathing:** When running RAG scripts, ensure you are in the `/backend/RAG/GraphRAG/` directory. Scripts rely on `__file__` to find `/Documents/`. Running them from the project root will cause `FileNotFoundError`.
 
 * **Alembic Sync:** Always run `alembic upgrade head` after pulling changes that include new migrations.
 * **Vector Store Updates:** When updating the vector store with new documents, you must delete the old index directory (e.g., `faiss_index/`) before running the build script again, unless the script is designed to handle incremental updates.

@@ -1,42 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
-  
-  --color-primary: #000000;
-  --color-secondary: #1F2937;
-  --color-neutral: #777777;
-  
-  --color-background: #F3F4F6;
-  --color-surface: #FFFFFF;
+    --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+
+    --color-primary: #000000;
+    --color-secondary: #1f2937;
+    --color-neutral: #777777;
+
+    --color-background: #f3f4f6;
+    --color-surface: #ffffff;
 }
 
 :root {
-  --background: var(--color-background);
-  --foreground: var(--color-primary);
+    --background: var(--color-background);
+    --foreground: var(--color-primary);
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+    background-color: var(--background);
+    color: var(--foreground);
 }
 
 @utility card {
-  @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+    @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
 }
 
 @utility btn-primary {
-  @apply bg-[#000000] text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-[#1F2937];
+    @apply bg-primary text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-secondary;
 }
 
 @utility btn-secondary {
-  @apply bg-gray-100 text-[#1F2937] px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-200;
+    @apply bg-gray-100 text-secondary px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-200;
 }
 
 @utility btn-inverted {
-  @apply bg-[#1F2937] text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-black;
+    @apply bg-secondary text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-black;
 }
 
 @utility btn-outlined {
-  @apply bg-white border border-gray-300 text-[#1F2937] px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-50;
+    @apply bg-white border border-gray-300 text-secondary px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-50;
 }

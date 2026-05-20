@@ -23,7 +23,7 @@ COPY backend/alembic ./alembic
 COPY backend/alembic.ini .
 
 # Copy RAG engine and MITRE data
-COPY RAG ./RAG
+COPY backend/RAG ./RAG
 COPY ["Mitre_ATT&CK Doc", "./Mitre_ATT&CK Doc/"]
 COPY Documents ./Documents
 

@@ -1,16 +1,8 @@
-import sys
-from pathlib import Path
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-# Add project root to path to allow importing RAG modules
-# In Docker, the app is at /app, RAG is at /app/RAG
-sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-
 try:
-    from RAG.GraphRAG.pipeline.chain import GraphRAGChain
+    from RAG import GraphRAGChain
 
     rag_chain = GraphRAGChain()
 except ImportError as e:

@@ -7,7 +7,7 @@ It features a modern Next.js frontend, a high-performance FastAPI backend, and l
 ## Project Structure
 
 *   `Documents/`: Source Thai law PDF documents.
-*   `RAG/`: Core retrieval and generation pipelines using LangChain, LlamaIndex, and FAISS.
+*   `backend/RAG/`: Core retrieval and generation pipelines using LangChain and ChromaDB.
 *   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
 *   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy.
 
@@ -77,8 +77,8 @@ The frontend will be available at `http://localhost:3000`.
 ### 5. RAG CLI Tools
 You can also run the RAG pipelines directly via CLI for testing:
 ```bash
-cd RAG/Python
-python rag_pipeline.py --test
+cd backend/RAG/GraphRAG
+python main.py --test
 ```
 *(Requires `ANTHROPIC_API_KEY` to be set in your environment for generation capabilities).*
 

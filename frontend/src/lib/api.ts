@@ -1,9 +1,10 @@
 ﻿/**
  * API Client for TSR Mitre Backend
  */
-import axios from 'axios';
+import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 interface HealthStatus {
   status: string;
@@ -36,15 +37,33 @@ interface QueryResponse {
   answer: string;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function chatContinue(
+  query: string,
+  _history: ChatMessage[] = [],
+): Promise<string> {
+  // Currently, the backend queryRag endpoint only takes a single query string.
+  // We can expand this later to support full history if the backend supports it.
+  return queryRag(query);
+}
+
 export async function queryRag(query: string): Promise<string> {
   try {
-    const response = await axios.post<QueryResponse>(`${API_BASE_URL}/rag/query`, {
-      query: query
-    }, {
-      headers: {
-        "Content-Type": "application/json",
-      }
-    });
+    const response = await axios.post<QueryResponse>(
+      `${API_BASE_URL}/rag/query`,
+      {
+        query: query,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
 
     return response.data.answer;
   } catch (error) {
