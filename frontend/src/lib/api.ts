@@ -8,12 +8,29 @@ import axios from "axios";
  * Fails at runtime if the environment variable is not set.
  */
 function getApiBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_URL;
+  let url = process.env.NEXT_PUBLIC_API_URL;
+
+  // During build time (server-side in CI), we allow it to be empty
+  // to prevent build crashes. It will fail at runtime in the browser.
   if (!url) {
-    throw new Error(
-      "NEXT_PUBLIC_API_URL is not set. The application cannot start.",
-    );
+    if (typeof window !== "undefined") {
+      throw new Error(
+        "NEXT_PUBLIC_API_URL is not set. The application cannot start.",
+      );
+    }
+    return "http://build-time-placeholder";
   }
+
+  // Ensure protocol is present
+  if (!url.startsWith("http")) {
+    url = `https://${url}`;
+  }
+
+  // Ensure /api/v1 path is present
+  if (!url.endsWith("/api/v1") && !url.endsWith("/api/v1/")) {
+    url = url.endsWith("/") ? `${url}api/v1` : `${url}/api/v1`;
+  }
+
   return url;
 }
 
