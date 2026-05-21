@@ -3,15 +3,19 @@
  */
 import axios from "axios";
 
-const envUrl = process.env.NEXT_PUBLIC_API_URL;
-
-if (!envUrl) {
-  throw new Error(
-    "NEXT_PUBLIC_API_URL is not set. The application cannot start.",
-  );
+/**
+ * Returns the API base URL.
+ * Fails at runtime if the environment variable is not set.
+ */
+function getApiBaseUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. The application cannot start.",
+    );
+  }
+  return url;
 }
-
-const API_BASE_URL = envUrl || "http://localhost:8000/api/v1";
 
 interface HealthStatus {
   status: string;
@@ -20,8 +24,9 @@ interface HealthStatus {
 }
 
 export async function getHealthStatus(): Promise<HealthStatus> {
+  const baseUrl = getApiBaseUrl();
   try {
-    const response = await axios.get<HealthStatus>(`${API_BASE_URL}/health`, {
+    const response = await axios.get<HealthStatus>(`${baseUrl}/health`, {
       headers: {
         "Content-Type": "application/json",
       },
@@ -64,9 +69,10 @@ export const chatContinue = async (
  * Direct call to the RAG query endpoint.
  */
 export const queryRag = async (query: string): Promise<string> => {
+  const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<QueryResponse>(
-      `${API_BASE_URL}/rag/query`,
+      `${baseUrl}/rag/query`,
       {
         query: query,
       },
