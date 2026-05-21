@@ -52,7 +52,13 @@ jobs:
 
       # ============ FRONTEND ============
       - name: Build Frontend image
-        run: docker build -t kkhw/tsr_mitre-frontend:latest ./frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+            -t kkhw/tsr_mitre-frontend:latest \
+            ./frontend
 
       - name: Push Frontend image
         run: docker push kkhw/tsr_mitre-frontend:latest
