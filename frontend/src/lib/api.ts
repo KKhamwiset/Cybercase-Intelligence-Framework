@@ -3,8 +3,15 @@
  */
 import axios from "axios";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const envUrl = process.env.NEXT_PUBLIC_API_URL;
+
+if (!envUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not set. The application cannot start.",
+  );
+}
+
+const API_BASE_URL = envUrl || "http://localhost:8000/api/v1";
 
 interface HealthStatus {
   status: string;
