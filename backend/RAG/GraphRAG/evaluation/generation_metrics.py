@@ -95,8 +95,26 @@ def _try_ragas_evaluate(
         from ragas import evaluate
         from ragas.metrics import faithfulness, answer_relevancy
         from datasets import Dataset
+        from langchain_openai import ChatOpenAI
+        from ragas.llms import LangchainLLMWrapper
+        from ..config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RAGAS_LLM_MODEL
     except ImportError:
         return None
+
+    # Setup OpenRouter LLM for RAGAS if API key is provided
+    ragas_llm = None
+    if OPENROUTER_API_KEY:
+        try:
+            chat_model = ChatOpenAI(
+                api_key=OPENROUTER_API_KEY,
+                base_url=OPENROUTER_BASE_URL,
+                model=RAGAS_LLM_MODEL,
+                temperature=0.0
+            )
+            ragas_llm = LangchainLLMWrapper(chat_model)
+            print(f"[EVAL] Using OpenRouter LLM for RAGAS: {RAGAS_LLM_MODEL}")
+        except Exception as e:
+            print(f"[EVAL] Failed to init OpenRouter LLM: {e}")
 
     eval_data = {
         "question": questions,
@@ -117,7 +135,11 @@ def _try_ragas_evaluate(
     dataset = Dataset.from_dict(eval_data)
 
     try:
-        result = evaluate(dataset, metrics=metrics)
+        kwargs = {"metrics": metrics}
+        if ragas_llm:
+            kwargs["llm"] = ragas_llm
+            
+        result = evaluate(dataset, **kwargs)
         return result.to_pandas().to_dict(orient="list")
     except Exception as e:
         print(f"[EVAL] RAGAS evaluation failed: {e}")

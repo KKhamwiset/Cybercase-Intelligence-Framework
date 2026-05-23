@@ -41,8 +41,8 @@ docker-compose up -d
 
 ### Step 1 — Verify the metrics work (no DB needed)
 ```bash
-cd backend/RAG/GraphRAG
-python evaluation/test_metrics.py
+cd backend/RAG
+python -m GraphRAG.evaluation.test_metrics
 ```
 
 **Expected output:**
@@ -67,17 +67,17 @@ python evaluation/test_metrics.py
 
 ### Step 2 — Run retriever evaluation (needs Neo4j + ChromaDB)
 ```bash
-python -m evaluation.eval_runner --dataset evaluation/eval_dataset.json --mode retriever
+python -m GraphRAG.evaluation.eval_runner --dataset GraphRAG/evaluation/eval_dataset.json --mode retriever
 ```
 
 ### Step 3 — Run generation evaluation (needs LLM API key)
 ```bash
-python -m evaluation.eval_runner --dataset evaluation/eval_dataset.json --mode generation
+python -m GraphRAG.evaluation.eval_runner --dataset GraphRAG/evaluation/eval_dataset.json --mode generation
 ```
 
 ### Step 4 — Run everything
 ```bash
-python -m evaluation.eval_runner --dataset evaluation/eval_dataset.json --mode full
+python -m GraphRAG.evaluation.eval_runner --dataset GraphRAG/evaluation/eval_dataset.json --mode full
 ```
 
 ---

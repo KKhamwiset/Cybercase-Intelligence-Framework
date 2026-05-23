@@ -16,10 +16,24 @@ Modes:
 """
 
 from __future__ import annotations
-
 import argparse
+import io
 import sys
 from pathlib import Path
+
+# Fix relative imports when run directly from IDE or wrong directory
+if __package__ is None or __package__ == "evaluation":
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+    __package__ = "GraphRAG.evaluation"
+
+sys.stdout.reconfigure(encoding='utf-8')
+# UTF-8 FIX FOR WINDOWS
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+else:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 from .generation_metrics import GenerationEvalResult, evaluate_generation
 from .ground_truth import load_ground_truth
@@ -50,22 +64,62 @@ def _make_graph_retriever_fn():
     we use it differently — we do a Cypher name search first.
     """
     from ..retrieval.graph_retriever import GraphRetriever
+    import re
 
     retriever = GraphRetriever()
 
     def fn(query: str) -> list[str]:
-        # Graph retriever finds nodes by name match, then expands
-        results = retriever.query_cypher(
-            """
-            MATCH (n)
-            WHERE toLower(n.name) CONTAINS toLower($query)
-               OR toLower(n.description) CONTAINS toLower($query)
-            RETURN n.stix_id AS stix_id
-            LIMIT 10
-            """,
-            params={"query": query},
-        )
-        return [r["stix_id"] for r in results if r.get("stix_id")]
+        # Extract ATT&CK IDs (e.g., T1566, S0002, G0016)
+        attack_ids = re.findall(r'[T|S|G]\d{4}', query, re.IGNORECASE)
+        
+        # Extract basic keywords (ignoring common words)
+        ignore_words = {"what", "is", "the", "how", "can", "i", "do", "does", "are", "explain", "relationship", "between", "and", "in", "for", "to", "of", "a", "an", "all", "technique", "techniques", "exist", "does", "use", "detect", "data", "sources", "classified", "as", "work", "campaigns", "have", "targeted", "sector"}
+        clean_query = re.sub(r'[^\w\s]', ' ', query).lower()
+        keywords = [w for w in clean_query.split() if w not in ignore_words and len(w) > 2]
+        
+        match_clauses = []
+        params = {}
+        
+        if attack_ids:
+            for i, aid in enumerate(attack_ids):
+                match_clauses.append(f"toUpper(n.attack_id) = $attack_id_{i}")
+                params[f"attack_id_{i}"] = aid.upper()
+                
+        if keywords:
+            for i, kw in enumerate(keywords):
+                match_clauses.append(f"toLower(n.name) CONTAINS $kw_{i}")
+                params[f"kw_{i}"] = kw
+        
+        # Fallback to whole string match if no keywords found
+        if not match_clauses:
+            match_clauses.append("toLower(n.name) CONTAINS toLower($query) OR toLower(n.description) CONTAINS toLower($query)")
+            params["query"] = query
+            
+        where_clause = " OR ".join(match_clauses)
+        
+        # Find matching nodes, then expand 1 hop to simulate graph expansion
+        cypher = f"""
+        MATCH (n)
+        WHERE {where_clause}
+        WITH n LIMIT 5
+        OPTIONAL MATCH (n)-[]-(m)
+        WITH n, collect(m.stix_id) AS neighbor_ids
+        RETURN n.stix_id AS stix_id, neighbor_ids
+        """
+        
+        try:
+            results = retriever.query_cypher(cypher, params=params)
+            ids = set()
+            for r in results:
+                if r.get("stix_id"):
+                    ids.add(r["stix_id"])
+                for nid in r.get("neighbor_ids", []):
+                    if nid:
+                        ids.add(nid)
+            return list(ids)
+        except Exception as e:
+            print(f"[GRAPH] Cypher error: {e}")
+            return []
 
     return fn, retriever.close
 

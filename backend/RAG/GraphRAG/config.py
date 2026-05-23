@@ -51,12 +51,16 @@ NEO4J_USER = "71750b02"
 NEO4J_PASSWORD = "4iS9NVZOgemWn3ZPwskAIAUJASd7DEw1Pi7RSRasP6I"
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LLM (Claude)
+# LLM (Claude & OpenRouter)
 # ──────────────────────────────────────────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 LLM_MODEL = "claude-sonnet-4-20250514"
 LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
+
+RAGAS_LLM_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRIEVAL
