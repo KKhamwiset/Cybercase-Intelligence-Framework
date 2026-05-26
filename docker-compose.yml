@@ -8,8 +8,8 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────────────────────
   # Neo4j is cloud-hosted — no local service needed.
   db:
-    image: postgres:15-alpine
-    container_name: cybercase_framework_db
+    image: postgres:16-alpine
+    container_name: cybercase-postgres
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -35,10 +35,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: cybercase_framework_backend
+    container_name: cybercase-backend
     restart: always
-    env_file:
-      - .env
     environment:
       # Override DATABASE_URL to point to local docker db
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-cybercase_framework}
@@ -55,7 +53,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-    container_name: cybercase_framework_frontend
+    container_name: cybercase-frontend
     restart: always
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
