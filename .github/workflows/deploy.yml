@@ -1,4 +1,4 @@
-name: Build and Deploy TSR Mitre
+name: Build and Deploy CyberCase Framework
 
 on:
   push:
@@ -20,10 +20,10 @@ jobs:
 
       # ============ BACKEND ============
       - name: Build Backend image
-        run: docker build -t kkhw/tsr_mitre-backend:latest -f backend/Dockerfile .
+        run: docker build -t kkhw/cybercase-framework-backend:latest -f backend/Dockerfile .
 
       - name: Push Backend image
-        run: docker push kkhw/tsr_mitre-backend:latest
+        run: docker push kkhw/cybercase-framework-backend:latest
 
       - name: Trigger Railway deploy - Backend
         env:
@@ -57,11 +57,11 @@ jobs:
         run: |
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-            -t kkhw/tsr_mitre-frontend:latest \
+            -t kkhw/cybercase-framework-frontend:latest \
             ./frontend
 
       - name: Push Frontend image
-        run: docker push kkhw/tsr_mitre-frontend:latest
+        run: docker push kkhw/cybercase-framework-frontend:latest
 
       - name: Trigger Railway deploy - Frontend
         env:

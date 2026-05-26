@@ -31,9 +31,9 @@ export default function Home() {
       <nav className="relative z-10 flex justify-between items-center px-6 lg:px-12 py-6 bg-white border-b border-gray-200">
         <div className="flex items-center gap-3 text-xl font-bold tracking-tight text-primary">
           <div className="w-8 h-8 bg-primary text-white rounded flex items-center justify-center text-sm">
-            T
+            C
           </div>
-          TSR Mitre
+          CyberCase Framework
         </div>
         <ul className="hidden md:flex gap-8 list-none">
           <li>
@@ -186,7 +186,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="relative z-10 text-center p-8 text-neutral text-xs border-t border-gray-200 mt-auto bg-white">
-        &copy; {new Date().getFullYear()} TSR Mitre Platform. Built for Thai
+        &copy; {new Date().getFullYear()} CyberCase Framework. Built for Thai
         Legal Intelligence.
       </footer>
     </main>

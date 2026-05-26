@@ -9,12 +9,12 @@ services:
   # Neo4j is cloud-hosted — no local service needed.
   db:
     image: postgres:15-alpine
-    container_name: tsr_mitre_db
+    container_name: cybercase_framework_db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-tsr_mitre}
+      POSTGRES_DB: ${POSTGRES_DB:-cybercase_framework}
     ports:
       - "5433:5432"
     volumes:
@@ -23,7 +23,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tsr_mitre}",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-cybercase_framework}",
         ]
       interval: 5s
       timeout: 5s
@@ -35,13 +35,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: tsr_mitre_backend
+    container_name: cybercase_framework_backend
     restart: always
     env_file:
       - .env
     environment:
       # Override DATABASE_URL to point to local docker db
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tsr_mitre}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-cybercase_framework}
     ports:
       - "8000:8000"
     depends_on:
@@ -55,7 +55,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
-    container_name: tsr_mitre_frontend
+    container_name: cybercase_framework_frontend
     restart: always
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}

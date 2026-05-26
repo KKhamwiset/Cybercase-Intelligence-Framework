@@ -60,9 +60,9 @@ export default function ChatPage() {
           className="flex items-center gap-3 text-xl font-bold tracking-tight text-primary hover:opacity-80 transition-opacity"
         >
           <div className="w-8 h-8 bg-primary text-white rounded flex items-center justify-center text-sm">
-            T
+            C
           </div>
-          TSR Mitre
+          CyberCase Framework
         </Link>
         <div className="hidden md:flex items-center gap-6">
           <span className="text-xs font-medium text-neutral uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full">
@@ -191,7 +191,7 @@ export default function ChatPage() {
           </form>
           <div className="flex justify-between items-center mt-4 px-2">
             <p className="text-[10px] text-neutral font-medium uppercase tracking-widest">
-              TSR Mitre Platform &bull; Intelligence Engine
+              CyberCase Framework &bull; Intelligence Engine
             </p>
             <p className="text-[10px] text-neutral font-medium">
               Thai Legal Intelligence RAG

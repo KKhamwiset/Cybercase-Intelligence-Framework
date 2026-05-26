@@ -1,4 +1,4 @@
-# Production-ready Dockerfile for TSR_Mitre FastAPI Backend
+# Production-ready Dockerfile for CyberCase Framework FastAPI Backend
 # Using root context for build
 FROM python:3.11-slim
 

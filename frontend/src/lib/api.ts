@@ -1,5 +1,5 @@
 ﻿/**
- * API Client for TSR Mitre Backend
+ * API Client for CyberCase Framework Backend
  */
 import axios from "axios";
 

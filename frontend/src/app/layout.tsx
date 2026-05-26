@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TSR Mitre — Thai Security & Regulation Platform",
+  title: "CyberCase Framework - Thai Security & Regulation Platform",
   description:
     "AI-powered Thai law research platform with RAG pipelines, document analysis, and regulatory intelligence.",
 };
