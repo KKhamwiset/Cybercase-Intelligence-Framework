@@ -19,7 +19,6 @@ on:
 
 jobs:
   backend:
-    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_backend) }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -38,6 +37,7 @@ jobs:
       - name: Push Backend image
         run: docker push kkhw/cybercase-framework-backend:latest
       - name: Trigger Railway deploy - Backend
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend }}
         env:
           RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
           SERVICE_ID: ${{ secrets.BACKEND_SERVICE_ID_RAILWAY }}
@@ -63,7 +63,6 @@ jobs:
           -d "{\"query\":\"mutation deploymentRedeploy(\$id: String!) { deploymentRedeploy(id: \$id) { id status } }\",\"variables\":{\"id\":\"$DEPLOYMENT_ID\"}}"
 
   frontend:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -88,6 +87,7 @@ jobs:
         run: docker push kkhw/cybercase-framework-frontend:latest
 
       - name: Trigger Railway deploy - Frontend
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend }}
         env:
           RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
           SERVICE_ID: ${{ secrets.FRONTEND_SERVICE_ID_RAILWAY }}
