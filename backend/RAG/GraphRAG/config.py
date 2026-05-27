@@ -51,13 +51,13 @@ QDRANT_COLLECTION_RELATIONSHIPS = "mitre_relationships"
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — ChromaDB Configuration (kept for reference / rollback)
 # ──────────────────────────────────────────────────────────────────────────────
-# CHROMA_DIR = _SCRIPT_DIR / "chroma_db"
-# CHROMA_HOST = os.getenv("CHROMA_HOST")
-# CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
-# CHROMA_SSL = os.getenv("CHROMA_SSL", "False").lower() == "true"
-# CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
-# CHROMA_COLLECTION_ENTITIES = "mitre_entities"
-# CHROMA_COLLECTION_RELATIONSHIPS = "mitre_relationships"
+CHROMA_DIR = _SCRIPT_DIR / "chroma_db"
+CHROMA_HOST = os.getenv("CHROMA_HOST")
+CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
+CHROMA_SSL = os.getenv("CHROMA_SSL", "False").lower() == "true"
+CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
+CHROMA_COLLECTION_ENTITIES = "mitre_entities"
+CHROMA_COLLECTION_RELATIONSHIPS = "mitre_relationships"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # HYBRID RETRIEVAL — RRF (Reciprocal Rank Fusion)

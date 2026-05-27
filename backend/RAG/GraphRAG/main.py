@@ -2,7 +2,7 @@
 MITRE ATT&CK GraphRAG — CLI Entrypoint
 ========================================
 Usage:
-    python main.py --ingest       # Parse STIX data → load Neo4j + ChromaDB
+    python main.py --ingest       # Parse STIX data → load Neo4j + Qdrant
     python main.py --test          # Run test queries
     python main.py                 # Interactive mode
     python main.py --retrieve-only # Retrieval without LLM (for debugging)
@@ -13,7 +13,6 @@ import io
 import sys
 
 from .config import (
-    CHROMA_DIR,
     EMBED_MODEL,
     USE_FP16,
     sep,
@@ -52,8 +51,8 @@ def run_ingest():
     finally:
         graph_loader.close()
 
-    # Load into ChromaDB
-    sep("CHROMADB INGESTION")
+    # Load into Qdrant
+    sep("QDRANT INGESTION")
     print(f"[EMBED] Loading {EMBED_MODEL}...")
     embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
