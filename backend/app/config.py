@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     )
 
     # ── Database ─────────────────────────────────────────────────────────
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/tsr_mitre"
+    database_url: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://postgres:postgres@localhost:5433/cybercase_framework",
     )
 
     @property
