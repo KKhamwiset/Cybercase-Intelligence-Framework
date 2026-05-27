@@ -7,13 +7,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 # ──────────────────────────────────────────────────────────────────────────────
 # PATHS
 # ──────────────────────────────────────────────────────────────────────────────
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent
+
+load_dotenv(_SCRIPT_DIR / ".env")
+load_dotenv()
 
 # STIX data folders (each contains versioned .json bundles)
 _STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
@@ -40,13 +41,14 @@ USE_FP16 = True           # Halve memory usage (~2.3GB → ~1.2GB)
 # QDRANT — Vector Database (replaces ChromaDB)
 # ──────────────────────────────────────────────────────────────────────────────
 # Supports: local Docker, Qdrant Cloud, or in-memory (fallback)
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
+QDRANT_HOST = os.getenv("QDRANT_HOST")
+_qdrant_port_str = os.getenv("QDRANT_PORT")
+QDRANT_PORT = int(_qdrant_port_str) if _qdrant_port_str else 6333
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_URL = os.getenv("QDRANT_URL")  # Full URL for Qdrant Cloud (e.g., https://xxx.aws.cloud.qdrant.io)
 
-QDRANT_COLLECTION_ENTITIES = "mitre_entities"
-QDRANT_COLLECTION_RELATIONSHIPS = "mitre_relationships"
+QDRANT_COLLECTION_ENTITIES = os.getenv("QDRANT_COLLECTION_ENTITIES", "mitre_entities")
+QDRANT_COLLECTION_RELATIONSHIPS = os.getenv("QDRANT_COLLECTION_RELATIONSHIPS", "mitre_relationships")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — ChromaDB Configuration (kept for reference / rollback)
