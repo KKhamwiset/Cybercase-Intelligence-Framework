@@ -78,6 +78,7 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
         run: |
+          printenv NEXT_PUBLIC_API_URL
           docker build \
             --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
             -t kkhw/cybercase-framework-frontend:latest \
