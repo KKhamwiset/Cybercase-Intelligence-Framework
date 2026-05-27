@@ -24,8 +24,6 @@ COPY backend/alembic.ini .
 
 # Copy RAG engine and MITRE data
 COPY backend/RAG ./RAG
-COPY ["Mitre_ATT&CK Doc", "./Mitre_ATT&CK Doc/"]
-COPY Documents ./Documents
 
 # Expose FastAPI port
 EXPOSE 8000

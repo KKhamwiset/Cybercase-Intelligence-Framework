@@ -9,12 +9,12 @@ on:
       deploy_backend:
         description: Deploy backend
         required: true
-        default: false
+        default: true
         type: boolean
       deploy_frontend:
         description: Deploy frontend
         required: true
-        default: false
+        default: true
         type: boolean
 
 jobs:
