@@ -1,30 +1,39 @@
 """
-ChromaDB Vector Retriever
+Qdrant Vector Retriever
 ==========================
-Performs semantic search over entity and relationship embeddings.
-Uses E5 query prefix for optimal retrieval with multilingual-e5-large.
+Performs hybrid search (Dense + Sparse) over entity and relationship embeddings
+using BGE-M3 and Qdrant's native RRF fusion.
 """
 
 from dataclasses import dataclass
 from typing import Optional
 
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Filter,
+    FieldCondition,
+    MatchValue,
+    Prefetch,
+    SparseVector,
+    FusionQuery,
+    Fusion,
+)
+from FlagEmbedding import BGEM3FlagModel
 
 from ..config import (
-    CHROMA_API_KEY,
-    CHROMA_COLLECTION_ENTITIES,
-    CHROMA_COLLECTION_RELATIONSHIPS,
-    CHROMA_DIR,
-    CHROMA_HOST,
-    CHROMA_PORT,
-    CHROMA_SSL,
-    E5_QUERY_PREFIX,
+    QDRANT_API_KEY,
+    QDRANT_COLLECTION_ENTITIES,
+    QDRANT_COLLECTION_RELATIONSHIPS,
+    QDRANT_HOST,
+    QDRANT_PORT,
+    QDRANT_URL,
     EMBED_MODEL,
+    USE_FP16,
     VECTOR_TOP_K,
+    RRF_K,
+    DENSE_WEIGHT,
+    SPARSE_WEIGHT,
 )
-from ..models import AttackEntity, AttackRelationship
 
 
 @dataclass
@@ -38,49 +47,97 @@ class VectorResult:
 
 
 class VectorRetriever:
-    """Retrieves semantically similar ATT&CK documents from ChromaDB."""
+    """Retrieves semantically similar ATT&CK documents from Qdrant using Hybrid Search."""
 
-    def __init__(self, embed_model: Optional[SentenceTransformer] = None):
-        # Choose between Remote (HttpClient) and Local (PersistentClient)
-        if CHROMA_HOST:
-            print(
-                f"[VECTOR] Using Remote ChromaDB at {CHROMA_HOST}:{CHROMA_PORT} (SSL: {CHROMA_SSL})"
-            )
-            self.client = chromadb.HttpClient(
-                host=CHROMA_HOST,
-                port=CHROMA_PORT,
-                ssl=CHROMA_SSL,
-                headers={"Authorization": f"Bearer {CHROMA_API_KEY}"}
-                if CHROMA_API_KEY
-                else None,
-                settings=ChromaSettings(anonymized_telemetry=False),
-            )
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
+        if QDRANT_URL:
+            print(f"[VECTOR] Using Qdrant Cloud at {QDRANT_URL}")
+            self.client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        elif QDRANT_HOST:
+            print(f"[VECTOR] Using local Qdrant at {QDRANT_HOST}:{QDRANT_PORT}")
+            self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, api_key=QDRANT_API_KEY)
         else:
-            print(f"[VECTOR] Using Local ChromaDB at {CHROMA_DIR}")
-            self.client = chromadb.PersistentClient(
-                path=str(CHROMA_DIR),
-                settings=ChromaSettings(anonymized_telemetry=False),
-            )
+            print(f"[VECTOR] Using in-memory Qdrant (dev only)")
+            self.client = QdrantClient(":memory:")
 
         if embed_model is None:
             print(f"[VECTOR] Loading {EMBED_MODEL}...")
-            self.embed_model = SentenceTransformer(EMBED_MODEL)
+            self.embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
         else:
             self.embed_model = embed_model
+            
+        try:
+            ent_count = self.client.count(QDRANT_COLLECTION_ENTITIES).count
+            rel_count = self.client.count(QDRANT_COLLECTION_RELATIONSHIPS).count
+            print(f"[VECTOR] Entity collection: {ent_count} docs")
+            print(f"[VECTOR] Relationship collection: {rel_count} docs")
+        except Exception as e:
+            print(f"[VECTOR] Warning: Could not get collection counts ({e})")
 
-        self.entity_collection = self.client.get_collection(CHROMA_COLLECTION_ENTITIES)
-        self.rel_collection = self.client.get_collection(
-            CHROMA_COLLECTION_RELATIONSHIPS
+    def _search_hybrid(self, collection_name: str, query: str, 
+                       top_k: int, qdrant_filter: Optional[Filter] = None) -> list[VectorResult]:
+        """Hybrid search: dense + sparse with RRF fusion natively in Qdrant."""
+        
+        # 1. Embed query (dense + sparse)
+        query_output = self.embed_model.encode(
+            [query], return_dense=True, return_sparse=True, return_colbert_vecs=False
+        )
+        dense_vec = query_output["dense_vecs"][0].tolist()
+        sparse_dict = query_output["lexical_weights"][0]
+        
+        sparse_indices = [int(k) for k in sparse_dict.keys()]
+        sparse_values = list(sparse_dict.values())
+        
+        # We handle empty sparse vectors gracefully just in case
+        if not sparse_indices:
+            sparse_indices = [0]
+            sparse_values = [0.0]
+
+        # 2. Execute Qdrant native hybrid search
+        results = self.client.query_points(
+            collection_name=collection_name,
+            prefetch=[
+                Prefetch(
+                    query=dense_vec,
+                    using="dense",
+                    limit=top_k * 2,
+                    filter=qdrant_filter,
+                ),
+                Prefetch(
+                    query=SparseVector(
+                        indices=sparse_indices,
+                        values=sparse_values,
+                    ),
+                    using="sparse",
+                    limit=top_k * 2,
+                    filter=qdrant_filter,
+                ),
+            ],
+            query=FusionQuery(
+                fusion=Fusion.RRF,
+            ),
+            limit=top_k,
+            with_payload=True,
         )
 
-        print(f"[VECTOR] Entity collection: {self.entity_collection.count()} docs")
-        print(f"[VECTOR] Relationship collection: {self.rel_collection.count()} docs")
-
-    def _embed_query(self, query: str) -> list[float]:
-        """Embed a query with E5 query prefix."""
-        prefixed = f"{E5_QUERY_PREFIX}{query}"
-        embedding = self.embed_model.encode(prefixed, normalize_embeddings=True)
-        return embedding.tolist()
+        # 3. Parse results
+        parsed = []
+        for point in results.points:
+            payload = point.payload or {}
+            
+            # Weighted score approximation (since Qdrant abstracts RRF)
+            # Actually, Qdrant returns a fused score, we'll just pass it through.
+            
+            parsed.append(
+                VectorResult(
+                    document=payload.get("document", ""),
+                    metadata=payload,
+                    score=point.score,
+                    stix_id=payload.get("stix_id", str(point.id)),
+                )
+            )
+            
+        return parsed
 
     def search_entities(
         self,
@@ -88,27 +145,25 @@ class VectorRetriever:
         top_k: int = VECTOR_TOP_K,
         node_label_filter: Optional[str] = None,
     ) -> list[VectorResult]:
-        """Search entity descriptions semantically.
-
-        Args:
-            query: The search query (in English for best results).
-            top_k: Number of results to return.
-            node_label_filter: Optional filter by node type (e.g., "Technique").
-        """
-        query_embedding = self._embed_query(query)
-
-        where_filter = None
+        """Search entity descriptions semantically."""
+        
+        q_filter = None
         if node_label_filter:
-            where_filter = {"node_label": node_label_filter}
+            q_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="node_label",
+                        match=MatchValue(value=node_label_filter)
+                    )
+                ]
+            )
 
-        results = self.entity_collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
+        return self._search_hybrid(
+            collection_name=QDRANT_COLLECTION_ENTITIES,
+            query=query,
+            top_k=top_k,
+            qdrant_filter=q_filter,
         )
-
-        return self._parse_results(results)
 
     def search_relationships(
         self,
@@ -116,27 +171,25 @@ class VectorRetriever:
         top_k: int = VECTOR_TOP_K,
         edge_label_filter: Optional[str] = None,
     ) -> list[VectorResult]:
-        """Search relationship descriptions semantically.
-
-        Args:
-            query: The search query (in English for best results).
-            top_k: Number of results to return.
-            edge_label_filter: Optional filter by edge type (e.g., "USES").
-        """
-        query_embedding = self._embed_query(query)
-
-        where_filter = None
+        """Search relationship descriptions semantically."""
+        
+        q_filter = None
         if edge_label_filter:
-            where_filter = {"edge_label": edge_label_filter}
+            q_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="edge_label",
+                        match=MatchValue(value=edge_label_filter)
+                    )
+                ]
+            )
 
-        results = self.rel_collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
+        return self._search_hybrid(
+            collection_name=QDRANT_COLLECTION_RELATIONSHIPS,
+            query=query,
+            top_k=top_k,
+            qdrant_filter=q_filter,
         )
-
-        return self._parse_results(results)
 
     def search_all(
         self,
@@ -148,35 +201,8 @@ class VectorRetriever:
         rel_results = self.search_relationships(query, top_k=top_k)
 
         combined = entity_results + rel_results
-        # Sort by score (higher is better — we convert distance to similarity)
+        
+        # Sort by score (higher is better)
         combined.sort(key=lambda r: r.score, reverse=True)
 
         return combined[:top_k]
-
-    def _parse_results(self, raw_results: dict) -> list[VectorResult]:
-        """Parse ChromaDB query results into VectorResult objects."""
-        results = []
-
-        if not raw_results or not raw_results.get("ids"):
-            return results
-
-        ids = raw_results["ids"][0]
-        documents = raw_results["documents"][0]
-        metadatas = raw_results["metadatas"][0]
-        distances = raw_results["distances"][0]
-
-        for doc_id, doc, meta, dist in zip(ids, documents, metadatas, distances):
-            # ChromaDB returns L2 distance for cosine space → similarity = 1 - distance
-            # For cosine space, distance is already (1 - cosine_similarity) * 2
-            similarity = max(0.0, 1.0 - dist)
-
-            results.append(
-                VectorResult(
-                    document=doc,
-                    metadata=meta,
-                    score=similarity,
-                    stix_id=doc_id,
-                )
-            )
-
-        return results

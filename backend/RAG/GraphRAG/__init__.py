@@ -4,11 +4,10 @@ MITRE ATT&CK GraphRAG Pipeline
 Hybrid Graph + Vector DB RAG with Cross-Lingual (Thai ↔ English) support.
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from .config import (
     ANTHROPIC_API_KEY,
-    EMBED_MODEL,
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,

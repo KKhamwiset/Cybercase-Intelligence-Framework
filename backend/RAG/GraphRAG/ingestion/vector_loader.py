@@ -1,76 +1,108 @@
 """
-ChromaDB Vector Loader
+Qdrant Vector Loader
 =======================
-Embeds ATT&CK entity descriptions and relationship descriptions into ChromaDB.
+Embeds ATT&CK entity descriptions and relationship descriptions into Qdrant.
+Uses BGE-M3 for hybrid retrieval (Dense + Sparse).
 Follows the schema_design.md embedding strategy:
   - Entities: "[Type]: [Name]. [Description]"
   - Relationships: "[Source] [REL_TYPE] [Target]: [Description]"
-
-Uses multilingual-e5-large with "passage: " prefix for documents.
 """
 
+import uuid
 from typing import Optional
 
-import chromadb
-from chromadb import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, PointStruct, SparseVector, VectorParams, SparseVectorParams
+from FlagEmbedding import BGEM3FlagModel
 
 from ..config import (
-    CHROMA_COLLECTION_ENTITIES,
-    CHROMA_COLLECTION_RELATIONSHIPS,
-    CHROMA_DIR,
-    E5_PASSAGE_PREFIX,
+    QDRANT_COLLECTION_ENTITIES,
+    QDRANT_COLLECTION_RELATIONSHIPS,
+    QDRANT_HOST,
+    QDRANT_PORT,
+    QDRANT_API_KEY,
+    QDRANT_URL,
     EMBED_MODEL,
+    EMBED_DIM,
+    USE_FP16,
     sep,
 )
 from ..models import AttackEntity, AttackRelationship
 from .stix_parser import StixParser
 
 
+def uuid_from_stix_id(stix_id: str) -> str:
+    """Generate a valid UUID from a STIX ID."""
+    import hashlib
+    import uuid as uuid_lib
+    
+    if "--" in stix_id:
+        parts = stix_id.split("--", 1)
+        if len(parts) == 2:
+            try:
+                # Validate if it's already a UUID
+                return str(uuid_lib.UUID(parts[1]))
+            except ValueError:
+                pass
+                
+    # Fallback to hashing the string into a UUID
+    hash_obj = hashlib.md5(stix_id.encode("utf-8"))
+    return str(uuid_lib.UUID(hash_obj.hexdigest()))
+
+
 class VectorLoader:
-    """Embeds and stores ATT&CK data in ChromaDB."""
+    """Embeds and stores ATT&CK data in Qdrant (Hybrid)."""
 
-    def __init__(self, embed_model: Optional[SentenceTransformer] = None):
-        CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-
-        self.client = chromadb.PersistentClient(
-            path=str(CHROMA_DIR),
-            settings=ChromaSettings(anonymized_telemetry=False),
-        )
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
+        if QDRANT_URL:
+            print(f"[QDRANT] Connecting to cloud: {QDRANT_URL}")
+            self.client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        elif QDRANT_HOST:
+            print(f"[QDRANT] Connecting to {QDRANT_HOST}:{QDRANT_PORT}")
+            self.client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, api_key=QDRANT_API_KEY)
+        else:
+            print(f"[QDRANT] Using in-memory storage (dev only)")
+            self.client = QdrantClient(":memory:")
 
         if embed_model is None:
-            print(f"[EMBED] Loading {EMBED_MODEL}...")
-            self.embed_model = SentenceTransformer(EMBED_MODEL)
+            print(f"[EMBED] Loading {EMBED_MODEL} (FP16: {USE_FP16})...")
+            self.embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
         else:
             self.embed_model = embed_model
 
-        print(f"[CHROMA] Persistent storage at {CHROMA_DIR}")
-
-    def _embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Embed a batch of texts with E5 passage prefix."""
-        prefixed = [f"{E5_PASSAGE_PREFIX}{t}" for t in texts]
-        embeddings = self.embed_model.encode(
-            prefixed, show_progress_bar=True, normalize_embeddings=True
+    def _embed_texts(self, texts: list[str]) -> dict:
+        """Embed a batch of texts returning dense and sparse vectors."""
+        output = self.embed_model.encode(
+            texts, return_dense=True, return_sparse=True, return_colbert_vecs=False
         )
-        return embeddings.tolist()
+        return {
+            "dense": output["dense_vecs"].tolist(),
+            "sparse": output["lexical_weights"],
+        }
+
+    def _init_collection(self, collection_name: str):
+        """Create Qdrant collection with both dense and sparse configurations."""
+        if self.client.collection_exists(collection_name):
+            self.client.delete_collection(collection_name)
+            
+        self.client.create_collection(
+            collection_name=collection_name,
+            vectors_config={
+                "dense": VectorParams(size=EMBED_DIM, distance=Distance.COSINE),
+            },
+            sparse_vectors_config={
+                "sparse": SparseVectorParams(),
+            }
+        )
 
     # ──────────────────────────────────────────────────────────────────────
     # ENTITY EMBEDDING
     # ──────────────────────────────────────────────────────────────────────
     def load_entities(self, entities: list[AttackEntity]) -> int:
         """Embed and store entity descriptions. Returns count stored."""
-        sep("Embedding Entities into ChromaDB")
+        sep("Embedding Entities into Qdrant (Hybrid)")
 
-        # Get or create collection (delete first for fresh ingestion)
-        try:
-            self.client.delete_collection(CHROMA_COLLECTION_ENTITIES)
-        except Exception:
-            pass
-
-        collection = self.client.get_or_create_collection(
-            name=CHROMA_COLLECTION_ENTITIES,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self._init_collection(QDRANT_COLLECTION_ENTITIES)
 
         # Prepare documents
         ids = []
@@ -84,7 +116,7 @@ class VectorLoader:
             # Format: "[Type]: [Name]. [Description]"
             text = f"{entity.node_label}: {entity.name}. {entity.description}"
 
-            # Truncate very long descriptions (ChromaDB has limits)
+            # Truncate very long descriptions
             text = text[:8000]
 
             ids.append(entity.stix_id)
@@ -98,36 +130,53 @@ class VectorLoader:
                     "name": entity.name,
                     "domain": entity.domain,
                     "url": entity.url,
+                    "document": text,
                 }
             )
 
         if not documents:
-            print("[CHROMA] No entities to embed")
+            print("[QDRANT] No entities to embed")
             return 0
 
         # Batch embed and insert
-        print(f"[CHROMA] Embedding {len(documents)} entity documents...")
+        print(f"[QDRANT] Embedding {len(documents)} entity documents...")
 
-        BATCH_SIZE = 64
+        BATCH_SIZE = 16  # Smaller batch size for BGE-M3
         for i in range(0, len(documents), BATCH_SIZE):
             batch_ids = ids[i : i + BATCH_SIZE]
             batch_docs = documents[i : i + BATCH_SIZE]
             batch_meta = metadatas[i : i + BATCH_SIZE]
-            batch_embeddings = self._embed_texts(batch_docs)
+            
+            embeddings = self._embed_texts(batch_docs)
+            
+            points = []
+            for j in range(len(batch_ids)):
+                dense_vec = embeddings["dense"][j]
+                sparse_dict = embeddings["sparse"][j]
+                
+                sparse_indices = [int(k) for k in sparse_dict.keys()]
+                sparse_values = list(sparse_dict.values())
+                
+                points.append(PointStruct(
+                    id=uuid_from_stix_id(batch_ids[j]),
+                    vector={
+                        "dense": dense_vec,
+                        "sparse": SparseVector(indices=sparse_indices, values=sparse_values),
+                    },
+                    payload=batch_meta[j],
+                ))
 
-            collection.add(
-                ids=batch_ids,
-                documents=batch_docs,
-                embeddings=batch_embeddings,
-                metadatas=batch_meta,
+            self.client.upsert(
+                collection_name=QDRANT_COLLECTION_ENTITIES,
+                points=points
             )
 
-            if (i + BATCH_SIZE) % 256 == 0 or (i + BATCH_SIZE) >= len(documents):
+            if (i + BATCH_SIZE) % 128 == 0 or (i + BATCH_SIZE) >= len(documents):
                 print(
                     f"        Embedded {min(i + BATCH_SIZE, len(documents))}/{len(documents)} entities"
                 )
 
-        print(f"[CHROMA] Stored {len(documents)} entity embeddings")
+        print(f"[QDRANT] Stored {len(documents)} entity embeddings")
         return len(documents)
 
     # ──────────────────────────────────────────────────────────────────────
@@ -135,17 +184,9 @@ class VectorLoader:
     # ──────────────────────────────────────────────────────────────────────
     def load_relationships(self, relationships: list[AttackRelationship]) -> int:
         """Embed and store relationship descriptions. Returns count stored."""
-        sep("Embedding Relationships into ChromaDB")
+        sep("Embedding Relationships into Qdrant (Hybrid)")
 
-        try:
-            self.client.delete_collection(CHROMA_COLLECTION_RELATIONSHIPS)
-        except Exception:
-            pass
-
-        collection = self.client.get_or_create_collection(
-            name=CHROMA_COLLECTION_RELATIONSHIPS,
-            metadata={"hnsw:space": "cosine"},
-        )
+        self._init_collection(QDRANT_COLLECTION_RELATIONSHIPS)
 
         ids = []
         documents = []
@@ -153,7 +194,7 @@ class VectorLoader:
 
         for rel in relationships:
             if not rel.description:
-                continue  # Skip relationships without descriptions (IN_TACTIC, HAS_COMPONENT)
+                continue
 
             # Format: "[Source Name] [EDGE_LABEL] [Target Name]: [Description]"
             text = (
@@ -173,35 +214,52 @@ class VectorLoader:
                     "target_id": rel.target_ref,
                     "source_name": rel.source_name,
                     "target_name": rel.target_name,
+                    "document": text,
                 }
             )
 
         if not documents:
-            print("[CHROMA] No relationships to embed")
+            print("[QDRANT] No relationships to embed")
             return 0
 
-        print(f"[CHROMA] Embedding {len(documents)} relationship documents...")
+        print(f"[QDRANT] Embedding {len(documents)} relationship documents...")
 
-        BATCH_SIZE = 64
+        BATCH_SIZE = 16
         for i in range(0, len(documents), BATCH_SIZE):
             batch_ids = ids[i : i + BATCH_SIZE]
             batch_docs = documents[i : i + BATCH_SIZE]
             batch_meta = metadatas[i : i + BATCH_SIZE]
-            batch_embeddings = self._embed_texts(batch_docs)
+            
+            embeddings = self._embed_texts(batch_docs)
 
-            collection.add(
-                ids=batch_ids,
-                documents=batch_docs,
-                embeddings=batch_embeddings,
-                metadatas=batch_meta,
+            points = []
+            for j in range(len(batch_ids)):
+                dense_vec = embeddings["dense"][j]
+                sparse_dict = embeddings["sparse"][j]
+                
+                sparse_indices = [int(k) for k in sparse_dict.keys()]
+                sparse_values = list(sparse_dict.values())
+                
+                points.append(PointStruct(
+                    id=uuid_from_stix_id(batch_ids[j]),
+                    vector={
+                        "dense": dense_vec,
+                        "sparse": SparseVector(indices=sparse_indices, values=sparse_values),
+                    },
+                    payload=batch_meta[j],
+                ))
+
+            self.client.upsert(
+                collection_name=QDRANT_COLLECTION_RELATIONSHIPS,
+                points=points
             )
 
-            if (i + BATCH_SIZE) % 256 == 0 or (i + BATCH_SIZE) >= len(documents):
+            if (i + BATCH_SIZE) % 128 == 0 or (i + BATCH_SIZE) >= len(documents):
                 print(
                     f"        Embedded {min(i + BATCH_SIZE, len(documents))}/{len(documents)} relationships"
                 )
 
-        print(f"[CHROMA] Stored {len(documents)} relationship embeddings")
+        print(f"[QDRANT] Stored {len(documents)} relationship embeddings")
         return len(documents)
 
     # ──────────────────────────────────────────────────────────────────────
@@ -212,5 +270,5 @@ class VectorLoader:
         entity_count = self.load_entities(parser.entities)
         rel_count = self.load_relationships(parser.relationships)
         print(
-            f"\n[CHROMA] Total: {entity_count} entity + {rel_count} relationship embeddings"
+            f"\n[QDRANT] Total: {entity_count} entity + {rel_count} relationship embeddings"
         )
