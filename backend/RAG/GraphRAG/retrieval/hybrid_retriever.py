@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from ..config import FINAL_TOP_K, VECTOR_TOP_K
-from sentence_transformers import SentenceTransformer
+from FlagEmbedding import BGEM3FlagModel
 
 from .graph_retriever import GraphRetriever, SubgraphResult
 from .vector_retriever import VectorResult, VectorRetriever
@@ -61,7 +61,7 @@ class GraphRAGResult:
 class HybridRetriever:
     """Orchestrates Vector + Graph retrieval for GraphRAG."""
 
-    def __init__(self, embed_model: Optional[SentenceTransformer] = None):
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
         self.vector_retriever = VectorRetriever(embed_model=embed_model)
         self.graph_retriever = GraphRetriever()
         print("[HYBRID] GraphRAG retriever initialized")

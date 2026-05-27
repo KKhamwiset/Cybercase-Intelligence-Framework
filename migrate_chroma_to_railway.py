@@ -1,3 +1,15 @@
+"""
+DEPRECATED: ChromaDB to Railway Migration Script
+==============================================
+Note: The system has been migrated to Qdrant for BGE-M3 hybrid retrieval. 
+This script is kept for historical reference but is no longer actively maintained. 
+Old ChromaDB data cannot be migrated directly to Qdrant — a full re-embed via 
+`python main.py --ingest` is required.
+
+Script for migrating a local ChromaDB instance to a remote Railway-hosted instance.
+Uses ChromaDB's HTTP client for remote connections and PersistentClient for local.
+"""
+
 import os
 import sys
 from urllib.parse import urlparse

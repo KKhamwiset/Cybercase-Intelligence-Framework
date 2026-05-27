@@ -15,9 +15,10 @@ import sys
 from .config import (
     CHROMA_DIR,
     EMBED_MODEL,
+    USE_FP16,
     sep,
 )
-from sentence_transformers import SentenceTransformer
+from FlagEmbedding import BGEM3FlagModel
 
 # ──────────────────────────────────────────────────────────────────────────────
 # UTF-8 FIX FOR WINDOWS
@@ -54,15 +55,15 @@ def run_ingest():
     # Load into ChromaDB
     sep("CHROMADB INGESTION")
     print(f"[EMBED] Loading {EMBED_MODEL}...")
-    embed_model = SentenceTransformer(EMBED_MODEL)
+    embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
     vector_loader = VectorLoader(embed_model=embed_model)
     vector_loader.load_all(parser)
 
     sep("INGESTION COMPLETE")
     print("✓ Neo4j: Graph loaded with nodes + edges")
-    print("✓ ChromaDB: Entity + relationship embeddings stored")
-    print(f"✓ ChromaDB path: {CHROMA_DIR}")
+    print("✓ Qdrant: Entity + relationship embeddings stored")
+    print(f"✓ Hybrid Vectors Generated (Dense + Sparse)")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -182,7 +183,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py --ingest          # Load data into Neo4j + ChromaDB
+  python main.py --ingest          # Load data into Neo4j + Qdrant
   python main.py --test            # Run test queries (full pipeline)
   python main.py --test --retrieve-only  # Test retrieval without LLM
   python main.py                   # Interactive mode
@@ -192,7 +193,7 @@ Examples:
     arg_parser.add_argument(
         "--ingest",
         action="store_true",
-        help="Parse STIX data and load into Neo4j + ChromaDB",
+        help="Parse STIX data and load into Neo4j + Qdrant",
     )
 
     arg_parser.add_argument(

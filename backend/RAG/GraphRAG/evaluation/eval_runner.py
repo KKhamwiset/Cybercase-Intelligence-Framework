@@ -209,12 +209,11 @@ class EvalRunner:
     def _get_embed_model(self):
         """Lazy-load and share the embedding model."""
         if self._embed_model is None:
-            from sentence_transformers import SentenceTransformer
+            from FlagEmbedding import BGEM3FlagModel
+            from ..config import EMBED_MODEL, USE_FP16
 
-            from ..config import EMBED_MODEL
-
-            print(f"\n[EVAL] Loading shared embedding model: {EMBED_MODEL}")
-            self._embed_model = SentenceTransformer(EMBED_MODEL)
+            print(f"[EVAL] Loading embedding model {EMBED_MODEL}...")
+            self._embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
         return self._embed_model
 
     def run(self) -> dict:

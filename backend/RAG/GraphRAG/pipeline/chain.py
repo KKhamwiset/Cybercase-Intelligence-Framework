@@ -18,7 +18,7 @@ from typing import Optional
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from sentence_transformers import SentenceTransformer
+from FlagEmbedding import BGEM3FlagModel
 
 from ..config import (
     ANTHROPIC_API_KEY,
@@ -27,6 +27,7 @@ from ..config import (
     LLM_MODEL,
     LLM_TEMPERATURE,
     VECTOR_TOP_K,
+    USE_FP16,
     sep,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
@@ -50,13 +51,13 @@ def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
 class GraphRAGChain:
     """Full GraphRAG pipeline with cross-lingual support."""
 
-    def __init__(self, embed_model: Optional[SentenceTransformer] = None):
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
         sep("Initializing GraphRAG Chain")
 
         # Load embedding model (shared across components)
         if embed_model is None:
             print(f"[CHAIN] Loading embedding model: {EMBED_MODEL}")
-            self.embed_model = SentenceTransformer(EMBED_MODEL)
+            self.embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
         else:
             self.embed_model = embed_model
 
