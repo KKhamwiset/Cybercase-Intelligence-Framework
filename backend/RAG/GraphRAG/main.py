@@ -6,6 +6,7 @@ Usage:
     python main.py --test          # Run test queries
     python main.py                 # Interactive mode
     python main.py --retrieve-only # Retrieval without LLM (for debugging)
+    python main.py --agent         # Runs the new GraphRAGAgent with interactive mode
 """
 
 import argparse
@@ -103,15 +104,22 @@ TEST_QUERIES = [
 ]
 
 
-def run_tests(retrieve_only: bool = False):
+def run_tests(retrieve_only: bool = False, use_agent: bool = False):
     """Run test queries."""
-    from .pipeline.chain import GraphRAGChain
+    if use_agent:
+        from .pipeline.agent_graph import GraphRAGAgent
+        pipeline = GraphRAGAgent()
+    else:
+        from .pipeline.chain import GraphRAGChain
+        pipeline = GraphRAGChain()
 
-    chain = GraphRAGChain()
+    mode_label = "agent" if use_agent else "chain"
+    if retrieve_only:
+        mode_label += " (retrieve-only)"
 
     sep("TEST SUITE")
     print(f"Running {len(TEST_QUERIES)} test queries")
-    print(f"Mode: {'retrieve-only' if retrieve_only else 'full pipeline'}")
+    print(f"Mode: {mode_label}")
 
     try:
         for i, query in enumerate(TEST_QUERIES, 1):
@@ -119,32 +127,56 @@ def run_tests(retrieve_only: bool = False):
             print(f"  TEST {i}/{len(TEST_QUERIES)}")
             print(f"{'=' * 72}")
 
-            if retrieve_only:
-                context = chain.retrieve_only(query)
+            if retrieve_only and hasattr(pipeline, 'retrieve_only'):
+                context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:2000])
                 sep()
             else:
-                chain.query(query, verbose=True)
+                pipeline.query(query, verbose=True)
     finally:
-        chain.close()
+        pipeline.close()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # INTERACTIVE
 # ──────────────────────────────────────────────────────────────────────────────
-def run_interactive(retrieve_only: bool = False):
+def _interactive_followup_callback(question: str) -> str:
+    """Callback for the agent's follow-up module in interactive mode.
+
+    Prints the agent's clarifying question and reads the user's response
+    from stdin.
+    """
+    print(f"\n❓ Agent asks: {question}")
+    try:
+        answer = input("💬 Your answer> ").strip()
+    except (KeyboardInterrupt, EOFError):
+        return ""
+    return answer
+
+
+def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
     """Interactive query mode."""
-    from .pipeline.chain import GraphRAGChain
+    if use_agent:
+        from .pipeline.agent_graph import GraphRAGAgent
+        pipeline = GraphRAGAgent()
+    else:
+        from .pipeline.chain import GraphRAGChain
+        pipeline = GraphRAGChain()
 
-    chain = GraphRAGChain()
-
-    mode = "RETRIEVE-ONLY" if retrieve_only else "FULL PIPELINE"
+    mode_parts = []
+    if use_agent:
+        mode_parts.append("AGENTIC")
+    if retrieve_only:
+        mode_parts.append("RETRIEVE-ONLY")
+    mode = " | ".join(mode_parts) if mode_parts else "FULL PIPELINE"
 
     print(f"\n{'=' * 72}")
     print(f"  MITRE ATT&CK GraphRAG — Interactive Mode ({mode})")
     print("  Type 'quit' or 'q' to exit")
     print("  Supports Thai and English queries")
+    if use_agent:
+        print("  🤖 Agentic features: self-reflection + follow-up")
     print(f"{'=' * 72}")
 
     try:
@@ -162,15 +194,21 @@ def run_interactive(retrieve_only: bool = False):
             if not query:
                 continue
 
-            if retrieve_only:
-                context = chain.retrieve_only(query)
+            if retrieve_only and hasattr(pipeline, 'retrieve_only'):
+                context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:3000])
                 sep()
+            elif use_agent:
+                pipeline.query(
+                    query,
+                    verbose=True,
+                    followup_callback=_interactive_followup_callback,
+                )
             else:
-                chain.query(query, verbose=True)
+                pipeline.query(query, verbose=True)
     finally:
-        chain.close()
+        pipeline.close()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -207,14 +245,20 @@ Examples:
         help="Retrieval without LLM generation (for debugging)",
     )
 
+    arg_parser.add_argument(
+        "--agent",
+        action="store_true",
+        help="Use the Agentic RAG pipeline (LangGraph) with self-reflection and follow-up",
+    )
+
     args = arg_parser.parse_args()
 
     if args.ingest:
         run_ingest()
     elif args.test:
-        run_tests(retrieve_only=args.retrieve_only)
+        run_tests(retrieve_only=args.retrieve_only, use_agent=args.agent)
     else:
-        run_interactive(retrieve_only=args.retrieve_only)
+        run_interactive(retrieve_only=args.retrieve_only, use_agent=args.agent)
 
 
 if __name__ == "__main__":
