@@ -638,22 +638,22 @@ class DatasetGenerator:
         # ── Discover seed nodes ───────────────────────────────────────────
         print("\n[GEN] Discovering seed nodes from Neo4j...")
 
-        techniques = self.neo4j.get_top_techniques(limit=15)
+        techniques = self.neo4j.get_top_techniques(limit=200)
         print(f"  Techniques: {len(techniques)}")
 
-        groups = self.neo4j.get_top_groups(limit=12)
+        groups = self.neo4j.get_top_groups(limit=100)
         print(f"  Groups: {len(groups)}")
 
-        software = self.neo4j.get_top_software(limit=12)
+        software = self.neo4j.get_top_software(limit=100)
         print(f"  Software: {len(software)}")
 
         tactics = self.neo4j.get_all_tactics()
         print(f"  Tactics: {len(tactics)}")
 
-        groups_with_campaigns = self.neo4j.get_groups_with_campaigns(limit=8)
+        groups_with_campaigns = self.neo4j.get_groups_with_campaigns(limit=100)
         print(f"  Groups with campaigns: {len(groups_with_campaigns)}")
 
-        techniques_with_detection = self.neo4j.get_techniques_with_detection(limit=10)
+        techniques_with_detection = self.neo4j.get_techniques_with_detection(limit=100)
         print(f"  Techniques with detection: {len(techniques_with_detection)}")
 
         # ── Generate samples per template ─────────────────────────────────
