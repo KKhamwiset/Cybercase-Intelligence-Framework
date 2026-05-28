@@ -375,8 +375,26 @@ def main():
         default="full",
         help="Evaluation mode: retriever, generation, or full (both)",
     )
+    parser.add_argument(
+        "--output", type=str, help="Export output to file (.txt or .md)"
+    )
 
     args = parser.parse_args()
+
+    if args.output:
+        tee = open(args.output, "w", encoding="utf-8")
+
+        class Tee:
+            def write(self, data):
+                sys.stdout_orig.write(data)  # type: ignore
+                tee.write(data)
+
+            def flush(self):
+                sys.stdout_orig.flush()  # type: ignore
+                tee.flush()
+
+        sys.stdout_orig = sys.stdout  # type: ignore
+        sys.stdout = Tee()  # type: ignore
 
     runner = EvalRunner(dataset_path=args.dataset, mode=args.mode)
     runner.run()

@@ -560,8 +560,12 @@ class GraphRAGAgent:
         """Prepare a follow-up question for the user."""
         evaluation: EvaluationResult = state["evaluation"]
 
+        question = evaluation.followup_question
+        if not question:
+            question = "Could you please provide more specific details about the attack technique, target, or context?"
+
         return {
-            "followup_question": evaluation.followup_question,
+            "followup_question": question,
             "awaiting_followup": True,
         }
 
@@ -630,8 +634,9 @@ class GraphRAGAgent:
     @staticmethod
     def _edge_after_route(state: AgentState) -> str:
         """Route based on query classification."""
-        if state.get("route") == "GENERAL_EXPLANATION":
-            return "general"
+        # TEMPORARILY DISABLED ROUTER: always go to incident analysis
+        # if state.get("route") == "GENERAL_EXPLANATION":
+        #     return "general"
         return "incident"
 
     @staticmethod
@@ -646,14 +651,8 @@ class GraphRAGAgent:
         if evaluation.verdict == VERDICT_SUFFICIENT:
             return "sufficient"
 
-        if evaluation.verdict == VERDICT_INSUFFICIENT:
-            if retry_count >= MAX_RETRIEVAL_RETRIES:
-                # Exhausted retries → proceed with what we have
-                return "sufficient"
-            return "insufficient"
-
-        if evaluation.verdict == VERDICT_NEED_CLARIFICATION:
-            # Only ask for clarification on the first attempt
+        # User request: If INSUFFICIENT or NEED_CLARIFICATION, immediately ask follow-up
+        if evaluation.verdict in (VERDICT_INSUFFICIENT, VERDICT_NEED_CLARIFICATION):
             if retry_count == 0:
                 return "need_clarification"
             # Already retried → proceed with what we have
