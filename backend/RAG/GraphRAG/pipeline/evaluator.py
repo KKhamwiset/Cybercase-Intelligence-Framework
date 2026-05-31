@@ -67,9 +67,8 @@ SUFFICIENT
 
 INSUFFICIENT
   The context is mostly irrelevant or too sparse to answer the question.
-  You MUST supply a **rewritten_query** that is more specific, uses
-  different keywords, expands acronyms, or tries alternative MITRE ATT&CK
-  terminology so the retriever can find better results on the next attempt.
+  You MUST supply a **followup_question** in the same language the user used
+  (Thai or English) to ask for more specific details or clarification.
 
 NEED_CLARIFICATION
   The user's query itself is too vague, ambiguous, or missing critical
