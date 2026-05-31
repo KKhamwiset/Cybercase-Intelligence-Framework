@@ -17,10 +17,13 @@ neo4j>=5.0.0
 pydantic>=2.13.0
 pydantic[email]
 pydantic-settings>=2.7.0
+pypdf>=5.0.0
+python-multipart>=0.0.20
 python-dotenv>=1.0.0
 sentence-transformers>=5.4.0
 sqlalchemy>=2.0.0
 stix2>=3.0.0
+typhoon-ocr>=0.1.0
 uvicorn>=0.34.0
 
 # ──────────────────────────────────────────────────────────────────────────────

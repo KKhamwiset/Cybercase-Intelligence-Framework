@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from typing import Optional
+
+from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 try:
     from RAG import GraphRAGChain, GraphRAGAgent, AgentResponse
@@ -42,6 +43,20 @@ class ResumeRequest(BaseModel):
     answer: str
 
 
+def build_document_query(extracted_markdown: str, query: str | None) -> str:
+    user_query = (query or "").strip()
+    if not user_query:
+        user_query = "Analyze this document and identify the most relevant cyber threat, legal, or MITRE ATT&CK context."
+
+    return (
+        f"{user_query}\n\n"
+        "Document extracted by Typhoon OCR:\n"
+        "```markdown\n"
+        f"{extracted_markdown}\n"
+        "```"
+    )
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     if request.use_agent:
@@ -72,6 +87,31 @@ async def query_rag(request: QueryRequest):
         except Exception as e:
             print(f"[RAG] Error processing chain query: {e}")
             raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/query-file", response_model=QueryResponse)
+async def query_rag_file(
+    file: UploadFile = File(...),
+    query: str = Form(""),
+    page_num: int = Form(1),
+):
+    if not rag_chain:
+        raise HTTPException(
+            status_code=503, detail="RAG Chain not initialized or available"
+        )
+
+    if page_num < 1:
+        raise HTTPException(status_code=400, detail="page_num must be 1 or greater")
+
+    try:
+        extracted_markdown = await extract_markdown_from_upload(file, page_num=page_num)
+        answer = rag_chain.query(build_document_query(extracted_markdown, query))
+        return QueryResponse(status="completed", answer=answer)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[RAG] Error processing OCR query: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/resume", response_model=QueryResponse)
