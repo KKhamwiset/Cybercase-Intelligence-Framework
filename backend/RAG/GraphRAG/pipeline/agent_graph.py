@@ -429,7 +429,7 @@ class GraphRAGAgent:
     # ------------------------------------------------------------------
     def _node_route_query(self, state: AgentState) -> dict:
         """Classify the query as GENERAL_EXPLANATION or INCIDENT_ANALYSIS."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         if verbose:
@@ -445,7 +445,7 @@ class GraphRAGAgent:
 
     def _node_general_explanation(self, state: AgentState) -> dict:
         """Handle general knowledge questions without retrieval."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         if not self.reasoning_llm:
@@ -479,7 +479,7 @@ class GraphRAGAgent:
 
     def _node_translate_query(self, state: AgentState) -> dict:
         """Detect language and translate to English for retrieval."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(query)
@@ -495,7 +495,7 @@ class GraphRAGAgent:
 
     def _node_retrieve(self, state: AgentState) -> dict:
         """Execute hybrid retrieval (Vector + Graph) — always uses both."""
-        english_query = state["english_query"]
+        english_query = state.get("english_query", state.get("original_query", ""))
         verbose = state.get("verbose", True)
 
         if verbose:
@@ -519,9 +519,9 @@ class GraphRAGAgent:
         retry_count = state.get("retry_count", 0)
 
         evaluation = self.evaluator.evaluate(
-            original_query=state["original_query"],
-            english_query=state["english_query"],
-            context=state["context"],
+            original_query=state.get("original_query", ""),
+            english_query=state.get("english_query", state.get("original_query", "")),
+            context=state.get("context", ""),
             verbose=verbose,
         )
 
@@ -532,11 +532,15 @@ class GraphRAGAgent:
 
     def _node_rewrite_and_retrieve(self, state: AgentState) -> dict:
         """Rewrite the query and re-retrieve when context was insufficient."""
-        evaluation: EvaluationResult = state["evaluation"]
+        evaluation: EvaluationResult | None = state.get("evaluation")
         verbose = state.get("verbose", True)
         retry_count = state.get("retry_count", 0) + 1
 
-        new_query = evaluation.rewritten_query or state["english_query"]
+        new_query = (
+            evaluation.rewritten_query
+            if evaluation and evaluation.rewritten_query
+            else state.get("english_query", state.get("original_query", ""))
+        )
 
         if verbose:
             sep(f"AGENT — RE-RETRIEVAL (attempt {retry_count}/{MAX_RETRIEVAL_RETRIES})")
@@ -558,9 +562,9 @@ class GraphRAGAgent:
 
     def _node_prepare_followup(self, state: AgentState) -> dict:
         """Prepare a follow-up question for the user."""
-        evaluation: EvaluationResult = state["evaluation"]
+        evaluation: EvaluationResult | None = state.get("evaluation")
 
-        question = evaluation.followup_question
+        question = evaluation.followup_question if evaluation else ""
         if not question:
             question = "Could you please provide more specific details about the attack technique, target, or context?"
 
@@ -574,12 +578,12 @@ class GraphRAGAgent:
         verbose = state.get("verbose", True)
 
         if not self.reasoning_llm:
-            return {"answer": state["context"]}
+            return {"answer": state.get("context", "")}
 
         reasoning_prompt = build_generation_prompt(
-            context=state["context"],
-            original_query=state["original_query"],
-            english_query=state["english_query"],
+            context=state.get("context", ""),
+            original_query=state.get("original_query", ""),
+            english_query=state.get("english_query", state.get("original_query", "")),
             respond_in_thai=False,  # Reasoning always outputs English
         )
 
@@ -603,7 +607,7 @@ class GraphRAGAgent:
     def _node_translate_output(self, state: AgentState) -> dict:
         """Stage 3: Translation LLM — render English answer into Thai."""
         verbose = state.get("verbose", True)
-        simplified = state["answer"]
+        simplified = state.get("answer", "")
 
         if not self.translation_llm:
             return {"answer": simplified}

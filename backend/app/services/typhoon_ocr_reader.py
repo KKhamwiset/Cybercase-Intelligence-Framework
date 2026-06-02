@@ -30,6 +30,22 @@ async def extract_markdown_from_upload(file: UploadFile, page_num: int = 1) -> s
             temp_file.write(content)
             temp_path = temp_file.name
 
+        typhoon_api_key = (
+            os.getenv("TYPHOON_OCR_API_KEY")
+            or os.getenv("TYPHOON_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+        )
+        if not typhoon_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Typhoon OCR API key is missing. Set TYPHOON_OCR_API_KEY, "
+                    "TYPHOON_API_KEY, or OPENAI_API_KEY."
+                ),
+            )
+        if not os.getenv("OPENAI_API_KEY"):
+            os.environ["OPENAI_API_KEY"] = typhoon_api_key
+
         try:
             from typhoon_ocr import ocr_document
         except ImportError as exc:

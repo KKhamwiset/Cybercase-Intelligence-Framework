@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { chatContinue, ChatMessage } from "@/lib/api";
+import { chatContinue, ChatMessage, queryRagFile } from "@/lib/api";
 import Link from "next/link";
 
 /**
@@ -11,7 +11,10 @@ import Link from "next/link";
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pageNum, setPageNum] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to the bottom of the chat history
@@ -25,17 +28,29 @@ export default function ChatPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedFile) || isLoading) return;
 
     const currentInput = input;
-    const userMessage: ChatMessage = { role: "user", content: currentInput };
+    const currentFile = selectedFile;
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: currentFile
+        ? `${currentInput || "Analyze this document"}\n\nAttached file: ${currentFile.name} (page ${pageNum})`
+        : currentInput,
+    };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
     setIsLoading(true);
 
     try {
-      const answer = await chatContinue(currentInput, messages);
+      const answer = currentFile
+        ? await queryRagFile(currentFile, currentInput, pageNum)
+        : await chatContinue(currentInput, messages);
       const aiMessage: ChatMessage = { role: "assistant", content: answer };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
@@ -49,6 +64,11 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSelectedFile(file);
   };
 
   return (
@@ -158,36 +178,117 @@ export default function ChatPage() {
       {/* Input Area */}
       <footer className="bg-white border-t border-gray-200 p-4 md:p-8 sticky bottom-0">
         <div className="max-w-4xl mx-auto">
-          <form onSubmit={handleSubmit} className="relative flex items-center group">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask anything about Thai regulations..."
-              disabled={isLoading}
-              className="w-full bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              className="absolute right-3 p-3 bg-primary hover:bg-secondary text-white rounded-xl transition-all disabled:opacity-50 disabled:bg-neutral transform active:scale-95 shadow-sm"
-              aria-label="Send message"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <label className="flex flex-1 cursor-pointer items-center gap-3 text-sm font-medium text-primary">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                    <path d="M10 12H8" />
+                    <path d="M16 16H8" />
+                    <path d="M16 20H8" />
+                  </svg>
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">
+                    {selectedFile ? selectedFile.name : "Attach PDF or image for OCR"}
+                  </span>
+                  <span className="block text-xs font-normal text-neutral">
+                    PDF, PNG, JPG, or JPEG
+                  </span>
+                </span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                  onChange={handleFileChange}
+                  disabled={isLoading}
+                  className="sr-only"
+                />
+              </label>
+
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="ocr-page"
+                  className="text-xs font-bold uppercase tracking-widest text-neutral"
+                >
+                  Page
+                </label>
+                <input
+                  id="ocr-page"
+                  type="number"
+                  min="1"
+                  value={pageNum}
+                  onChange={(e) =>
+                    setPageNum(Math.max(1, Number(e.target.value) || 1))
+                  }
+                  disabled={isLoading}
+                  className="h-10 w-20 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-primary outline-none focus:border-primary"
+                />
+                {selectedFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = "";
+                      }
+                    }}
+                    disabled={isLoading}
+                    className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral transition-colors hover:text-primary disabled:opacity-50"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="relative flex items-center group">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={
+                  selectedFile
+                    ? "Ask what to analyze from this file..."
+                    : "Ask anything about Thai regulations..."
+                }
+                disabled={isLoading}
+                className="w-full bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md"
+              />
+              <button
+                type="submit"
+                disabled={isLoading || (!input.trim() && !selectedFile)}
+                className="absolute right-3 p-3 bg-primary hover:bg-secondary text-white rounded-xl transition-all disabled:opacity-50 disabled:bg-neutral transform active:scale-95 shadow-sm"
+                aria-label="Send message"
               >
-                <path d="m22 2-7 20-4-9-9-4Z" />
-                <path d="M22 2 11 13" />
-              </svg>
-            </button>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m22 2-7 20-4-9-9-4Z" />
+                  <path d="M22 2 11 13" />
+                </svg>
+              </button>
+            </div>
           </form>
           <div className="flex justify-between items-center mt-4 px-2">
             <p className="text-[10px] text-neutral font-medium uppercase tracking-widest">

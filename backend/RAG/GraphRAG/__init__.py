@@ -28,6 +28,7 @@ from .models import (
     Technique,
 )
 from .pipeline import (
+    AgentResponse,
     ContextEvaluator,
     CrossLingualLayer,
     EvaluationResult,
@@ -67,6 +68,7 @@ __all__ = [
     "SubgraphResult",
     "HybridRetriever",
     "GraphRAGResult",
+    "AgentResponse",
     "VectorRetriever",
     "VectorResult",
     "GraphRAGAgent",
