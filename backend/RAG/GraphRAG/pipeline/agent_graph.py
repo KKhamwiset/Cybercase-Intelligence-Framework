@@ -3,29 +3,27 @@ LangGraph Agentic RAG Pipeline
 ================================
 Replaces the linear LCEL chain with a stateful graph that supports:
 
-  1. **Self-Reflection** — evaluates retrieved context quality and
-     re-retrieves with a rewritten query when results are insufficient.
-  2. **Follow-Up Module** — asks the user for clarification when the
-     query is too vague, then re-retrieves with enriched context.
-
-The graph preserves the existing cross-lingual flow:
-
-    input → route → translate → retrieve → evaluate_context
-                                                 │
-                                   ┌─ sufficient ┤ insufficient ─┐
-                                   ↓                              ↓
-                              reasoning              rewrite_query
-                                   ↓                      ↓
-                           translate_output        retrieve (loop)
-                                   ↓                      ↓
-                                output           evaluate_context
-                                                 (max 2 retries)
-
-                              ─── or ───
-
-                          need_clarification
-                                   ↓
-                            ask_followup → (user input) → retrieve → …
+   1. **Follow-Up Module** — on insufficient context the agent immediately
+      asks a targeted follow-up question, stores the answer as a structured
+      incident fact, rewrites the query (MITRE-aligned), then re-retrieves
+      using ALL accumulated queries in parallel.
+   2. **Multi-Query Retrieval** — original query + all rewrites are run
+      through retrieve_multi() and merged/deduplicated before evaluation.
+ 
+ The graph flow:
+ 
+     input → route → translate → retrieve_multi → evaluate_context
+                                                        │
+                                        ┌─ sufficient   │  insufficient
+                                        ↓               ↓
+                                   reasoning     prepare_followup
+                                        ↓               ↓
+                               translate_output   (user input)
+                                        ↓               ↓
+                                     output      append fact + rewrite
+                                                         ↓
+                                                  retrieve_multi (loop)
+                                              (max 2 follow-up iterations)
 """
 
 from __future__ import annotations
@@ -51,7 +49,7 @@ from ..config import (
     sep,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
-from .context_builder import build_context, build_generation_prompt
+from .context_builder import build_context, build_generation_prompt, build_reasoning_prompt
 from .cross_lingual import CrossLingualLayer
 from .evaluator import (
     ContextEvaluator,
@@ -60,6 +58,7 @@ from .evaluator import (
     VERDICT_NEED_CLARIFICATION,
     VERDICT_SUFFICIENT,
 )
+from .query_merger import QueryMerger
 from .router import QueryRouter
 
 
@@ -83,6 +82,7 @@ class AgentState(TypedDict, total=False):
     # ── Retrieval ─────────────────────────────────────────────────────────
     graphrag_result: Any  # GraphRAGResult
     context: str  # Assembled context text
+    rewritten_queries: list  # All MITRE-aligned rewrites derived from follow-ups
 
     # ── Evaluation ────────────────────────────────────────────────────────
     evaluation: Any  # EvaluationResult
@@ -90,11 +90,24 @@ class AgentState(TypedDict, total=False):
 
     # ── Follow-up ─────────────────────────────────────────────────────────
     followup_question: str  # Question to ask the user
-    followup_answer: str  # User's response
+    followup_answer: str  # User's response (latest)
     awaiting_followup: bool  # True while waiting for user input
+    followup_count: int  # Iterations so far (max: MAX_FOLLOWUP_RETRIES)
+    broaden_count: int  # Iterations of BROADEN_SEARCH so far
+    incident_facts: dict  # Structured facts: {"initial_access": "SQL Injection", …}
+    asked_slots: list  # Slot names already asked, e.g. ["initial_access"]
+
+    # ── Fallback Strategies ───────────────────────────────────────────────
+    strategy: str  # BROADEN_SEARCH | PARTIAL_ANSWER | ACKNOWLEDGE_LIMIT
+    gap_warning: str
+    acknowledgement_message: str
 
     # ── Output ────────────────────────────────────────────────────────────
     answer: str  # Final answer
+
+    # ── Memory ────────────────────────────────────────────────────────────
+    session_memory: dict
+    conversation_history: list
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +148,7 @@ class AgentResponse:
 # Max retries for the self-reflection loop
 # ──────────────────────────────────────────────────────────────────────────────
 MAX_RETRIEVAL_RETRIES = 2
+MAX_FOLLOWUP_RETRIES = 2  # Maximum follow-up iterations before forcing generation
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -162,10 +176,15 @@ class GraphRAGAgent:
         self.retriever = HybridRetriever(embed_model=self.embed_model)
         self.router = QueryRouter()
         self.evaluator = ContextEvaluator()
+        self.query_merger = QueryMerger()
 
         # In-memory session store for paused follow-up states.
         # Maps session_id → AgentState snapshot so the API can resume.
         self._sessions: dict[str, dict] = {}
+
+        # ── Cross-Turn Conversational Memory ──────────────────────────────────
+        self.session_memory: dict = {}
+        self.conversation_history: list = []
 
         # LLMs
         if ANTHROPIC_API_KEY:
@@ -196,6 +215,14 @@ class GraphRAGAgent:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+    def clear_memory(self):
+        """Reset the cross-turn conversational memory."""
+        self.session_memory = {}
+        self.conversation_history = []
+        if getattr(self, "evaluator", None):
+            from ..config import sep
+            sep("AGENT — MEMORY CLEARED")
+
     def close(self) -> None:
         """Clean up resources."""
         self.retriever.close()
@@ -212,7 +239,8 @@ class GraphRAGAgent:
 
         - **CLI / synchronous**: Pass a ``followup_callback(question) -> str``.
           If the agent needs clarification it will call the callback, get the
-          user's answer, and continue — returning a completed ``AgentResponse``.
+          user's answer, and continue. It handles multiple follow-up iterations
+          in a loop until the graph completes.
         - **API / asynchronous**: Pass ``followup_callback=None`` (default).
           If clarification is needed the method returns an ``AgentResponse``
           with ``status="followup"`` and a ``session_id``.  The API caller
@@ -231,18 +259,30 @@ class GraphRAGAgent:
             "original_query": user_query,
             "verbose": verbose,
             "retry_count": 0,
+            "followup_count": 0,
+            "broaden_count": 0,
             "awaiting_followup": False,
             "followup_answer": "",
+            "rewritten_queries": [],
+            "incident_facts": {},
+            "asked_slots": [],
+            "strategy": "",
+            "gap_warning": "",
+            "acknowledgement_message": "",
+            "session_memory": self.session_memory,
+            "conversation_history": self.conversation_history,
         }
 
         # Run the graph until we hit END (or follow-up pause)
         result = self.graph.invoke(initial_state)
 
         # ── Handle follow-up ──────────────────────────────────────────
-        if result.get("awaiting_followup") and result.get("followup_question"):
+        # Use a loop so CLI mode can handle multiple follow-up iterations
+        while result.get("awaiting_followup") and result.get("followup_question"):
             question = result["followup_question"]
 
             if verbose:
+                from ..config import sep
                 sep("AGENT — FOLLOW-UP REQUIRED")
                 print(f"  Question: {question}")
 
@@ -251,32 +291,34 @@ class GraphRAGAgent:
                 user_answer = followup_callback(question)
 
                 if user_answer:
+                    # _resume_with_answer re-invokes the graph. The loop continues.
                     result = self._resume_with_answer(result, user_answer)
-                    return AgentResponse(
-                        status="completed",
-                        answer=result.get("answer", ""),
-                    )
-                # User declined to answer → proceed with what we have
-                result = self._force_continue(result)
-                return AgentResponse(
-                    status="completed",
-                    answer=result.get("answer", ""),
-                )
+                    continue
+                else:
+                    # User declined to answer → proceed with what we have
+                    result = self._force_continue(result)
+                    break
 
             # ── API mode: park the session and return follow-up ───────
-            session_id = str(uuid.uuid4())
-            self._sessions[session_id] = dict(result)
+            else:
+                import uuid
+                session_id = str(uuid.uuid4())
+                self._sessions[session_id] = dict(result)
 
-            if verbose:
-                print(f"  Session parked: {session_id}")
+                if verbose:
+                    print(f"  Session parked: {session_id}")
 
-            return AgentResponse(
-                status="followup",
-                followup_question=question,
-                session_id=session_id,
-            )
+                return AgentResponse(
+                    status="followup",
+                    followup_question=question,
+                    session_id=session_id,
+                )
 
         # ── Normal completion ─────────────────────────────────────────
+        # Save memory state for the next turn
+        self.session_memory = result.get("session_memory", {})
+        self.conversation_history = result.get("conversation_history", [])
+
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
@@ -326,6 +368,10 @@ class GraphRAGAgent:
         else:
             result = self._force_continue(stored_state)
 
+        # Save memory state for the next turn
+        self.session_memory = result.get("session_memory", {})
+        self.conversation_history = result.get("conversation_history", [])
+
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
@@ -335,20 +381,76 @@ class GraphRAGAgent:
     # Internal helpers for follow-up resumption
     # ------------------------------------------------------------------
     def _resume_with_answer(self, state: dict, user_answer: str) -> dict:
-        """Enrich the query with the user's follow-up answer and re-run."""
+        """Incorporate the user's follow-up answer as a structured incident fact
+        and produce a MITRE-aligned rewritten query before re-running the graph.
+
+        Steps:
+        1. Retrieve the slot_name from the evaluation result so the answer can
+           be stored under the correct key in ``incident_facts``.
+        2. Call ``QueryMerger`` to produce a clean MITRE-aligned rewritten query.
+        3. Append the rewritten query to ``rewritten_queries`` (the original
+           ``english_query`` is never mutated).
+        4. Record the slot in ``asked_slots`` to prevent re-asking.
+        5. Re-run the graph; ``_node_retrieve`` will call ``retrieve_multi``
+           with all accumulated queries.
+        """
+        verbose = state.get("verbose", True)
+        followup_question = state.get("followup_question", "")
+        original_query = state.get("original_query", "")
+        english_query = state.get("english_query", original_query)
+
+        # ── 1. Store structured incident fact ─────────────────────────────
+        evaluation = state.get("evaluation")
+        slot_name = (
+            evaluation.slot_name
+            if evaluation and getattr(evaluation, "slot_name", "")
+            else "followup"
+        )
+        incident_facts: dict = dict(state.get("incident_facts") or {})
+        incident_facts[slot_name] = user_answer
+
+        asked_slots: list = list(state.get("asked_slots") or [])
+        if slot_name not in asked_slots:
+            asked_slots.append(slot_name)
+
+        # ── 2. Produce MITRE-aligned rewritten query via QueryMerger ──────
+        rewritten_query = self.query_merger.merge(
+            original_query=english_query,
+            followup_question=followup_question,
+            user_answer=user_answer,
+            verbose=verbose,
+        )
+
+        # ── 3. Accumulate rewritten queries ───────────────────────────────
+        rewritten_queries: list = list(state.get("rewritten_queries") or [])
+        rewritten_queries.append(rewritten_query)
+
+        # ── 4. Update state ───────────────────────────────────────────────
         state["followup_answer"] = user_answer
         state["awaiting_followup"] = False
+        state["followup_count"] = state.get("followup_count", 0) + 1
+        state["incident_facts"] = incident_facts
+        state["asked_slots"] = asked_slots
+        state["rewritten_queries"] = rewritten_queries
 
-        # Enrich the original query with the follow-up context
-        enriched = f"{state['original_query']}\n\nAdditional context from user: {user_answer}"
-        state["original_query"] = enriched
+        if verbose:
+            from ..config import sep
+            sep("AGENT — FOLLOW-UP ANSWER RECEIVED")
+            print(f"  Slot       : {slot_name}")
+            print(f"  Value      : {user_answer}")
+            print(f"  Rewrite    : {rewritten_query}")
+            print(f"  All queries: {len(rewritten_queries) + 1} total")
 
+<<<<<<< Updated upstream
         # Increment retry_count so the evaluator treats this as a follow-up
         # iteration — prevents infinite NEED_CLARIFICATION loops and ensures
         # the graph reaches reasoning even if context is still imperfect.
         state["retry_count"] = state.get("retry_count", 0) + 1
 
         # Re-run the full graph from the beginning (route → … → answer)
+=======
+        # ── 5. Re-run the full graph ──────────────────────────────────────
+>>>>>>> Stashed changes
         return self.graph.invoke(state)
 
     def _force_continue(self, state: dict) -> dict:
@@ -372,7 +474,7 @@ class GraphRAGAgent:
         graph.add_node("translate_query", self._node_translate_query)
         graph.add_node("retrieve", self._node_retrieve)
         graph.add_node("evaluate_context", self._node_evaluate_context)
-        graph.add_node("rewrite_and_retrieve", self._node_rewrite_and_retrieve)
+        graph.add_node("broaden_search", self._node_broaden_search)
         graph.add_node("prepare_followup", self._node_prepare_followup)
         graph.add_node("reasoning", self._node_reasoning)
         graph.add_node("translate_output", self._node_translate_output)
@@ -381,7 +483,6 @@ class GraphRAGAgent:
         graph.set_entry_point("route_query")
 
         # ── Edges ─────────────────────────────────────────────────────
-        # After routing, decide which path
         graph.add_conditional_edges(
             "route_query",
             self._edge_after_route,
@@ -391,28 +492,26 @@ class GraphRAGAgent:
             },
         )
 
-        # General explanation goes straight to END
         graph.add_edge("general_explanation", END)
 
-        # Translation → Retrieval → Evaluation
+        # Translation → Multi-Query Retrieval → Evaluation
         graph.add_edge("translate_query", "retrieve")
         graph.add_edge("retrieve", "evaluate_context")
 
-        # Evaluation decides next step
+        # Evaluation decides: sufficient → reason, insufficient → ask follow-up, broaden → broaden_search
         graph.add_conditional_edges(
             "evaluate_context",
             self._edge_after_evaluation,
             {
                 "sufficient": "reasoning",
-                "insufficient": "rewrite_and_retrieve",
-                "need_clarification": "prepare_followup",
+                "followup": "prepare_followup",
+                "broaden": "broaden_search",
             },
         )
 
-        # Re-retrieval loops back to evaluation
-        graph.add_edge("rewrite_and_retrieve", "evaluate_context")
+        graph.add_edge("broaden_search", "retrieve")
 
-        # Follow-up → END (will be resumed externally)
+        # Follow-up → END (pipeline pauses; resumed via _resume_with_answer)
         graph.add_edge("prepare_followup", END)
 
         # Reasoning → optional translation → END
@@ -499,14 +598,26 @@ class GraphRAGAgent:
         }
 
     def _node_retrieve(self, state: AgentState) -> dict:
-        """Execute hybrid retrieval (Vector + Graph) — always uses both."""
+        """Execute multi-query hybrid retrieval (Vector + Graph).
+
+        On the first pass only ``english_query`` is used.  After each
+        follow-up round, MITRE-aligned rewritten queries are appended to
+        ``rewritten_queries`` and all queries are retrieved in parallel via
+        ``retrieve_multi()``.
+        """
         english_query = state["english_query"]
+        rewritten_queries: list = list(state.get("rewritten_queries") or [])
         verbose = state.get("verbose", True)
 
-        if verbose:
-            sep("AGENT — HYBRID RETRIEVAL")
+        # Build the full query list: original always first
+        all_queries = [english_query] + rewritten_queries
 
-        graphrag_result = self.retriever.retrieve(english_query, top_k=VECTOR_TOP_K)
+        if verbose:
+            sep("AGENT — HYBRID RETRIEVAL (multi-query)")
+            for i, q in enumerate(all_queries, 1):
+                print(f"  [{i}] {q[:100]}")
+
+        graphrag_result = self.retriever.retrieve_multi(all_queries, top_k=VECTOR_TOP_K)
         context = build_context(graphrag_result)
 
         if verbose:
@@ -519,91 +630,108 @@ class GraphRAGAgent:
         }
 
     def _node_evaluate_context(self, state: AgentState) -> dict:
-        """Evaluate whether the retrieved context is sufficient."""
+        """Evaluate whether the retrieved context is sufficient.
+
+        Passes structured incident facts and already-asked slots to the
+        evaluator so it never asks for information the user already gave.
+        """
         verbose = state.get("verbose", True)
-        retry_count = state.get("retry_count", 0)
+        followup_count = state.get("followup_count", 0)
+        broaden_count = state.get("broaden_count", 0)
+
+        # the retry_count passed to the evaluator includes both user follow-ups and broaden loops
+        total_retries = followup_count + broaden_count
 
         evaluation = self.evaluator.evaluate(
             original_query=state["original_query"],
             english_query=state["english_query"],
             context=state["context"],
+            retry_count=total_retries,  # drives looser criteria on later iterations and strategy choice
             verbose=verbose,
+            incident_facts=state.get("incident_facts") or {},
+            asked_slots=state.get("asked_slots") or [],
         )
 
         return {
             "evaluation": evaluation,
-            "retry_count": retry_count,
-        }
-
-    def _node_rewrite_and_retrieve(self, state: AgentState) -> dict:
-        """Rewrite the query and re-retrieve when context was insufficient."""
-        evaluation: EvaluationResult = state["evaluation"]
-        verbose = state.get("verbose", True)
-        retry_count = state.get("retry_count", 0) + 1
-
-        new_query = evaluation.rewritten_query or state["english_query"]
-
-        if verbose:
-            sep(f"AGENT — RE-RETRIEVAL (attempt {retry_count}/{MAX_RETRIEVAL_RETRIES})")
-            print(f"  Rewritten query: {new_query}")
-
-        graphrag_result = self.retriever.retrieve(new_query, top_k=VECTOR_TOP_K)
-        context = build_context(graphrag_result)
-
-        if verbose:
-            sep("CONTEXT PREVIEW (re-retrieved)")
-            print(context[:500] + "..." if len(context) > 500 else context)
-
-        return {
-            "english_query": new_query,
-            "graphrag_result": graphrag_result,
-            "context": context,
-            "retry_count": retry_count,
+            "strategy": getattr(evaluation, "strategy", ""),
+            "gap_warning": getattr(evaluation, "gap_warning", ""),
+            "acknowledgement_message": getattr(evaluation, "message", ""),
         }
 
     def _node_prepare_followup(self, state: AgentState) -> dict:
         """Prepare a follow-up question for the user."""
         evaluation: EvaluationResult = state["evaluation"]
+        return {
+            "awaiting_followup": True,
+            "followup_question": evaluation.follow_up,
+        }
 
-        question = evaluation.followup_question
-        if not question:
-            question = "Could you please provide more specific details about the attack technique, target, or context?"
+    def _node_broaden_search(self, state: AgentState) -> dict:
+        """Execute the BROADEN_SEARCH strategy by rewriting the query and looping."""
+        evaluation: EvaluationResult = state["evaluation"]
+        rewritten_queries: list = list(state.get("rewritten_queries") or [])
+        new_query = getattr(evaluation, "new_query", "")
+        if new_query:
+            rewritten_queries.append(new_query)
+
+        broaden_count = state.get("broaden_count", 0) + 1
+
+        if state.get("verbose", True):
+            from ..config import sep
+            sep("AGENT — BROADEN SEARCH STRATEGY")
+            print(f"  New Query: {new_query}")
 
         return {
-            "followup_question": question,
-            "awaiting_followup": True,
+            "rewritten_queries": rewritten_queries,
+            "broaden_count": broaden_count,
         }
 
     def _node_reasoning(self, state: AgentState) -> dict:
-        """Stage 2: Reasoning LLM — simplify jargon into plain English."""
+        """Stage 2: Reasoning LLM — synthesize context into an English answer."""
         verbose = state.get("verbose", True)
+        strategy = state.get("strategy", "")
+        ack_message = state.get("acknowledgement_message", "")
+        gap_warning = state.get("gap_warning", "")
 
-        if not self.reasoning_llm:
-            return {"answer": state["context"]}
+        # ── Fast path for ACKNOWLEDGE_LIMIT ───────────────────────────────
+        if strategy == "ACKNOWLEDGE_LIMIT" and ack_message:
+            if verbose:
+                sep("AGENT — REASONING LLM (ACKNOWLEDGE_LIMIT)")
+                print(ack_message)
+            return {"answer": ack_message}
 
-        reasoning_prompt = build_generation_prompt(
-            context=state["context"],
-            original_query=state["original_query"],
-            english_query=state["english_query"],
-            respond_in_thai=False,  # Reasoning always outputs English
+        # ── Standard reasoning ────────────────────────────────────────────
+        reasoning_prompt = build_reasoning_prompt(
+            session_memory=state.get("session_memory", {}),
+            max_turns=6,
+            conversation_history=state.get("conversation_history", []),
+            user_query=state["english_query"],
+            retrieved_context=state["context"],
+            gap_warning=gap_warning if strategy == "PARTIAL_ANSWER" else ""
         )
 
         if verbose:
-            sep("AGENT — REASONING LLM (English simplification)")
+            sep("AGENT — REASONING LLM (context-grounded QA)")
 
         response = self.reasoning_llm.invoke(
             [
-                SystemMessage(content=CrossLingualLayer.get_reasoning_system_prompt()),
+                SystemMessage(
+                    content=(
+                        "You are a cybersecurity analyst assistant. "
+                        "Follow the instructions in the user message exactly."
+                    )
+                ),
                 HumanMessage(content=reasoning_prompt),
             ]
         )
-        simplified = str(response.content)
+        english_answer = str(response.content)
 
         if verbose:
-            sep("SIMPLIFIED ENGLISH NARRATIVE")
-            print(simplified)
+            sep("ENGLISH ANSWER")
+            print(english_answer)
 
-        return {"answer": simplified}
+        return {"answer": english_answer}
 
     def _node_translate_output(self, state: AgentState) -> dict:
         """Stage 3: Translation LLM — render English answer into Thai."""
@@ -646,16 +774,25 @@ class GraphRAGAgent:
 
     @staticmethod
     def _edge_after_evaluation(state: AgentState) -> str:
-        """Decide next step based on context evaluation."""
-        evaluation: EvaluationResult = state.get("evaluation")  # type: ignore[assignment]
-        retry_count = state.get("retry_count", 0)
+        """Decide next step based on context evaluation.
 
+        New logic (per pipeline.md):
+        - SUFFICIENT               → "sufficient" (proceed to reasoning)
+        - INSUFFICIENT             → "followup"   (ask a follow-up question)
+        - strategy = BROADEN       → "broaden"
+        """
+        evaluation: EvaluationResult = state.get("evaluation")  # type: ignore[assignment]
+        followup_count = state.get("followup_count", 0)
+        broaden_count = state.get("broaden_count", 0)
+
+        # No evaluation object → proceed
         if evaluation is None:
             return "sufficient"
 
         if evaluation.verdict == VERDICT_SUFFICIENT:
             return "sufficient"
 
+<<<<<<< Updated upstream
         # Query is ambiguous → ask user for clarification (one time only)
         if evaluation.verdict == VERDICT_NEED_CLARIFICATION:
             if retry_count == 0:
@@ -667,9 +804,19 @@ class GraphRAGAgent:
             if retry_count < MAX_RETRIEVAL_RETRIES:
                 return "insufficient"
             # Exhausted retries → generate best-effort answer
+=======
+        # Check strategy if we hit the limit
+        total_retries = followup_count + broaden_count
+        if total_retries >= MAX_FOLLOWUP_RETRIES:
+            strategy = getattr(evaluation, "strategy", "")
+            if strategy == "BROADEN_SEARCH" and broaden_count < 2:  # hard cap on broaden loops
+                return "broaden"
+            # PARTIAL_ANSWER, ACKNOWLEDGE_LIMIT, or fallback
+>>>>>>> Stashed changes
             return "sufficient"
 
-        return "sufficient"
+        # INSUFFICIENT → ask follow-up
+        return "followup"
 
     @staticmethod
     def _edge_after_reasoning(state: AgentState) -> str:

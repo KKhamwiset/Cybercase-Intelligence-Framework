@@ -129,3 +129,75 @@ class HybridRetriever:
             vector_results=vector_results,
             graph_results=graph_results,
         )
+
+    def retrieve_multi(
+        self,
+        queries: list[str],
+        top_k: int = VECTOR_TOP_K,
+        node_label_filter: Optional[str] = None,
+    ) -> GraphRAGResult:
+        """Execute hybrid retrieval for multiple queries and merge results.
+
+        Runs ``retrieve()`` independently for each query then merges and
+        deduplicates the results so the downstream context builder sees a
+        single, unified view.
+
+        Deduplication strategy:
+        - **Vector results**: keyed by ``stix_id``; the entry with the
+          highest score is kept.
+        - **Graph results**: keyed by the center-node's ``stix_id``; the
+          first encountered subgraph for each node is kept (they are
+          structurally identical for the same seed node).
+
+        Args:
+            queries: List of English retrieval queries (original + rewrites).
+            top_k:   Number of vector results to retrieve per query.
+            node_label_filter: Optional entity-type filter passed to each
+                               individual ``retrieve()`` call.
+
+        Returns:
+            A single merged ``GraphRAGResult`` ready for ``build_context()``.
+        """
+        if not queries:
+            return GraphRAGResult(vector_results=[], graph_results=[])
+
+        # Deduplicated accumulators
+        # stix_id → VectorResult (highest score wins)
+        seen_vector: dict[str, "VectorResult"] = {}
+        # center stix_id → SubgraphResult (first encountered wins)
+        seen_graph: dict[str, "SubgraphResult"] = {}
+
+        for i, query in enumerate(queries, 1):
+            print(f"[RETRIEVE-MULTI] Query {i}/{len(queries)}: {query[:80]}...")
+            result = self.retrieve(query, top_k=top_k, node_label_filter=node_label_filter)
+
+            # Merge vector results — keep highest score per stix_id
+            for vr in result.vector_results:
+                key = vr.stix_id
+                if key not in seen_vector or vr.score > seen_vector[key].score:
+                    seen_vector[key] = vr
+
+            # Merge graph results — keep first subgraph per center node
+            for sg in result.graph_results:
+                center_id = (
+                    sg.center_node.stix_id if sg.center_node else id(sg)
+                )
+                if center_id not in seen_graph:
+                    seen_graph[center_id] = sg
+
+        # Re-sort merged vector results by score descending
+        merged_vector = sorted(
+            seen_vector.values(), key=lambda r: r.score, reverse=True
+        )
+        merged_graph = list(seen_graph.values())
+
+        print(
+            f"[RETRIEVE-MULTI] Merged: {len(merged_vector)} unique vector results, "
+            f"{len(merged_graph)} unique subgraphs"
+        )
+
+        return GraphRAGResult(
+            vector_results=merged_vector,
+            graph_results=merged_graph,
+        )
+

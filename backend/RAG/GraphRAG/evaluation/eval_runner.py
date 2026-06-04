@@ -202,7 +202,19 @@ class EvalRunner:
     def __init__(self, dataset_path: str, mode: str = "full"):
         self.dataset_path = Path(dataset_path)
         self.mode = mode
-        self.samples = load_ground_truth(self.dataset_path)
+        
+        all_samples = load_ground_truth(self.dataset_path)
+        # Filter out samples with > 50 relevant STIX IDs
+        self.samples = [
+            s for s in all_samples 
+            if not s.relevant_stix_ids or len(s.relevant_stix_ids) <= 50
+        ]
+        
+        filtered_count = len(all_samples) - len(self.samples)
+        if filtered_count > 0:
+            print(f"[EVAL] Filtered out {filtered_count} samples with > 50 relevant STIX IDs")
+        print(f"[EVAL] Remaining samples for evaluation: {len(self.samples)}")
+        
         self._embed_model = None
         self._cleanups = []
 

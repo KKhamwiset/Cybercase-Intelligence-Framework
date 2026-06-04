@@ -28,6 +28,7 @@ from .models import (
     Technique,
 )
 from .pipeline import (
+    AgentResponse,
     ContextEvaluator,
     CrossLingualLayer,
     EvaluationResult,
@@ -47,6 +48,7 @@ from .retrieval import (
 )
 
 __all__ = [
+    "AgentResponse",
     "AttackEntity",
     "AttackRelationship",
     "Campaign",

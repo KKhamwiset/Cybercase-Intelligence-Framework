@@ -84,6 +84,10 @@ LLM_MODEL = "claude-sonnet-4-20250514"
 LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
 
+EVALUATOR_LLM_MODEL = "claude-haiku-4-5"
+EVALUATOR_MAX_TOKENS = 512  # Must fit: verdict + reason + rewritten_query + followup_question
+EVALUATOR_TEMPERATURE = 0
+
 RAGAS_LLM_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
