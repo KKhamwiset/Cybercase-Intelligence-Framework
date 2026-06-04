@@ -79,6 +79,7 @@ export const chatContinue = async (
   query: string,
   _history: ChatMessage[] = [],
 ): Promise<string> => {
+  void _history;
   return queryRag(query);
 };
 
@@ -103,6 +104,33 @@ export const queryRag = async (query: string): Promise<string> => {
     return response.data.answer;
   } catch (error) {
     console.error("RAG query failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Sends a document/image through the OCR-backed RAG endpoint.
+ */
+export const queryRagFile = async (
+  file: File,
+  query: string,
+  pageNum: number,
+): Promise<string> => {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("query", query);
+  formData.append("page_num", String(pageNum));
+
+  try {
+    const response = await axios.post<QueryResponse>(
+      `${baseUrl}/rag/query-file`,
+      formData,
+    );
+
+    return response.data.answer;
+  } catch (error) {
+    console.error("RAG file query failed:", error);
     throw error;
   }
 };
