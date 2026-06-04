@@ -27,7 +27,7 @@ app = FastAPI(title="Cybercase RAG Service")
 
 class QueryRequest(BaseModel):
     query: str
-    use_agent: bool = False
+    use_agent: bool = True
 
 
 class QueryResponse(BaseModel):
@@ -54,6 +54,7 @@ async def health():
 @app.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     if request.use_agent:
+        print(f"Agent requested")
         if not rag_agent:
             raise HTTPException(status_code=503, detail="RAG Agent not available")
         try:

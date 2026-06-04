@@ -10,7 +10,7 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 class QueryRequest(BaseModel):
     query: str
-    use_agent: bool = False  # Set to true to use LangGraph agent
+    use_agent: bool = True  # Set to true to use LangGraph agent
 
 
 class QueryResponse(BaseModel):
