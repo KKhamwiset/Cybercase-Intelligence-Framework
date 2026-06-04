@@ -71,3 +71,69 @@ We use Doppler for centralized secret management.
 *   **Download to .env (Optional):** `doppler secrets download --no-header --format=docker > .env`
 
 **Important:** Never commit `.env` files to Git. Doppler allows us to keep secrets out of the codebase while sharing them across the team.
+## 8. Purpose of the Framework
+
+This framework is designed to translate cybercrime investigation records from highly technical language into legally understandable descriptions suitable for prosecutors and legal professionals.
+
+### Problem Context
+
+During cybercrime investigations, law enforcement officers often document technical statements from suspects or digital evidence in raw form, such as:
+* *"I exploited port 80"*
+* *"I used SQL injection"*
+* *"I performed privilege escalation"*
+
+These descriptions are typically accurate from a technical standpoint but are not easily interpretable in a legal context. As a result, prosecutors receiving these case files may struggle to:
+*   Understand the technical nature of the attack.
+*   Map technical actions to legal charges.
+*   Determine the severity and intent of the offense.
+
+### Objective
+
+The objective of this project is to bridge the gap between cybersecurity terminology and legal interpretation by using a web-based LLM interface combined with a Retrieval-Augmented Generation (RAG) pipeline.
+### System Architecture
+
+This framework consists of two main modules:
+
+#### 1. Web Application Module (Frontend + Backend)
+
+This module provides the user-facing system and core application logic.
+
+*   **Frontend:**
+    *   Provides a web-based interface for users (e.g., prosecutors or investigators).
+    *   Allows input of cybercrime case files or technical incident descriptions.
+    *   Displays:
+        *   Simplified explanations of cyberattacks.
+        *   Structured interpretation of technical actions.
+        *   Suggested legal mapping outputs.
+*   **Backend:**
+    *   Handles API requests from the frontend.
+    *   Manages authentication and case file processing.
+    *   Communicates with the RAG pipeline module.
+    *   Aggregates and returns processed results to the frontend.
+
+#### 2. RAG Pipeline Module (Backend Internal Component)
+
+This module is responsible for intelligent interpretation and knowledge retrieval.
+
+*   **Core Functions:**
+    *   Receives raw cybercrime technical descriptions from the backend.
+    *   Performs retrieval from external knowledge sources (primarily the MITRE ATT&CK framework).
+    *   Enriches context using relevant attack techniques, tactics, and procedures (TTPs).
+    *   Uses an LLM to generate:
+        *   Human-readable explanations of technical actions.
+        *   Structured summaries of attack behavior.
+        *   Contextual interpretations suitable for legal understanding.
+
+### System Approach
+
+The system:
+1.  **Accepts** cybercrime case files containing technical descriptions of attacks.
+2.  **Uses** a RAG pipeline to retrieve relevant knowledge from the MITRE ATT&CK framework.
+3.  **Translates** technical actions into structured, human-readable explanations.
+4.  **Processes** both input and output in the **Thai language**.
+
+### Expected Outcome
+
+The framework enables prosecutors to:
+*   Understand cyberattack behavior in plain language.
+*   See standardized interpretations of technical actions.
