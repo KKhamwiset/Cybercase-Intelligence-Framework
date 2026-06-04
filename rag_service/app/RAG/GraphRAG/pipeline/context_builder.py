@@ -3,12 +3,6 @@ Context Builder
 ================
 Assembles the final context from Vector + Graph retrieval results
 into a structured prompt for the LLM.
-
-Functions
----------
-build_context()           — format raw GraphRAGResult into a context string
-build_reasoning_prompt()  — QA prompt for the Reasoning LLM (Stage 2)
-build_generation_prompt() — legacy prompt kept for chain.py compatibility
 """
 
 from ..config import FINAL_TOP_K
@@ -76,119 +70,6 @@ def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> st
 
     return context
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Reasoning prompt (Stage 2)
-# Used by: agent_graph._node_reasoning
-# ──────────────────────────────────────────────────────────────────────────────
-_REASONING_PROMPT_TEMPLATE = """\
-You are a MITRE ATT&CK incident analysis assistant with short-term conversational memory.
-
-════════════════════════════════════════
-MEMORY MANAGEMENT
-════════════════════════════════════════
-
-You maintain a short-term memory of the current analysis session.
-Memory is stored as a structured incident context and is carried across turns.
-
-CURRENT SESSION MEMORY:
-{session_memory}
-
-────────────────────────────────────────
-MEMORY UPDATE RULES:
-────────────────────────────────────────
-After every turn, extract and update the following fields if new information is provided:
-
-{
-  "incident_summary": "<one-line summary of the incident so far>",
-  "filled_slots": {
-    "initial_access":        "<value or null>",
-    "credential_theft":      "<value or null>",
-    "privilege_escalation":  "<value or null>",
-    "lateral_movement":      "<value or null>",
-    "impact":                "<value or null>"
-  },
-  "confirmed_techniques": ["<T-ID: name>", ...],
-  "open_questions":        ["<anything still unclear>"],
-  "turn_count":            <int>
-}
-
-Rules:
-- Never overwrite a filled slot unless the user explicitly corrects it
-- If the user provides conflicting info, add it to open_questions instead
-- Increment turn_count every response
-- Keep incident_summary under 30 words
-
-════════════════════════════════════════
-CONVERSATION HISTORY (last {max_turns} turns):
-════════════════════════════════════════
-{conversation_history}
-
-════════════════════════════════════════
-CURRENT QUERY:
-════════════════════════════════════════
-{user_query}
-
-════════════════════════════════════════
-RETRIEVED MITRE ATT&CK CONTEXT:
-════════════════════════════════════════
-{retrieved_context}
-
-{gap_warning}
-
-════════════════════════════════════════
-RESPONSE INSTRUCTIONS:
-════════════════════════════════════════
-1. Answer based on retrieved context + session memory combined
-2. Reference previous turns naturally when relevant
-   Example: "จากที่คุณบอกก่อนหน้าว่าใช้ SQL Injection..."
-3. If a slot was filled in a previous turn, do not ask for it again
-4. End your response with an updated MEMORY BLOCK in this exact format:
-
-<memory_update>
-{
-  "incident_summary": "...",
-  "filled_slots": { ... },
-  "confirmed_techniques": [...],
-  "open_questions": [...],
-  "turn_count": ...
-}
-</memory_update>
-"""
-
-
-import json
-
-def build_reasoning_prompt(
-    session_memory: dict,
-    max_turns: int,
-    conversation_history: list,
-    user_query: str,
-    retrieved_context: str,
-    gap_warning: str,
-) -> str:
-    """Build the user prompt for the Reasoning LLM (Stage 2)."""
-    
-    # Format history
-    history_str = ""
-    if conversation_history:
-        history_str = "\n".join(
-            [f"USER: {turn['user']}\nAGENT: {turn['agent']}" for turn in conversation_history[-max_turns:]]
-        )
-    else:
-        history_str = "No prior history."
-
-    # Format memory
-    memory_str = json.dumps(session_memory, ensure_ascii=False, indent=2) if session_memory else "{}"
-
-    prompt = _REASONING_PROMPT_TEMPLATE.replace("{session_memory}", memory_str)
-    prompt = prompt.replace("{max_turns}", str(max_turns))
-    prompt = prompt.replace("{conversation_history}", history_str)
-    prompt = prompt.replace("{user_query}", user_query)
-    prompt = prompt.replace("{retrieved_context}", retrieved_context)
-    prompt = prompt.replace("{gap_warning}", gap_warning)
-    
-    return prompt
 
 
 def build_generation_prompt(

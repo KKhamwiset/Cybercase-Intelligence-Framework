@@ -49,7 +49,7 @@ from ..config import (
     sep,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
-from .context_builder import build_context, build_generation_prompt, build_reasoning_prompt
+from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer
 from .evaluator import (
     ContextEvaluator,
@@ -105,9 +105,6 @@ class AgentState(TypedDict, total=False):
     # ── Output ────────────────────────────────────────────────────────────
     answer: str  # Final answer
 
-    # ── Memory ────────────────────────────────────────────────────────────
-    session_memory: dict
-    conversation_history: list
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -182,10 +179,6 @@ class GraphRAGAgent:
         # Maps session_id → AgentState snapshot so the API can resume.
         self._sessions: dict[str, dict] = {}
 
-        # ── Cross-Turn Conversational Memory ──────────────────────────────────
-        self.session_memory: dict = {}
-        self.conversation_history: list = []
-
         # LLMs
         if ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore[call-arg]
@@ -215,14 +208,6 @@ class GraphRAGAgent:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def clear_memory(self):
-        """Reset the cross-turn conversational memory."""
-        self.session_memory = {}
-        self.conversation_history = []
-        if getattr(self, "evaluator", None):
-            from ..config import sep
-            sep("AGENT — MEMORY CLEARED")
-
     def close(self) -> None:
         """Clean up resources."""
         self.retriever.close()
@@ -269,8 +254,6 @@ class GraphRAGAgent:
             "strategy": "",
             "gap_warning": "",
             "acknowledgement_message": "",
-            "session_memory": self.session_memory,
-            "conversation_history": self.conversation_history,
         }
 
         # Run the graph until we hit END (or follow-up pause)
@@ -315,10 +298,6 @@ class GraphRAGAgent:
                 )
 
         # ── Normal completion ─────────────────────────────────────────
-        # Save memory state for the next turn
-        self.session_memory = result.get("session_memory", {})
-        self.conversation_history = result.get("conversation_history", [])
-
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
@@ -367,10 +346,6 @@ class GraphRAGAgent:
             result = self._resume_with_answer(stored_state, user_answer)
         else:
             result = self._force_continue(stored_state)
-
-        # Save memory state for the next turn
-        self.session_memory = result.get("session_memory", {})
-        self.conversation_history = result.get("conversation_history", [])
 
         return AgentResponse(
             status="completed",
@@ -441,16 +416,14 @@ class GraphRAGAgent:
             print(f"  Rewrite    : {rewritten_query}")
             print(f"  All queries: {len(rewritten_queries) + 1} total")
 
-<<<<<<< Updated upstream
+
         # Increment retry_count so the evaluator treats this as a follow-up
         # iteration — prevents infinite NEED_CLARIFICATION loops and ensures
         # the graph reaches reasoning even if context is still imperfect.
         state["retry_count"] = state.get("retry_count", 0) + 1
 
         # Re-run the full graph from the beginning (route → … → answer)
-=======
-        # ── 5. Re-run the full graph ──────────────────────────────────────
->>>>>>> Stashed changes
+
         return self.graph.invoke(state)
 
     def _force_continue(self, state: dict) -> dict:
@@ -702,13 +675,11 @@ class GraphRAGAgent:
             return {"answer": ack_message}
 
         # ── Standard reasoning ────────────────────────────────────────────
-        reasoning_prompt = build_reasoning_prompt(
-            session_memory=state.get("session_memory", {}),
-            max_turns=6,
-            conversation_history=state.get("conversation_history", []),
-            user_query=state["english_query"],
-            retrieved_context=state["context"],
-            gap_warning=gap_warning if strategy == "PARTIAL_ANSWER" else ""
+        reasoning_prompt = build_generation_prompt(
+            context=state["context"],
+            original_query=state["original_query"],
+            english_query=state["english_query"],
+            respond_in_thai=False,
         )
 
         if verbose:
@@ -716,12 +687,7 @@ class GraphRAGAgent:
 
         response = self.reasoning_llm.invoke(
             [
-                SystemMessage(
-                    content=(
-                        "You are a cybersecurity analyst assistant. "
-                        "Follow the instructions in the user message exactly."
-                    )
-                ),
+                SystemMessage(content=CrossLingualLayer.get_reasoning_system_prompt()),
                 HumanMessage(content=reasoning_prompt),
             ]
         )
@@ -792,19 +758,7 @@ class GraphRAGAgent:
         if evaluation.verdict == VERDICT_SUFFICIENT:
             return "sufficient"
 
-<<<<<<< Updated upstream
-        # Query is ambiguous → ask user for clarification (one time only)
-        if evaluation.verdict == VERDICT_NEED_CLARIFICATION:
-            if retry_count == 0:
-                return "need_clarification"
-            return "sufficient"
 
-        # Context is insufficient → rewrite query and re-retrieve
-        if evaluation.verdict == VERDICT_INSUFFICIENT:
-            if retry_count < MAX_RETRIEVAL_RETRIES:
-                return "insufficient"
-            # Exhausted retries → generate best-effort answer
-=======
         # Check strategy if we hit the limit
         total_retries = followup_count + broaden_count
         if total_retries >= MAX_FOLLOWUP_RETRIES:
@@ -812,7 +766,6 @@ class GraphRAGAgent:
             if strategy == "BROADEN_SEARCH" and broaden_count < 2:  # hard cap on broaden loops
                 return "broaden"
             # PARTIAL_ANSWER, ACKNOWLEDGE_LIMIT, or fallback
->>>>>>> Stashed changes
             return "sufficient"
 
         # INSUFFICIENT → ask follow-up

@@ -191,14 +191,6 @@ def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
                 print("Bye!")
                 break
 
-            if query.lower() == "/clear":
-                if use_agent and hasattr(pipeline, "clear_memory"):
-                    pipeline.clear_memory()
-                    print("🧹 Session memory cleared.")
-                else:
-                    print("🧹 /clear is only supported in Agent mode.")
-                continue
-
             if not query:
                 continue
 
