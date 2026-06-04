@@ -105,43 +105,6 @@ Output JSON:
   "message": "<message if ACKNOWLEDGE_LIMIT, else null>"
 }
 
-<<<<<<< Updated upstream
-Decision rules
---------------
-SUFFICIENT  ← default — use this when in doubt
-  Use SUFFICIENT when:
-  - The context contains ANY ATT&CK technique, tactic, software, or group
-    that relates to the attack behavior described in the query, even partially.
-  - The context covers the main attack action (e.g., SQL injection, phishing,
-    malware delivery) even if fine-grained sub-technique details are missing.
-  - There are coverage gaps but the core behavior is still addressable.
-  Bias strongly toward SUFFICIENT — a partial answer is always better than
-  blocking the pipeline with another retrieval round.
-
-INSUFFICIENT  ← only for completely off-topic context
-  Use INSUFFICIENT ONLY when the retrieved context is entirely unrelated to
-  the attack described (e.g., query is about web exploitation but all
-  retrieved context covers only physical access with zero overlap).
-  You MUST supply a **rewritten_query** — a better English search string
-  that targets the missing ATT&CK technique more precisely.
-
-NEED_CLARIFICATION  ← only for genuinely vague queries
-  Use NEED_CLARIFICATION ONLY when the query is so vague that it is
-  impossible to determine what attack technique or behavior is being described
-  (e.g., "someone did something bad to our system" — no technique, no target,
-  no actionable specifics).
-  You MUST supply a **followup_question** in the **same language** as the
-  user's original query (Thai or English).
-
-Important
----------
-- Return ONLY valid JSON.  No markdown fences, no extra text.
-- Never fabricate ATT&CK IDs or technique names in the rewritten_query.
-- When the query explicitly names a technique (SQL Injection, phishing, macro,
-  credential theft, RDP, keylogger, etc.) → the query is NOT vague →
-  do NOT use NEED_CLARIFICATION.
-- SUFFICIENT is the right answer for the vast majority of incident queries."""
-=======
 If 3 out of 4 phases are covered → verdict SUFFICIENT
 If only 1–2 phases covered → verdict INSUFFICIENT, ask about the most critical missing phase
 
@@ -174,7 +137,7 @@ Available strategies (pick ONE based on situation):
    Action: Re-query using parent technique name + broader ATT&CK tactic
    Output: { "strategy": "BROADEN_SEARCH", "new_query": "..." }
 
-2. PARTIAL_ANSWER  
+2. PARTIAL_ANSWER
    Use when: at least 2 phases are covered, only 1 detail is missing
    Action: Answer with covered phases, explicitly flag gaps
    Output: { "strategy": "PARTIAL_ANSWER", "gap_warning": "..." }
@@ -185,7 +148,6 @@ Available strategies (pick ONE based on situation):
    Output: { "strategy": "ACKNOWLEDGE_LIMIT", "message": "ฐานข้อมูล MITRE ATT&CK ที่มีอยู่ไม่มีข้อมูลเพียงพอสำหรับ..." }
 
 Never use FORCE_SUFFICIENT — answering with known-incomplete context without flagging gaps misleads the analyst."""
->>>>>>> Stashed changes
 
 
 # ──────────────────────────────────────────────────────────────────────────────
