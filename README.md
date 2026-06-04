@@ -7,9 +7,9 @@ It features a modern Next.js frontend, a high-performance FastAPI backend, and l
 ## Project Structure
 
 *   `Documents/`: Source Thai law PDF documents.
-*   `backend/RAG/`: Core retrieval and generation pipelines using LangChain and ChromaDB.
+*   `rag_service/`: Standalone RAG service with GraphRAG pipelines.
+*   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy. Calls `rag_service` for RAG capabilities.
 *   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
-*   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy.
 
 ## Quick Start
 
@@ -53,7 +53,15 @@ You need a running PostgreSQL database. You can use the provided `docker-compose
 docker-compose up -d
 ```
 
-### 4. Backend Setup (FastAPI)
+### 4. RAG Service Setup (FastAPI)
+```bash
+cd rag_service/app
+# Start the RAG service with Doppler secrets
+doppler run -- uvicorn main:app --port 8001
+```
+The RAG service will be available at `http://localhost:8001`.
+
+### 5. Backend Setup (FastAPI)
 You don't need a `.env` file if you use Doppler.
 ```bash
 cd backend
@@ -65,7 +73,7 @@ doppler run -- uvicorn app.main:app --reload
 ```
 The backend will be available at `http://localhost:8000`.
 
-### 4. Frontend Setup
+### 6. Frontend Setup
 Create a `.env.local` file in the `frontend/` directory.
 ```bash
 cd frontend
@@ -74,10 +82,10 @@ npm run dev
 ```
 The frontend will be available at `http://localhost:3000`.
 
-### 5. RAG CLI Tools
+### 7. RAG CLI Tools
 You can also run the RAG pipelines directly via CLI for testing:
 ```bash
-cd backend/RAG/GraphRAG
+cd rag_service/app/RAG/GraphRAG
 python main.py --test
 ```
 *(Requires `ANTHROPIC_API_KEY` to be set in your environment for generation capabilities).*

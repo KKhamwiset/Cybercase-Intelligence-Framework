@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────────────────
     debug: bool = True
     anthropic_api_key: str = ""
+    rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
 
 
 settings = Settings()

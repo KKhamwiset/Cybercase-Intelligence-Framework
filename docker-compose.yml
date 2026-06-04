@@ -40,19 +40,36 @@ services:
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-cybercase_framework}
-      NEO4J_URI: ${NEO4J_URI:?NEO4J_URI is required}
-      NEO4J_USER: ${NEO4J_USER:?NEO4J_USER is required}
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
-      QDRANT_URL: ${QDRANT_URL:?QDRANT_URL is required}
-      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY is required}
       TYPHOON_OCR_API_KEY: ${TYPHOON_OCR_API_KEY:-}
       TYPHOON_API_KEY: ${TYPHOON_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      RAG_SERVICE_URL: http://rag-service:8001
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
+      rag-service:
+        condition: service_started
+
+  # ── RAG Service ─────────────────────────────────────────────────────────────
+  rag-service:
+    build:
+      context: .
+      dockerfile: rag_service/Dockerfile
+    container_name: cybercase-rag-service
+    restart: always
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      NEO4J_URI: ${NEO4J_URI:?NEO4J_URI is required}
+      NEO4J_USER: ${NEO4J_USER:?NEO4J_USER is required}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}
+      QDRANT_URL: ${QDRANT_URL:?QDRANT_URL is required}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY is required}
+      TYPHOON_API_KEY: ${TYPHOON_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    ports:
+      - "8001:8001"
 
   # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:

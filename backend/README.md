@@ -27,6 +27,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/tsr_mitre
 CORS_ORIGINS=http://localhost:3000
 DEBUG=True
 ANTHROPIC_API_KEY=your_key_here
+RAG_SERVICE_URL=http://localhost:8001
 ```
 
 ### 3. Database Migrations
