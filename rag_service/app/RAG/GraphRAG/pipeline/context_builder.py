@@ -55,7 +55,7 @@ def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> st
     if result.graph_results:
         sections.append("\n\n--- Graph Context (Structured Relationships) ---")
 
-        for sg in result.graph_results:
+        for sg in result.graph_results[:3]:
             text = sg.to_text()
             if text:
                 sections.append(f"\n{text}")
@@ -77,6 +77,7 @@ def build_generation_prompt(
     original_query: str,
     english_query: str,
     respond_in_thai: bool = True,
+    incident_facts: dict = None,
 ) -> str:
     """Build the final prompt for LLM generation.
 
@@ -85,11 +86,31 @@ def build_generation_prompt(
         original_query: The user's original query (may be Thai).
         english_query: The translated English query (for reference).
         respond_in_thai: Whether to respond in Thai.
+        incident_facts: Structured facts confirmed via follow-up questions,
+                        e.g. {"initial_access": "brute force SSH"}.
+                        When non-empty these are injected at the top of the
+                        prompt so the LLM treats them as ground truth.
 
     Returns:
         The complete user prompt for the LLM.
     """
     parts = []
+
+    # ── Confirmed facts (highest priority — must appear before context) ──
+    facts = incident_facts or {}
+    if facts:
+        parts.append("=" * 60)
+        parts.append("CONFIRMED INCIDENT FACTS (provided by the investigator)")
+        parts.append("=" * 60)
+        parts.append(
+            "The following facts were directly confirmed via follow-up questioning. "
+            "They are ground truth — you MUST incorporate every fact below into your "
+            "analysis. Do NOT contradict or ignore them."
+        )
+        for slot, value in facts.items():
+            label = slot.replace("_", " ").title()
+            parts.append(f"  • {label}: {value}")
+        parts.append("")
 
     parts.append(context)
 
@@ -114,10 +135,16 @@ def build_generation_prompt(
             "คงศัพท์เทคนิคและ ATT&CK ID ไว้เป็นภาษาอังกฤษ"
         )
     else:
+        facts_instruction = (
+            " Ensure the CONFIRMED INCIDENT FACTS section above is fully reflected "
+            "in every relevant part of your answer — especially the Attack Sequence."
+            if facts else ""
+        )
         parts.append(
-            "Using ONLY the provided context, explain the incident in plain language for a non-technical reader.\n"
+            "Using ONLY the provided context, explain the incident in plain language "
+            "for prosecutors and law enforcement officers who have no cybersecurity background.\n"
             "Follow the four-section format from your instructions exactly.\n"
-            "Cite ATT&CK IDs for every technique mentioned."
+            f"Cite ATT&CK IDs for every technique mentioned.{facts_instruction}"
         )
 
     return "\n".join(parts)

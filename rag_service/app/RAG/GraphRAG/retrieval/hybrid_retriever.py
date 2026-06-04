@@ -12,10 +12,11 @@ Implements the GraphRAG architecture from schema_design.md:
 from dataclasses import dataclass
 from typing import Optional
 
-from ..config import FINAL_TOP_K, VECTOR_TOP_K
+from ..config import FINAL_TOP_K, RERANKER_MODEL, VECTOR_TOP_K
 from FlagEmbedding import BGEM3FlagModel
 
 from .graph_retriever import GraphRetriever, SubgraphResult
+from .reranker import Reranker
 from .vector_retriever import VectorResult, VectorRetriever
 
 
@@ -64,6 +65,7 @@ class HybridRetriever:
     def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
         self.vector_retriever = VectorRetriever(embed_model=embed_model)
         self.graph_retriever = GraphRetriever()
+        self.reranker = Reranker(RERANKER_MODEL)
         print("[HYBRID] GraphRAG retriever initialized")
 
     def close(self):
@@ -90,29 +92,32 @@ class HybridRetriever:
         # ── Step 1: Vector search ─────────────────────────────────────────
         vector_results = self.vector_retriever.search_all(query, top_k=top_k)
 
-        print(f"[RETRIEVE] Vector search: {len(vector_results)} results")
-        for vr in vector_results[:3]:
-            name = vr.metadata.get("name", vr.metadata.get("source_name", "?"))
-            print(f"           → {name} (score: {vr.score:.3f})")
+        print(f"[RETRIEVE] Vector search: {len(vector_results)} results (pre-rerank)")
 
-        # ── Step 2: Extract STIX IDs for graph expansion ──────────────────
-        stix_ids_to_expand = set()
+        # ── Step 1b: Rerank ───────────────────────────────────────────────
+        vector_results = self.reranker.rerank(query, vector_results, top_k=top_k)
+
+        # ── Step 2: Extract STIX IDs for graph expansion (relevance order) ──
+        # Use an ordered dedup list so graph seeds reflect reranker ranking,
+        # not arbitrary set iteration order.
+        seen_stix: set[str] = set()
+        stix_ids_list: list[str] = []
 
         for vr in vector_results:
-            # For entity results, expand the entity itself
             if vr.metadata.get("entity_type") == "Node":
-                stix_ids_to_expand.add(vr.stix_id)
-            # For relationship results, expand both source and target
+                if vr.stix_id not in seen_stix:
+                    seen_stix.add(vr.stix_id)
+                    stix_ids_list.append(vr.stix_id)
             elif vr.metadata.get("entity_type") == "Relationship":
-                source_id = vr.metadata.get("source_id")
-                target_id = vr.metadata.get("target_id")
-                if source_id:
-                    stix_ids_to_expand.add(source_id)
-                if target_id:
-                    stix_ids_to_expand.add(target_id)
-
-        # Limit graph expansion to top results to control context size
-        stix_ids_list = list(stix_ids_to_expand)[:FINAL_TOP_K]
+                for sid in filter(None, [
+                    vr.metadata.get("source_id"),
+                    vr.metadata.get("target_id"),
+                ]):
+                    if sid not in seen_stix:
+                        seen_stix.add(sid)
+                        stix_ids_list.append(sid)
+            if len(stix_ids_list) >= FINAL_TOP_K:
+                break
 
         # ── Step 3: Graph expansion ───────────────────────────────────────
         graph_results = self.graph_retriever.expand(stix_ids_list)

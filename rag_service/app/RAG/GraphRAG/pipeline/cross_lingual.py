@@ -14,7 +14,7 @@ throughout all stages.
 
 import re
 
-from ..config import ANTHROPIC_API_KEY, LLM_MODEL
+from ..config import ANTHROPIC_API_KEY, LLM_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -40,7 +40,8 @@ Thai query: {query}"""
 # ──────────────────────────────────────────────────────────────────────────────
 REASONING_SYSTEM_PROMPT = """You are a cybersecurity incident analyst specialising in MITRE ATT&CK. \
 Your task is to rewrite the provided incident context into plain, easy-to-understand English \
-for a non-technical reader — without losing any factual detail or altering the sequence of events.
+for prosecutors and law enforcement officers who have no cybersecurity background — \
+without losing any factual detail or altering the sequence of events.
 
 Core rules
 ----------
@@ -138,8 +139,17 @@ def _is_mostly_english(text: str) -> bool:
 class CrossLingualLayer:
     """Manages Thai ↔ English translation for cross-lingual RAG."""
 
-    def __init__(self):
-        if not ANTHROPIC_API_KEY:
+    def __init__(self, use_local: bool = False):
+        if use_local:
+            from langchain_ollama import ChatOllama
+            self.llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=0,
+                num_predict=256,
+            )
+            print(f"[TRANSLATE] Local model: {LOCAL_LLM_MODEL}")
+        elif not ANTHROPIC_API_KEY:
             print("[WARN] No ANTHROPIC_API_KEY — translation will be skipped")
             self.llm = None
         else:

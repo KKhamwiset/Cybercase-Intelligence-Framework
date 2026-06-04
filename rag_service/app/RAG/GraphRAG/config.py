@@ -85,12 +85,27 @@ LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
 
 EVALUATOR_LLM_MODEL = "claude-haiku-4-5"
-EVALUATOR_MAX_TOKENS = 512  # Must fit: verdict + reason + rewritten_query + followup_question
+EVALUATOR_MAX_TOKENS = 1024  # Must fit: verdict + reason + rewritten_query + followup_question
 EVALUATOR_TEMPERATURE = 0
 
-RAGAS_LLM_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+RAGAS_LLM_MODEL = "qwen/qwen-2.5-72b-instruct"
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LOCAL MODELS (Ollama) — used when --local flag is passed
+# Install: https://ollama.com  |  pip install langchain-ollama
+# Pull   : ollama pull qwen2.5:7b && ollama pull gemma3:4b
+# ──────────────────────────────────────────────────────────────────────────────
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+# Model 1 — Pipeline  (reasoning + translation + routing)
+# qwen2.5:7b  Q4_K_M ≈ 4.1 GB VRAM  |  best multilingual in 7B class, good Thai support
+LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen2.5:7b")
+
+# Model 2 — Evaluation judge  (context sufficiency + query merger + offline RAGAS)
+# gemma3:4b   Q4_K_M ≈ 2.6 GB VRAM  |  different family → lower judge bias
+LOCAL_EVAL_MODEL = os.getenv("LOCAL_EVAL_MODEL", "gemma3:4b")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRIEVAL

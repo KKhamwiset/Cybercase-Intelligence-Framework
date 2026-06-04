@@ -100,7 +100,7 @@ class VectorRetriever:
                 Prefetch(
                     query=dense_vec,
                     using="dense",
-                    limit=top_k * 2,
+                    limit=max(top_k * 5, 50),
                     filter=qdrant_filter,
                 ),
                 Prefetch(
@@ -109,7 +109,7 @@ class VectorRetriever:
                         values=sparse_values,
                     ),
                     using="sparse",
-                    limit=top_k * 2,
+                    limit=max(top_k * 5, 50),
                     filter=qdrant_filter,
                 ),
             ],
@@ -191,18 +191,38 @@ class VectorRetriever:
             qdrant_filter=q_filter,
         )
 
+    @staticmethod
+    def _normalize_scores(results: list["VectorResult"]) -> None:
+        """Min-max normalize scores in-place so results from different
+        collections are comparable on the same [0, 1] scale."""
+        if len(results) < 2:
+            return
+        scores = [r.score for r in results]
+        min_s, max_s = min(scores), max(scores)
+        if max_s == min_s:
+            return
+        span = max_s - min_s
+        for r in results:
+            r.score = (r.score - min_s) / span
+
     def search_all(
         self,
         query: str,
         top_k: int = VECTOR_TOP_K,
     ) -> list[VectorResult]:
-        """Search both entities and relationships, returning merged results sorted by score."""
+        """Search both entity and relationship collections.
+
+        Entities receive the full top_k quota; relationships get half,
+        biasing retrieval toward Technique/Tactic nodes for incident queries.
+        Scores are min-max normalized within each collection before merging
+        so RRF scores from different Qdrant collections are comparable.
+        """
         entity_results = self.search_entities(query, top_k=top_k)
-        rel_results = self.search_relationships(query, top_k=top_k)
+        rel_results = self.search_relationships(query, top_k=max(top_k // 2, 3))
+
+        self._normalize_scores(entity_results)
+        self._normalize_scores(rel_results)
 
         combined = entity_results + rel_results
-        
-        # Sort by score (higher is better)
         combined.sort(key=lambda r: r.score, reverse=True)
-
         return combined[:top_k]

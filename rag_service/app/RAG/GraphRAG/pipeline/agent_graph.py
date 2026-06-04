@@ -44,6 +44,8 @@ from ..config import (
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,
+    LOCAL_LLM_MODEL,
+    OLLAMA_BASE_URL,
     USE_FP16,
     VECTOR_TOP_K,
     sep,
@@ -158,7 +160,11 @@ class GraphRAGAgent:
     interface but with self-reflection and follow-up capabilities.
     """
 
-    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None) -> None:
+    def __init__(
+        self,
+        embed_model: Optional[BGEM3FlagModel] = None,
+        use_local: bool = False,
+    ) -> None:
         sep("Initializing GraphRAG Agent (LangGraph)")
 
         # Shared embedding model
@@ -168,19 +174,34 @@ class GraphRAGAgent:
         else:
             self.embed_model = embed_model
 
-        # Components (reused from the linear pipeline)
-        self.translator = CrossLingualLayer()
+        # Components — propagate use_local to all LLM-bearing components
+        self.translator = CrossLingualLayer(use_local=use_local)
         self.retriever = HybridRetriever(embed_model=self.embed_model)
-        self.router = QueryRouter()
-        self.evaluator = ContextEvaluator()
-        self.query_merger = QueryMerger()
+        self.router = QueryRouter(use_local=use_local)
+        self.evaluator = ContextEvaluator(use_local=use_local)
+        self.query_merger = QueryMerger(use_local=use_local)
 
         # In-memory session store for paused follow-up states.
-        # Maps session_id → AgentState snapshot so the API can resume.
         self._sessions: dict[str, dict] = {}
 
         # LLMs
-        if ANTHROPIC_API_KEY:
+        if use_local:
+            from langchain_ollama import ChatOllama
+            self.reasoning_llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=LLM_TEMPERATURE,
+                num_predict=LLM_MAX_TOKENS,
+            )
+            self.translation_llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=LLM_TEMPERATURE,
+                num_predict=LLM_MAX_TOKENS,
+            )
+            print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
+            print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
+        elif ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore[call-arg]
                 model=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
@@ -377,8 +398,8 @@ class GraphRAGAgent:
         # ── 1. Store structured incident fact ─────────────────────────────
         evaluation = state.get("evaluation")
         slot_name = (
-            evaluation.slot_name
-            if evaluation and getattr(evaluation, "slot_name", "")
+            evaluation.missing_slot
+            if evaluation and getattr(evaluation, "missing_slot", "")
             else "followup"
         )
         incident_facts: dict = dict(state.get("incident_facts") or {})
@@ -667,8 +688,15 @@ class GraphRAGAgent:
         ack_message = state.get("acknowledgement_message", "")
         gap_warning = state.get("gap_warning", "")
 
+        if not self.reasoning_llm:
+            return {"answer": "Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set)."}
+
         # ── Fast path for ACKNOWLEDGE_LIMIT ───────────────────────────────
-        if strategy == "ACKNOWLEDGE_LIMIT" and ack_message:
+        # Only skip reasoning if retries are truly exhausted — guard against
+        # local LLMs that output strategy=ACKNOWLEDGE_LIMIT even on the first
+        # pass while simultaneously returning verdict=SUFFICIENT.
+        total_retries = state.get("followup_count", 0) + state.get("broaden_count", 0)
+        if strategy == "ACKNOWLEDGE_LIMIT" and ack_message and total_retries >= MAX_FOLLOWUP_RETRIES:
             if verbose:
                 sep("AGENT — REASONING LLM (ACKNOWLEDGE_LIMIT)")
                 print(ack_message)
@@ -680,6 +708,7 @@ class GraphRAGAgent:
             original_query=state["original_query"],
             english_query=state["english_query"],
             respond_in_thai=False,
+            incident_facts=state.get("incident_facts") or {},
         )
 
         if verbose:

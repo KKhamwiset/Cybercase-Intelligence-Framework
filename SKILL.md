@@ -85,9 +85,8 @@ During cybercrime investigations, law enforcement officers often document techni
 * *"I used SQL injection"*
 * *"I performed privilege escalation"*
 
-These descriptions are typically accurate from a technical standpoint but are not easily interpretable in a legal context. As a result, prosecutors receiving these case files may struggle to:
+These descriptions are typically accurate from a technical standpoint but are not easily interpretable in an ordinary person. As a result, prosecutors receiving these case files may struggle to:
 *   Understand the technical nature of the attack.
-*   Map technical actions to legal charges.
 *   Determine the severity and intent of the offense.
 
 ### Objective
@@ -107,7 +106,6 @@ This module provides the user-facing system and core application logic.
     *   Displays:
         *   Simplified explanations of cyberattacks.
         *   Structured interpretation of technical actions.
-        *   Suggested legal mapping outputs.
 *   **Backend:**
     *   Handles API requests from the frontend.
     *   Manages authentication and case file processing.
@@ -125,7 +123,6 @@ This module is responsible for intelligent interpretation and knowledge retrieva
     *   Uses an LLM to generate:
         *   Human-readable explanations of technical actions.
         *   Structured summaries of attack behavior.
-        *   Contextual interpretations suitable for legal understanding.
 
 ### System Approach
 

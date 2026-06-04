@@ -4,7 +4,7 @@ Query Router
 Classifies user queries to determine the appropriate processing pipeline.
 """
 
-from ..config import ANTHROPIC_API_KEY, LLM_MODEL
+from ..config import ANTHROPIC_API_KEY, LLM_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -68,8 +68,17 @@ INCIDENT_ANALYSIS"""
 
 
 class QueryRouter:
-    def __init__(self):
-        if not ANTHROPIC_API_KEY:
+    def __init__(self, use_local: bool = False):
+        if use_local:
+            from langchain_ollama import ChatOllama
+            self.llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=0,
+                num_predict=32,
+            )
+            print(f"[ROUTER] Local model: {LOCAL_LLM_MODEL}")
+        elif not ANTHROPIC_API_KEY:
             self.llm = None
         else:
             self.llm = ChatAnthropic(

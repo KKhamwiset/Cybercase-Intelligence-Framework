@@ -24,6 +24,8 @@ from ..config import (
     EVALUATOR_LLM_MODEL,
     EVALUATOR_MAX_TOKENS,
     EVALUATOR_TEMPERATURE,
+    LOCAL_EVAL_MODEL,
+    OLLAMA_BASE_URL,
     sep,
 )
 
@@ -71,8 +73,17 @@ class QueryMerger:
     low cost are the priority.
     """
 
-    def __init__(self) -> None:
-        if ANTHROPIC_API_KEY:
+    def __init__(self, use_local: bool = False) -> None:
+        if use_local:
+            from langchain_ollama import ChatOllama
+            self.llm = ChatOllama(
+                model=LOCAL_EVAL_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=EVALUATOR_TEMPERATURE,
+                num_predict=EVALUATOR_MAX_TOKENS,
+            )
+            print(f"[QUERY MERGER] Local model: {LOCAL_EVAL_MODEL}")
+        elif ANTHROPIC_API_KEY:
             self.llm = ChatAnthropic(  # type: ignore[call-arg]
                 model=EVALUATOR_LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,

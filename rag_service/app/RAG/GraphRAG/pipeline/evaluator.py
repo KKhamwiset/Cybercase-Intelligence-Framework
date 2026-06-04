@@ -32,6 +32,8 @@ from ..config import (
     EVALUATOR_LLM_MODEL,
     EVALUATOR_MAX_TOKENS,
     EVALUATOR_TEMPERATURE,
+    LOCAL_EVAL_MODEL,
+    OLLAMA_BASE_URL,
     sep,
 )
 
@@ -84,10 +86,11 @@ RULES:
 - If the context contains techniques that MAP to the described behavior, mark as SUFFICIENT
 - A technique is "covered" if its description matches the attack behavior, even if not explicitly named
 - Only mark INSUFFICIENT if a critical attack phase is completely absent from context
+- Prefer SUFFICIENT over INSUFFICIENT when in doubt — it is better to answer with partial context than to over-ask
 
 ATTACK PHASES to check (mark each as covered / partial / missing):
 1. Initial Access
-2. Credential Access  
+2. Credential Access
 3. Privilege Escalation
 4. Impact / Data Destruction
 
@@ -105,8 +108,11 @@ Output JSON:
   "message": "<message if ACKNOWLEDGE_LIMIT, else null>"
 }
 
-If 3 out of 4 phases are covered → verdict SUFFICIENT
-If only 1–2 phases covered → verdict INSUFFICIENT, ask about the most critical missing phase
+Threshold:
+- If 2 or more phases are covered → verdict SUFFICIENT
+- If only 1 phase is covered but the context clearly explains that phase → verdict SUFFICIENT
+- If fewer than 2 phases are covered AND the context does not meaningfully address the incident → verdict INSUFFICIENT, ask about the most critical missing phase
+- Single-technique incidents (e.g. only SQL Injection, only Phishing) naturally cover 1–2 phases — do NOT mark INSUFFICIENT just because Privilege Escalation or Lateral Movement are absent
 
 You are tracking information slots for a multi-turn incident analysis.
 
@@ -156,8 +162,17 @@ Never use FORCE_SUFFICIENT — answering with known-incomplete context without f
 class ContextEvaluator:
     """Evaluates whether retrieved context is sufficient to answer a query."""
 
-    def __init__(self) -> None:
-        if ANTHROPIC_API_KEY:
+    def __init__(self, use_local: bool = False) -> None:
+        if use_local:
+            from langchain_ollama import ChatOllama
+            self.llm = ChatOllama(
+                model=LOCAL_EVAL_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=EVALUATOR_TEMPERATURE,
+                num_predict=EVALUATOR_MAX_TOKENS,
+            )
+            print(f"[EVALUATOR] Local model: {LOCAL_EVAL_MODEL}")
+        elif ANTHROPIC_API_KEY:
             self.llm = ChatAnthropic(  # type: ignore[call-arg]
                 model=EVALUATOR_LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
