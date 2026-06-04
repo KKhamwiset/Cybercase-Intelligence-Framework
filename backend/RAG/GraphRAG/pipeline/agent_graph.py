@@ -343,6 +343,11 @@ class GraphRAGAgent:
         enriched = f"{state['original_query']}\n\nAdditional context from user: {user_answer}"
         state["original_query"] = enriched
 
+        # Increment retry_count so the evaluator treats this as a follow-up
+        # iteration — prevents infinite NEED_CLARIFICATION loops and ensures
+        # the graph reaches reasoning even if context is still imperfect.
+        state["retry_count"] = state.get("retry_count", 0) + 1
+
         # Re-run the full graph from the beginning (route → … → answer)
         return self.graph.invoke(state)
 
@@ -651,11 +656,17 @@ class GraphRAGAgent:
         if evaluation.verdict == VERDICT_SUFFICIENT:
             return "sufficient"
 
-        # User request: If INSUFFICIENT or NEED_CLARIFICATION, immediately ask follow-up
-        if evaluation.verdict in (VERDICT_INSUFFICIENT, VERDICT_NEED_CLARIFICATION):
+        # Query is ambiguous → ask user for clarification (one time only)
+        if evaluation.verdict == VERDICT_NEED_CLARIFICATION:
             if retry_count == 0:
                 return "need_clarification"
-            # Already retried → proceed with what we have
+            return "sufficient"
+
+        # Context is insufficient → rewrite query and re-retrieve
+        if evaluation.verdict == VERDICT_INSUFFICIENT:
+            if retry_count < MAX_RETRIEVAL_RETRIES:
+                return "insufficient"
+            # Exhausted retries → generate best-effort answer
             return "sufficient"
 
         return "sufficient"

@@ -60,30 +60,39 @@ Your job is to assess whether the **retrieved context** can adequately answer th
 
 Decision rules
 --------------
-SUFFICIENT
-  The context contains enough relevant information (entities, techniques,
-  relationships) to produce a meaningful answer.  Minor gaps are OK as long
-  as the core of the question is addressable.
+SUFFICIENT  ← default — use this when in doubt
+  Use SUFFICIENT when:
+  - The context contains ANY ATT&CK technique, tactic, software, or group
+    that relates to the attack behavior described in the query, even partially.
+  - The context covers the main attack action (e.g., SQL injection, phishing,
+    malware delivery) even if fine-grained sub-technique details are missing.
+  - There are coverage gaps but the core behavior is still addressable.
+  Bias strongly toward SUFFICIENT — a partial answer is always better than
+  blocking the pipeline with another retrieval round.
 
-INSUFFICIENT
-  The context is mostly irrelevant or too sparse to answer the question.
-  You MUST supply a **followup_question** in the same language the user used
-  (Thai or English) to ask for more specific details or clarification.
+INSUFFICIENT  ← only for completely off-topic context
+  Use INSUFFICIENT ONLY when the retrieved context is entirely unrelated to
+  the attack described (e.g., query is about web exploitation but all
+  retrieved context covers only physical access with zero overlap).
+  You MUST supply a **rewritten_query** — a better English search string
+  that targets the missing ATT&CK technique more precisely.
 
-NEED_CLARIFICATION
-  The user's query itself is too vague, ambiguous, or missing critical
-  details (e.g., no attack technique mentioned, unclear target, no
-  actionable specifics).  You MUST supply a **followup_question** in
-  the same language the user used (Thai or English) to ask for the
-  missing information.
+NEED_CLARIFICATION  ← only for genuinely vague queries
+  Use NEED_CLARIFICATION ONLY when the query is so vague that it is
+  impossible to determine what attack technique or behavior is being described
+  (e.g., "someone did something bad to our system" — no technique, no target,
+  no actionable specifics).
+  You MUST supply a **followup_question** in the **same language** as the
+  user's original query (Thai or English).
 
 Important
 ---------
 - Return ONLY valid JSON.  No markdown fences, no extra text.
-- The followup_question must be in the **same language** as the user's original query.
 - Never fabricate ATT&CK IDs or technique names in the rewritten_query.
-- Prefer SUFFICIENT when context is roughly on-topic — be conservative
-  about triggering re-retrieval loops."""
+- When the query explicitly names a technique (SQL Injection, phishing, macro,
+  credential theft, RDP, keylogger, etc.) → the query is NOT vague →
+  do NOT use NEED_CLARIFICATION.
+- SUFFICIENT is the right answer for the vast majority of incident queries."""
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -108,13 +108,15 @@ def build_generation_prompt(
 
     if respond_in_thai:
         parts.append(
-            "ตอบคำถามข้างต้นเป็นภาษาไทย โดยอ้างอิงจากข้อมูล Context ที่ให้มาเท่านั้น\n"
-            "คงศัพท์เทคนิคเป็นภาษาอังกฤษ ระบุ ATT&CK ID กำกับทุกครั้ง"
+            "อธิบายเหตุการณ์ข้างต้นโดยอ้างอิงจากข้อมูล Context ที่ให้มาเท่านั้น\n"
+            "ใช้ภาษาที่เข้าใจง่ายสำหรับผู้ที่ไม่มีพื้นฐานเทคนิค\n"
+            "คงศัพท์เทคนิคและ ATT&CK ID ไว้เป็นภาษาอังกฤษ"
         )
     else:
         parts.append(
-            "Answer the question above using ONLY the provided context.\n"
-            "Cite ATT&CK IDs where applicable."
+            "Using ONLY the provided context, explain the incident in plain language for a non-technical reader.\n"
+            "Follow the four-section format from your instructions exactly.\n"
+            "Cite ATT&CK IDs for every technique mentioned."
         )
 
     return "\n".join(parts)
