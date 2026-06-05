@@ -62,8 +62,11 @@ export async function getHealthStatus(): Promise<HealthStatus> {
   }
 }
 
-interface QueryResponse {
+export interface QueryResponse {
+  status: "completed" | "followup";
   answer: string;
+  followup_question?: string;
+  session_id?: string;
 }
 
 export type ChatMessage = {
@@ -72,27 +75,19 @@ export type ChatMessage = {
 };
 
 /**
- * Sends a query to the RAG engine and returns the answer.
- * Currently uses queryRag as a backend.
+ * Sends a query to the RAG engine.
  */
-export const chatContinue = async (
+export const queryRag = async (
   query: string,
-  _history: ChatMessage[] = [],
-): Promise<string> => {
-  void _history;
-  return queryRag(query);
-};
-
-/**
- * Direct call to the RAG query endpoint.
- */
-export const queryRag = async (query: string): Promise<string> => {
+  useAgent: boolean = true,
+): Promise<QueryResponse> => {
   const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<QueryResponse>(
       `${baseUrl}/rag/query`,
       {
         query: query,
+        use_agent: useAgent,
       },
       {
         headers: {
@@ -101,11 +96,51 @@ export const queryRag = async (query: string): Promise<string> => {
       },
     );
 
-    return response.data.answer;
+    return response.data;
   } catch (error) {
     console.error("RAG query failed:", error);
     throw error;
   }
+};
+
+/**
+ * Resumes a follow-up session.
+ */
+export const resumeRag = async (
+  sessionId: string,
+  answer: string,
+): Promise<QueryResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<QueryResponse>(
+      `${baseUrl}/rag/resume`,
+      {
+        session_id: sessionId,
+        answer: answer,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("RAG resume failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Sends a query to the RAG engine and returns the answer.
+ */
+export const chatContinue = async (
+  query: string,
+  _history: ChatMessage[] = [],
+): Promise<QueryResponse> => {
+  void _history;
+  return queryRag(query);
 };
 
 /**
@@ -114,13 +149,13 @@ export const queryRag = async (query: string): Promise<string> => {
 export const queryRagFile = async (
   file: File,
   query: string,
-  pageNum: number,
-): Promise<string> => {
+  pageNums: string | number,
+): Promise<QueryResponse> => {
   const baseUrl = getApiBaseUrl();
   const formData = new FormData();
   formData.append("file", file);
   formData.append("query", query);
-  formData.append("page_num", String(pageNum));
+  formData.append("page_num", String(pageNums));
 
   try {
     const response = await axios.post<QueryResponse>(
@@ -128,7 +163,7 @@ export const queryRagFile = async (
       formData,
     );
 
-    return response.data.answer;
+    return response.data;
   } catch (error) {
     console.error("RAG file query failed:", error);
     throw error;
