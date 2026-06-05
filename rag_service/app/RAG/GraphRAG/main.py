@@ -13,12 +13,13 @@ import argparse
 import io
 import sys
 
+from FlagEmbedding import BGEM3FlagModel
+
 from .config import (
     EMBED_MODEL,
     USE_FP16,
     sep,
 )
-from FlagEmbedding import BGEM3FlagModel
 
 # ──────────────────────────────────────────────────────────────────────────────
 # UTF-8 FIX FOR WINDOWS
@@ -104,13 +105,17 @@ TEST_QUERIES = [
 ]
 
 
-def run_tests(retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False):
+def run_tests(
+    retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False
+):
     """Run test queries."""
     if use_agent:
         from .pipeline.agent_graph import GraphRAGAgent
+
         pipeline = GraphRAGAgent(use_local=use_local)
     else:
         from .pipeline.chain import GraphRAGChain
+
         pipeline = GraphRAGChain(use_local=use_local)
 
     mode_label = "agent" if use_agent else "chain"
@@ -127,7 +132,7 @@ def run_tests(retrieve_only: bool = False, use_agent: bool = False, use_local: b
             print(f"  TEST {i}/{len(TEST_QUERIES)}")
             print(f"{'=' * 72}")
 
-            if retrieve_only and hasattr(pipeline, 'retrieve_only'):
+            if retrieve_only and hasattr(pipeline, "retrieve_only"):
                 context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:2000])
@@ -155,13 +160,17 @@ def _interactive_followup_callback(question: str) -> str:
     return answer
 
 
-def run_interactive(retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False):
+def run_interactive(
+    retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False
+):
     """Interactive query mode."""
     if use_agent:
         from .pipeline.agent_graph import GraphRAGAgent
+
         pipeline = GraphRAGAgent(use_local=use_local)
     else:
         from .pipeline.chain import GraphRAGChain
+
         pipeline = GraphRAGChain(use_local=use_local)
 
     mode_parts = []
@@ -194,7 +203,7 @@ def run_interactive(retrieve_only: bool = False, use_agent: bool = False, use_lo
             if not query:
                 continue
 
-            if retrieve_only and hasattr(pipeline, 'retrieve_only'):
+            if retrieve_only and hasattr(pipeline, "retrieve_only"):
                 context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:3000])
@@ -264,7 +273,8 @@ Examples:
     args = arg_parser.parse_args()
 
     if args.local:
-        from .config import LOCAL_LLM_MODEL, LOCAL_EVAL_MODEL, OLLAMA_BASE_URL
+        from .config import LOCAL_EVAL_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
+
         print(f"\n[LOCAL MODE]  Pipeline model : {LOCAL_LLM_MODEL}")
         print(f"[LOCAL MODE]  Eval model     : {LOCAL_EVAL_MODEL}")
         print(f"[LOCAL MODE]  Ollama URL     : {OLLAMA_BASE_URL}\n")
@@ -272,9 +282,13 @@ Examples:
     if args.ingest:
         run_ingest()
     elif args.test:
-        run_tests(retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local)
+        run_tests(
+            retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local
+        )
     else:
-        run_interactive(retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local)
+        run_interactive(
+            retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local
+        )
 
 
 if __name__ == "__main__":

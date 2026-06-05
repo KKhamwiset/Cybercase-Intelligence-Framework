@@ -7,4 +7,6 @@ def technique_coverage(answer: str, relevant_stix_ids: list[str]) -> float:
     # ดึง T-IDs จาก answer (เช่น T1566, T1078)
     # เทียบกับ IDs ที่ควรพูดถึงใน ground truth
     # คืน precision / recall / F1
+
+# Parallel Retrieval
 ระบบนี้มี relevant_stix_ids ทุก sample อยู่แล้ว — สร้าง domain metric ได้ทันที

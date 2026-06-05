@@ -12,9 +12,9 @@ Implements the GraphRAG architecture from schema_design.md:
 from dataclasses import dataclass
 from typing import Optional
 
-from ..config import FINAL_TOP_K, RERANKER_MODEL, VECTOR_TOP_K
 from FlagEmbedding import BGEM3FlagModel
 
+from ..config import FINAL_TOP_K, RERANKER_MODEL, VECTOR_TOP_K
 from .graph_retriever import GraphRetriever, SubgraphResult
 from .reranker import Reranker
 from .vector_retriever import VectorResult, VectorRetriever
@@ -62,10 +62,14 @@ class GraphRAGResult:
 class HybridRetriever:
     """Orchestrates Vector + Graph retrieval for GraphRAG."""
 
-    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
+    def __init__(
+        self,
+        embed_model: Optional[BGEM3FlagModel] = None,
+        reranker: Optional[Reranker] = None,
+    ):
         self.vector_retriever = VectorRetriever(embed_model=embed_model)
         self.graph_retriever = GraphRetriever()
-        self.reranker = Reranker(RERANKER_MODEL)
+        self.reranker = reranker or Reranker(RERANKER_MODEL)
         print("[HYBRID] GraphRAG retriever initialized")
 
     def close(self):
@@ -109,10 +113,13 @@ class HybridRetriever:
                     seen_stix.add(vr.stix_id)
                     stix_ids_list.append(vr.stix_id)
             elif vr.metadata.get("entity_type") == "Relationship":
-                for sid in filter(None, [
-                    vr.metadata.get("source_id"),
-                    vr.metadata.get("target_id"),
-                ]):
+                for sid in filter(
+                    None,
+                    [
+                        vr.metadata.get("source_id"),
+                        vr.metadata.get("target_id"),
+                    ],
+                ):
                     if sid not in seen_stix:
                         seen_stix.add(sid)
                         stix_ids_list.append(sid)
@@ -174,7 +181,9 @@ class HybridRetriever:
 
         for i, query in enumerate(queries, 1):
             print(f"[RETRIEVE-MULTI] Query {i}/{len(queries)}: {query[:80]}...")
-            result = self.retrieve(query, top_k=top_k, node_label_filter=node_label_filter)
+            result = self.retrieve(
+                query, top_k=top_k, node_label_filter=node_label_filter
+            )
 
             # Merge vector results — keep highest score per stix_id
             for vr in result.vector_results:
@@ -184,9 +193,7 @@ class HybridRetriever:
 
             # Merge graph results — keep first subgraph per center node
             for sg in result.graph_results:
-                center_id = (
-                    sg.center_node.stix_id if sg.center_node else id(sg)
-                )
+                center_id = sg.center_node.stix_id if sg.center_node else id(sg)
                 if center_id not in seen_graph:
                     seen_graph[center_id] = sg
 
@@ -205,4 +212,3 @@ class HybridRetriever:
             vector_results=merged_vector,
             graph_results=merged_graph,
         )
-

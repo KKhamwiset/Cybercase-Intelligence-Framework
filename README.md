@@ -28,7 +28,8 @@ Activate the virtual environment:
 
 Install the required Python packages:
 ```bash
-pip install -r requirements.txt
+# This script installs dependencies for both backend and rag_service
+python install_deps.py
 ```
 
 ### 2. Environment Management (Doppler)

@@ -21,22 +21,40 @@ class Settings(BaseSettings):
     )
 
     # ── Database ─────────────────────────────────────────────────────────
-    database_url: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5433/cybercase_framework",
-    )
+    postgres_user: str = os.getenv("POSTGRES_USER", "postgres")
+    postgres_password: str = os.getenv("POSTGRES_PASSWORD", "postgres")
+    postgres_db: str = os.getenv("POSTGRES_DB", "cybercase_framework")
+    postgres_host: str = os.getenv("POSTGRES_HOST", "db")
+    postgres_port: str = os.getenv("POSTGRES_PORT", "5432")
+
+    database_url: str = os.getenv("DATABASE_URL", "")
 
     @property
     def async_database_url(self) -> str:
         """Ensures the URL uses postgresql+asyncpg:// for SQLAlchemy async engine."""
-        url = self.database_url
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        elif "asyncpg" not in url:
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return url
+        if self.database_url:
+            url = self.database_url
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif "asyncpg" not in url:
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
+
+        # Construct from components if DATABASE_URL is not provided
+        from sqlalchemy.engine.url import URL
+
+        return str(
+            URL.create(
+                drivername="postgresql+asyncpg",
+                username=self.postgres_user,
+                password=self.postgres_password,
+                host=self.postgres_host,
+                port=int(self.postgres_port),
+                database=self.postgres_db,
+            )
+        )
 
     # ── CORS ─────────────────────────────────────────────────────────────
     cors_origins: str = "http://localhost:3000"

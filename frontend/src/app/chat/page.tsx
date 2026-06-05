@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { chatContinue, ChatMessage, queryRagFile } from "@/lib/api";
+import {
+  chatContinue,
+  ChatMessage,
+  queryRagFile,
+  resumeRag,
+  QueryResponse,
+} from "@/lib/api";
 import Link from "next/link";
 
 /**
@@ -12,7 +18,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pageNum, setPageNum] = useState(1);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -35,7 +41,7 @@ export default function ChatPage() {
     const userMessage: ChatMessage = {
       role: "user",
       content: currentFile
-        ? `${currentInput || "Analyze this document"}\n\nAttached file: ${currentFile.name} (page ${pageNum})`
+        ? `${currentInput || "Analyze this document"}\n\nAttached file: ${currentFile.name}`
         : currentInput,
     };
 
@@ -48,11 +54,30 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const answer = currentFile
-        ? await queryRagFile(currentFile, currentInput, pageNum)
-        : await chatContinue(currentInput, messages);
-      const aiMessage: ChatMessage = { role: "assistant", content: answer };
-      setMessages((prev) => [...prev, aiMessage]);
+      let response: QueryResponse;
+      if (currentSessionId) {
+        response = await resumeRag(currentSessionId, currentInput);
+      } else if (currentFile) {
+        response = await queryRagFile(currentFile, currentInput);
+      } else {
+        response = await chatContinue(currentInput, messages);
+      }
+
+      if (response.status === "followup") {
+        setCurrentSessionId(response.session_id || null);
+        const aiMessage: ChatMessage = {
+          role: "assistant",
+          content: response.followup_question || "I need more information.",
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      } else {
+        setCurrentSessionId(null);
+        const aiMessage: ChatMessage = {
+          role: "assistant",
+          content: response.answer,
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage: ChatMessage = {
@@ -88,7 +113,10 @@ export default function ChatPage() {
           <span className="text-xs font-medium text-neutral uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full">
             AI Assistant
           </span>
-          <Link href="/" className="text-sm font-medium text-neutral hover:text-primary transition-colors">
+          <Link
+            href="/"
+            className="text-sm font-medium text-neutral hover:text-primary transition-colors"
+          >
             Exit Chat
           </Link>
         </div>
@@ -119,7 +147,8 @@ export default function ChatPage() {
                   How can I help you today?
                 </h2>
                 <p className="text-neutral max-w-md mx-auto">
-                  Ask me about Thai Cybersecurity law, PDPA, or technical queries regarding MITRE ATT&CK.
+                  Ask me about Thai Cybersecurity law, PDPA, or technical
+                  queries regarding MITRE ATT&CK.
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg mt-4">
@@ -164,9 +193,18 @@ export default function ChatPage() {
             <div className="flex justify-start animate-pulse">
               <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-5 py-4 shadow-sm">
                 <div className="flex space-x-2 py-2">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></div>
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                  <div
+                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  ></div>
                 </div>
               </div>
             </div>
@@ -202,7 +240,9 @@ export default function ChatPage() {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate">
-                    {selectedFile ? selectedFile.name : "Attach PDF or image for OCR"}
+                    {selectedFile
+                      ? selectedFile.name
+                      : "Attach PDF or image for OCR"}
                   </span>
                   <span className="block text-xs font-normal text-neutral">
                     PDF, PNG, JPG, or JPEG
@@ -219,23 +259,6 @@ export default function ChatPage() {
               </label>
 
               <div className="flex items-center gap-2">
-                <label
-                  htmlFor="ocr-page"
-                  className="text-xs font-bold uppercase tracking-widest text-neutral"
-                >
-                  Page
-                </label>
-                <input
-                  id="ocr-page"
-                  type="number"
-                  min="1"
-                  value={pageNum}
-                  onChange={(e) =>
-                    setPageNum(Math.max(1, Number(e.target.value) || 1))
-                  }
-                  disabled={isLoading}
-                  className="h-10 w-20 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-primary outline-none focus:border-primary"
-                />
                 {selectedFile && (
                   <button
                     type="button"
@@ -260,12 +283,14 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
-                  selectedFile
-                    ? "Ask what to analyze from this file..."
-                    : "Ask anything about Thai regulations..."
+                  currentSessionId
+                    ? "Answer the follow-up question..."
+                    : selectedFile
+                      ? "Ask what to analyze from this file..."
+                      : "Ask anything about Thai regulations..."
                 }
                 disabled={isLoading}
-                className="w-full bg-gray-50 border border-gray-200 focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md"
+                className={`w-full bg-gray-50 border ${currentSessionId ? "border-amber-300 ring-1 ring-amber-100" : "border-gray-200"} focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md`}
               />
               <button
                 type="submit"

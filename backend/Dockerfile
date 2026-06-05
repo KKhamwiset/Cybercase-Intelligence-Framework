@@ -11,11 +11,9 @@ RUN apt-get update && apt-get install -y \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from root and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
-    torch torchvision torchaudio \
-    && pip install --no-cache-dir -r requirements.txt
+# Copy requirements and install
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application code
 COPY backend/app ./app
