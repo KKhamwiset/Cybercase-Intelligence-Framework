@@ -9,11 +9,18 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from root and install
-COPY requirements.txt .
+# Set Hugging Face cache directory
+ENV HF_HOME=/app/model_cache
+
+# Copy requirements and install
+COPY rag_service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
     torch torchvision torchaudio \
     && pip install --no-cache-dir -r requirements.txt
+
+# Download and cache the embedding model
+COPY rag_service/app/download_model.py /app/download_model.py
+RUN python /app/download_model.py && rm /app/download_model.py
 
 # Copy RAG service application code
 COPY rag_service/app ./app

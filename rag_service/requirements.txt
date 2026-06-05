@@ -1,0 +1,68 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# RAG Service — directly imported by rag_service/app
+# ──────────────────────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn>=0.34.0
+pydantic>=2.13.0
+pydantic-settings>=2.7.0
+neo4j>=5.0.0
+qdrant-client>=1.12.0
+FlagEmbedding>=1.3.0
+anthropic>=0.100.0
+langchain>=0.3.0
+langchain-anthropic>=1.4.3
+langchain-ollama
+langchain-community>=0.3.0
+langchain-core>=1.3.3
+langgraph>=0.4.0
+python-dotenv>=1.0.0
+pypdf>=5.0.0
+stix2>=3.0.0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Evaluation — RAGAS and metrics
+# ──────────────────────────────────────────────────────────────────────────────
+ragas
+datasets
+bert-score
+rouge-score
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Machine Learning Core — required for FlagEmbedding / BGE-M3
+# ──────────────────────────────────────────────────────────────────────────────
+torch>=2.0.0
+transformers>=4.40.0
+tokenizers>=0.20.0
+sentence-transformers>=5.4.0
+numpy>=2.0.0
+scikit-learn>=1.5.0
+scipy>=1.13.0
+huggingface-hub>=1.0.0
+tqdm>=4.65.0
+tiktoken>=0.7.0
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Transitive
+# ──────────────────────────────────────────────────────────────────────────────
+httpx>=0.28.0
+requests>=2.33.0
+PyYAML>=6.0.0
+regex>=2024.0.0
+rich>=13.0.0
+anyio>=4.0.0
+certifi>=2024.0.0
+charset-normalizer>=3.0.0
+httpcore>=1.0.0
+idna>=3.0.0
+sniffio>=1.3.0
+typing_extensions>=4.10.0
+urllib3>=2.0.0
+Jinja2>=3.1.0
+MarkupSafe>=2.0.0
+jiter>=0.13.0
+jsonpatch>=1.33
+jsonpointer>=3.0.0
+packaging>=24.0
+pydantic-core>=2.0.0
+safetensors>=0.4.0
+tenacity>=8.0.0

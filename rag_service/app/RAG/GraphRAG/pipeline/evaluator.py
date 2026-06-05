@@ -57,8 +57,8 @@ class EvaluationResult:
 
     verdict: str  # SUFFICIENT | INSUFFICIENT
     reason: str  # Brief justification
-    covered_phases: list[str] = None
-    missing_phases: list[str] = None
+    covered_phases: list[str] | None = None
+    missing_phases: list[str] | None = None
     missing_slot: str = ""
     follow_up: str = ""
     strategy: str = ""
@@ -174,10 +174,10 @@ class ContextEvaluator:
             print(f"[EVALUATOR] Local model: {LOCAL_EVAL_MODEL}")
         elif ANTHROPIC_API_KEY:
             self.llm = ChatAnthropic(  # type: ignore[call-arg]
-                model=EVALUATOR_LLM_MODEL,
+                model_name=EVALUATOR_LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=EVALUATOR_TEMPERATURE,
-                max_tokens=EVALUATOR_MAX_TOKENS,
+                max_tokens_to_sample=EVALUATOR_MAX_TOKENS,
             )
         else:
             self.llm = None
@@ -426,4 +426,3 @@ class ContextEvaluator:
                 f"Raw: {raw[:200]}"
             ),
         )
-

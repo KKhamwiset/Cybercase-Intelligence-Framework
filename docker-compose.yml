@@ -39,13 +39,20 @@ services:
     restart: always
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-cybercase_framework}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-cybercase_framework}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       TYPHOON_OCR_API_KEY: ${TYPHOON_OCR_API_KEY:-}
       TYPHOON_API_KEY: ${TYPHOON_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       RAG_SERVICE_URL: http://rag-service:8001
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       db:
         condition: service_healthy
@@ -70,6 +77,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     ports:
       - "8001:8001"
+    volumes:
+      - ./rag_service/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:

@@ -5,6 +5,7 @@ from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer
 from .evaluator import ContextEvaluator, EvaluationResult
 from .query_merger import QueryMerger
+from .report_generator import CyberCaseReport, ReportGenerator
 from .router import QueryRouter
 
 __all__ = [
@@ -17,5 +18,9 @@ __all__ = [
     "CrossLingualLayer",
     "EvaluationResult",
     "QueryMerger",
+    "ReportGenerator",
+    "CyberCaseReport",
     "QueryRouter",
+    "build_context",
+    "build_generation_prompt",
 ]

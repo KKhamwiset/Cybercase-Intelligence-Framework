@@ -9,9 +9,9 @@ Replaces the linear LCEL chain with a stateful graph that supports:
       using ALL accumulated queries in parallel.
    2. **Multi-Query Retrieval** — original query + all rewrites are run
       through retrieve_multi() and merged/deduplicated before evaluation.
- 
+
  The graph flow:
- 
+
      input → route → translate → retrieve_multi → evaluate_context
                                                         │
                                         ┌─ sufficient   │  insufficient
@@ -28,14 +28,12 @@ Replaces the linear LCEL chain with a stateful graph that supports:
 
 from __future__ import annotations
 
-import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional, TypedDict
 
+from FlagEmbedding import BGEM3FlagModel
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from FlagEmbedding import BGEM3FlagModel
-
 from langgraph.graph import END, StateGraph
 
 from ..config import (
@@ -54,11 +52,11 @@ from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer
 from .evaluator import (
-    ContextEvaluator,
-    EvaluationResult,
     VERDICT_INSUFFICIENT,
     VERDICT_NEED_CLARIFICATION,
     VERDICT_SUFFICIENT,
+    ContextEvaluator,
+    EvaluationResult,
 )
 from .query_merger import QueryMerger
 from .router import QueryRouter
@@ -106,7 +104,6 @@ class AgentState(TypedDict, total=False):
 
     # ── Output ────────────────────────────────────────────────────────────
     answer: str  # Final answer
-
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -203,16 +200,16 @@ class GraphRAGAgent:
             print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
         elif ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore[call-arg]
-                model=LLM_MODEL,
+                model_name=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                max_tokens=LLM_MAX_TOKENS,
+                max_tokens_to_sample=LLM_MAX_TOKENS,
             )
             self.translation_llm = ChatAnthropic(  # type: ignore[call-arg]
-                model=LLM_MODEL,
+                model_name=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                max_tokens=LLM_MAX_TOKENS,
+                max_tokens_to_sample=LLM_MAX_TOKENS,
             )
             print(f"[AGENT] Reasoning LLM : {LLM_MODEL}")
             print(f"[AGENT] Translation LLM: {LLM_MODEL}")
@@ -232,6 +229,12 @@ class GraphRAGAgent:
     def close(self) -> None:
         """Clean up resources."""
         self.retriever.close()
+
+    def retrieve_only(self, user_query: str) -> str:
+        """Execute only the retrieval portion of the pipeline."""
+        english_query = self.translator.translate_query(user_query)
+        rag_result = self.retriever.retrieve(english_query)
+        return build_context(rag_result)
 
     def query(
         self,
@@ -287,6 +290,7 @@ class GraphRAGAgent:
 
             if verbose:
                 from ..config import sep
+
                 sep("AGENT — FOLLOW-UP REQUIRED")
                 print(f"  Question: {question}")
 
@@ -306,6 +310,7 @@ class GraphRAGAgent:
             # ── API mode: park the session and return follow-up ───────
             else:
                 import uuid
+
                 session_id = str(uuid.uuid4())
                 self._sessions[session_id] = dict(result)
 
@@ -431,12 +436,12 @@ class GraphRAGAgent:
 
         if verbose:
             from ..config import sep
+
             sep("AGENT — FOLLOW-UP ANSWER RECEIVED")
             print(f"  Slot       : {slot_name}")
             print(f"  Value      : {user_answer}")
             print(f"  Rewrite    : {rewritten_query}")
             print(f"  All queries: {len(rewritten_queries) + 1} total")
-
 
         # Increment retry_count so the evaluator treats this as a follow-up
         # iteration — prevents infinite NEED_CLARIFICATION loops and ensures
@@ -527,7 +532,7 @@ class GraphRAGAgent:
     # ------------------------------------------------------------------
     def _node_route_query(self, state: AgentState) -> dict:
         """Classify the query as GENERAL_EXPLANATION or INCIDENT_ANALYSIS."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         if verbose:
@@ -543,7 +548,7 @@ class GraphRAGAgent:
 
     def _node_general_explanation(self, state: AgentState) -> dict:
         """Handle general knowledge questions without retrieval."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         if not self.reasoning_llm:
@@ -577,7 +582,7 @@ class GraphRAGAgent:
 
     def _node_translate_query(self, state: AgentState) -> dict:
         """Detect language and translate to English for retrieval."""
-        query = state["original_query"]
+        query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(query)
@@ -599,7 +604,7 @@ class GraphRAGAgent:
         ``rewritten_queries`` and all queries are retrieved in parallel via
         ``retrieve_multi()``.
         """
-        english_query = state["english_query"]
+        english_query = state.get("english_query", "")
         rewritten_queries: list = list(state.get("rewritten_queries") or [])
         verbose = state.get("verbose", True)
 
@@ -637,9 +642,9 @@ class GraphRAGAgent:
         total_retries = followup_count + broaden_count
 
         evaluation = self.evaluator.evaluate(
-            original_query=state["original_query"],
-            english_query=state["english_query"],
-            context=state["context"],
+            original_query=state.get("original_query", ""),
+            english_query=state.get("english_query", ""),
+            context=state.get("context", ""),
             retry_count=total_retries,  # drives looser criteria on later iterations and strategy choice
             verbose=verbose,
             incident_facts=state.get("incident_facts") or {},
@@ -655,15 +660,17 @@ class GraphRAGAgent:
 
     def _node_prepare_followup(self, state: AgentState) -> dict:
         """Prepare a follow-up question for the user."""
-        evaluation: EvaluationResult = state["evaluation"]
+        evaluation = state.get("evaluation")
         return {
             "awaiting_followup": True,
-            "followup_question": evaluation.follow_up,
+            "followup_question": evaluation.follow_up
+            if evaluation
+            else "Could you please provide more details?",
         }
 
     def _node_broaden_search(self, state: AgentState) -> dict:
         """Execute the BROADEN_SEARCH strategy by rewriting the query and looping."""
-        evaluation: EvaluationResult = state["evaluation"]
+        evaluation = state.get("evaluation")
         rewritten_queries: list = list(state.get("rewritten_queries") or [])
         new_query = getattr(evaluation, "new_query", "")
         if new_query:
@@ -673,6 +680,7 @@ class GraphRAGAgent:
 
         if state.get("verbose", True):
             from ..config import sep
+
             sep("AGENT — BROADEN SEARCH STRATEGY")
             print(f"  New Query: {new_query}")
 
@@ -704,9 +712,9 @@ class GraphRAGAgent:
 
         # ── Standard reasoning ────────────────────────────────────────────
         reasoning_prompt = build_generation_prompt(
-            context=state["context"],
-            original_query=state["original_query"],
-            english_query=state["english_query"],
+            context=state.get("context", ""),
+            original_query=state.get("original_query", ""),
+            english_query=state.get("english_query", ""),
             respond_in_thai=False,
             incident_facts=state.get("incident_facts") or {},
         )
@@ -731,7 +739,7 @@ class GraphRAGAgent:
     def _node_translate_output(self, state: AgentState) -> dict:
         """Stage 3: Translation LLM — render English answer into Thai."""
         verbose = state.get("verbose", True)
-        simplified = state["answer"]
+        simplified = state.get("answer", "")
 
         if not self.translation_llm:
             return {"answer": simplified}
@@ -787,12 +795,13 @@ class GraphRAGAgent:
         if evaluation.verdict == VERDICT_SUFFICIENT:
             return "sufficient"
 
-
         # Check strategy if we hit the limit
         total_retries = followup_count + broaden_count
         if total_retries >= MAX_FOLLOWUP_RETRIES:
             strategy = getattr(evaluation, "strategy", "")
-            if strategy == "BROADEN_SEARCH" and broaden_count < 2:  # hard cap on broaden loops
+            if (
+                strategy == "BROADEN_SEARCH" and broaden_count < 2
+            ):  # hard cap on broaden loops
                 return "broaden"
             # PARTIAL_ANSWER, ACKNOWLEDGE_LIMIT, or fallback
             return "sufficient"

@@ -3,6 +3,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.config import settings
+from app.schemas.rag import CyberCaseReport
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -106,4 +107,24 @@ async def resume_agent(request: ResumeRequest):
             )
         except Exception as e:
             print(f"[RAG] Error calling RAG service: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate-report", response_model=CyberCaseReport)
+async def generate_report(request: QueryRequest):
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.rag_service_url}/generate-report",
+                json=request.model_dump(),
+            )
+            response.raise_for_status()
+            return CyberCaseReport(**response.json())
+        except httpx.HTTPStatusError as e:
+            print(f"[RAG] Service error: {e.response.text}")
+            raise HTTPException(
+                status_code=e.response.status_code, detail=e.response.text
+            )
+        except Exception as e:
+            print(f"[RAG] Error generating report: {e}")
             raise HTTPException(status_code=500, detail=str(e))
