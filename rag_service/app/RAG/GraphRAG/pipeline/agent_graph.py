@@ -160,6 +160,7 @@ class GraphRAGAgent:
     def __init__(
         self,
         embed_model: Optional[BGEM3FlagModel] = None,
+        reranker: Optional[Any] = None,
         use_local: bool = False,
     ) -> None:
         sep("Initializing GraphRAG Agent (LangGraph)")
@@ -173,7 +174,9 @@ class GraphRAGAgent:
 
         # Components — propagate use_local to all LLM-bearing components
         self.translator = CrossLingualLayer(use_local=use_local)
-        self.retriever = HybridRetriever(embed_model=self.embed_model)
+        self.retriever = HybridRetriever(
+            embed_model=self.embed_model, reranker=reranker
+        )
         self.router = QueryRouter(use_local=use_local)
         self.evaluator = ContextEvaluator(use_local=use_local)
         self.query_merger = QueryMerger(use_local=use_local)
@@ -184,6 +187,7 @@ class GraphRAGAgent:
         # LLMs
         if use_local:
             from langchain_ollama import ChatOllama
+
             self.reasoning_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
@@ -697,14 +701,20 @@ class GraphRAGAgent:
         gap_warning = state.get("gap_warning", "")
 
         if not self.reasoning_llm:
-            return {"answer": "Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set)."}
+            return {
+                "answer": "Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set)."
+            }
 
         # ── Fast path for ACKNOWLEDGE_LIMIT ───────────────────────────────
         # Only skip reasoning if retries are truly exhausted — guard against
         # local LLMs that output strategy=ACKNOWLEDGE_LIMIT even on the first
         # pass while simultaneously returning verdict=SUFFICIENT.
         total_retries = state.get("followup_count", 0) + state.get("broaden_count", 0)
-        if strategy == "ACKNOWLEDGE_LIMIT" and ack_message and total_retries >= MAX_FOLLOWUP_RETRIES:
+        if (
+            strategy == "ACKNOWLEDGE_LIMIT"
+            and ack_message
+            and total_retries >= MAX_FOLLOWUP_RETRIES
+        ):
             if verbose:
                 sep("AGENT — REASONING LLM (ACKNOWLEDGE_LIMIT)")
                 print(ack_message)

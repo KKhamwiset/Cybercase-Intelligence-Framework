@@ -37,8 +37,12 @@ async def lifespan(app: FastAPI):
         reranker_model = Reranker(RERANKER_MODEL)
 
         # 2. Initialize components with shared models
-        app.state.rag_chain = GraphRAGChain(embed_model=embed_model)
-        app.state.rag_agent = GraphRAGAgent(embed_model=embed_model)
+        app.state.rag_chain = GraphRAGChain(
+            embed_model=embed_model, reranker=reranker_model
+        )
+        app.state.rag_agent = GraphRAGAgent(
+            embed_model=embed_model, reranker=reranker_model
+        )
         app.state.retriever = HybridRetriever(
             embed_model=embed_model, reranker=reranker_model
         )

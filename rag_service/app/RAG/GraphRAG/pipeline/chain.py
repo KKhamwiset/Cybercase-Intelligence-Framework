@@ -16,9 +16,9 @@ separation of concerns between jargon simplification and language translation.
 
 from typing import Optional
 
+from FlagEmbedding import BGEM3FlagModel
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
-from FlagEmbedding import BGEM3FlagModel
 
 from ..config import (
     ANTHROPIC_API_KEY,
@@ -28,8 +28,8 @@ from ..config import (
     LLM_TEMPERATURE,
     LOCAL_LLM_MODEL,
     OLLAMA_BASE_URL,
-    VECTOR_TOP_K,
     USE_FP16,
+    VECTOR_TOP_K,
     sep,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
@@ -56,6 +56,7 @@ class GraphRAGChain:
     def __init__(
         self,
         embed_model: Optional[BGEM3FlagModel] = None,
+        reranker: Optional[Any] = None,
         use_local: bool = False,
     ):
         sep("Initializing GraphRAG Chain")
@@ -69,13 +70,16 @@ class GraphRAGChain:
 
         # Initialize components — propagate use_local to all LLM-bearing components
         self.translator = CrossLingualLayer(use_local=use_local)
-        self.retriever = HybridRetriever(embed_model=self.embed_model)
+        self.retriever = HybridRetriever(
+            embed_model=self.embed_model, reranker=reranker
+        )
         self.router = QueryRouter(use_local=use_local)
 
         # Stage 2: Reasoning LLM — simplifies jargon into plain English
         # Stage 3: Translation LLM — renders simplified English into Thai
         if use_local:
             from langchain_ollama import ChatOllama
+
             self.reasoning_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
