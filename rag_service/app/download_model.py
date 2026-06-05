@@ -6,18 +6,21 @@ This ensures the model is baked into the image for faster startup and offline us
 import os
 
 from FlagEmbedding import BGEM3FlagModel
+from sentence_transformers import CrossEncoder
 
 
 def download_model():
-    model_name = "BAAI/bge-m3"
-    print(f"[BUILD] Downloading and caching model: {model_name}")
+    # 1. Embedding Model
+    embed_model_name = "BAAI/bge-m3"
+    print(f"[BUILD] Downloading and caching embedding model: {embed_model_name}")
+    BGEM3FlagModel(embed_model_name, use_fp16=True)
 
-    # We use CPU-only check if needed, but for build time standard init is fine.
-    # The weights will be saved to the default Hugging Face cache directory:
-    # ~/.cache/huggingface/hub/
-    BGEM3FlagModel(model_name, use_fp16=True)
+    # 2. Reranker Model
+    reranker_model_name = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    print(f"[BUILD] Downloading and caching reranker model: {reranker_model_name}")
+    CrossEncoder(reranker_model_name)
 
-    print("[BUILD] Model downloaded and cached successfully.")
+    print("[BUILD] All models downloaded and cached successfully.")
 
 
 if __name__ == "__main__":

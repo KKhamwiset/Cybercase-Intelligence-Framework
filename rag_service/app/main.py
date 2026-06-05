@@ -26,18 +26,26 @@ async def lifespan(app: FastAPI):
     print("[RAG Service] Initializing RAG modules...")
     try:
         from FlagEmbedding import BGEM3FlagModel
-        from RAG.GraphRAG.config import EMBED_MODEL, USE_FP16
+        from RAG.GraphRAG.config import EMBED_MODEL, RERANKER_MODEL, USE_FP16
+        from RAG.GraphRAG.retrieval.reranker import Reranker
 
-        # 1. Load embedding model once
+        # 1. Load heavy models once
         print(f"[RAG Service] Loading shared embedding model: {EMBED_MODEL}")
         embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
-        # 2. Initialize components with shared model
+        print(f"[RAG Service] Loading shared reranker model: {RERANKER_MODEL}")
+        reranker_model = Reranker(RERANKER_MODEL)
+
+        # 2. Initialize components with shared models
         app.state.rag_chain = GraphRAGChain(embed_model=embed_model)
         app.state.rag_agent = GraphRAGAgent(embed_model=embed_model)
-        app.state.retriever = HybridRetriever(embed_model=embed_model)
+        app.state.retriever = HybridRetriever(
+            embed_model=embed_model, reranker=reranker_model
+        )
+
         app.state.report_gen = ReportGenerator()
         print("[RAG Service] RAG modules initialized successfully.")
+
     except Exception as e:
         print(f"[RAG Service] Error initializing RAG modules: {e}")
         import traceback
