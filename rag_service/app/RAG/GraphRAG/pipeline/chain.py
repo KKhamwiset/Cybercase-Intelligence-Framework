@@ -14,7 +14,7 @@ Each stage is a distinct LLM call with its own system prompt, ensuring clear
 separation of concerns between jargon simplification and language translation.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from FlagEmbedding import BGEM3FlagModel
 from langchain_anthropic import ChatAnthropic
