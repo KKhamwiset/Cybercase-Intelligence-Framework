@@ -89,27 +89,54 @@ def _try_ragas_evaluate(
     answers: list[str],
     contexts: list[list[str]],
     reference_answers: list[str] | None = None,
+    use_local: bool = False,
 ) -> dict[str, list[float]] | None:
     """Attempt RAGAS evaluation. Returns None if ragas is not installed."""
     try:
         from ragas import evaluate
         from ragas.metrics import faithfulness, answer_relevancy
         from datasets import Dataset
-        from langchain_openai import ChatOpenAI
         from ragas.llms import LangchainLLMWrapper
-        from ..config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RAGAS_LLM_MODEL
+        from ..config import (
+            ANTHROPIC_API_KEY, EVALUATOR_LLM_MODEL,
+            OPENROUTER_API_KEY, OPENROUTER_BASE_URL, RAGAS_LLM_MODEL,
+            LOCAL_EVAL_MODEL, OLLAMA_BASE_URL,
+        )
     except ImportError:
         return None
 
-    # Setup OpenRouter LLM for RAGAS if API key is provided
+    # --local controls the generation chain only, not the RAGAS judge.
+    # Skip RAGAS only when local generation AND no cloud API key is available
+    # (small models like gemma3:4b / qwen2.5:7b cannot produce the structured
+    # JSON output RAGAS requires for NLI-based faithfulness scoring).
+    if use_local and not ANTHROPIC_API_KEY and not OPENROUTER_API_KEY:
+        print("[EVAL] Local mode + no cloud API key: skipping RAGAS")
+        print("[EVAL] Using fallback metrics: Token F1, ROUGE-L, BERTScore")
+        return None
+
+    # Judge priority: Claude Haiku → OpenRouter → no LLM (RAGAS default)
     ragas_llm = None
-    if OPENROUTER_API_KEY:
+    if ANTHROPIC_API_KEY:
         try:
+            from langchain_anthropic import ChatAnthropic
+            chat_model = ChatAnthropic(  # type: ignore[call-arg]
+                model=EVALUATOR_LLM_MODEL,
+                api_key=ANTHROPIC_API_KEY,
+                temperature=0.0,
+                max_tokens=1024,
+            )
+            ragas_llm = LangchainLLMWrapper(chat_model)
+            print(f"[EVAL] Using Claude {EVALUATOR_LLM_MODEL} as RAGAS judge")
+        except Exception as e:
+            print(f"[EVAL] Failed to init Claude for RAGAS: {e}")
+    elif OPENROUTER_API_KEY:
+        try:
+            from langchain_openai import ChatOpenAI
             chat_model = ChatOpenAI(
                 api_key=OPENROUTER_API_KEY,
                 base_url=OPENROUTER_BASE_URL,
                 model=RAGAS_LLM_MODEL,
-                temperature=0.0
+                temperature=0.0,
             )
             ragas_llm = LangchainLLMWrapper(chat_model)
             print(f"[EVAL] Using OpenRouter LLM for RAGAS: {RAGAS_LLM_MODEL}")
@@ -138,7 +165,7 @@ def _try_ragas_evaluate(
         kwargs = {"metrics": metrics}
         if ragas_llm:
             kwargs["llm"] = ragas_llm
-            
+
         result = evaluate(dataset, **kwargs)
         return result.to_pandas().to_dict(orient="list")
     except Exception as e:
@@ -154,7 +181,15 @@ def _try_bertscore(predictions: list[str], references: list[str]) -> list[float]
         return None
 
     try:
-        P, R, F1 = score(predictions, references, lang="en", verbose=False)
+        import sys as _sys
+        # BERTScore checks isatty() on stdout — the Tee wrapper doesn't have it
+        orig_stdout = _sys.stdout
+        if not hasattr(_sys.stdout, "isatty"):
+            _sys.stdout = _sys.__stdout__
+        try:
+            P, R, F1 = score(predictions, references, lang="en", verbose=False)
+        finally:
+            _sys.stdout = orig_stdout
         return F1.tolist()
     except Exception as e:
         print(f"[EVAL] BERTScore failed: {e}")
@@ -229,6 +264,7 @@ class GenerationEvalResult:
 def evaluate_generation(
     query_fn: Callable[[str], tuple[str, list[str]]],
     samples: list[EvalSample],
+    use_local: bool = False,
 ) -> GenerationEvalResult:
     """Run generation evaluation across all samples.
 
@@ -309,7 +345,7 @@ def evaluate_generation(
     # ── Try RAGAS ──────────────────────────────────────────────────────────
     refs_for_ragas = reference_answers if has_references else None
     ragas_result = _try_ragas_evaluate(
-        questions, answers, contexts_list, refs_for_ragas
+        questions, answers, contexts_list, refs_for_ragas, use_local=use_local
     )
 
     if ragas_result:

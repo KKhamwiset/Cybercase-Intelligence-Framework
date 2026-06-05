@@ -158,11 +158,11 @@ def _make_hybrid_retriever_fn(embed_model=None):
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _make_generation_fn(embed_model=None):
+def _make_generation_fn(embed_model=None, use_local: bool = False):
     """Create a generation function wrapping GraphRAGChain."""
     from ..pipeline.chain import GraphRAGChain
 
-    chain = GraphRAGChain(embed_model=embed_model)
+    chain = GraphRAGChain(embed_model=embed_model, use_local=use_local)
 
     def fn(query: str) -> tuple[str, list[str]]:
         """Returns (answer, list_of_context_chunks)."""
@@ -199,21 +199,27 @@ def _make_generation_fn(embed_model=None):
 class EvalRunner:
     """Orchestrates the full evaluation pipeline."""
 
-    def __init__(self, dataset_path: str, mode: str = "full"):
+    def __init__(self, dataset_path: str, mode: str = "full", use_local: bool = False, max_samples: int = 0):
         self.dataset_path = Path(dataset_path)
         self.mode = mode
-        
+        self.use_local = use_local
+
         all_samples = load_ground_truth(self.dataset_path)
         # Filter out samples with > 50 relevant STIX IDs
         self.samples = [
-            s for s in all_samples 
+            s for s in all_samples
             if not s.relevant_stix_ids or len(s.relevant_stix_ids) <= 50
         ]
-        
+
         filtered_count = len(all_samples) - len(self.samples)
         if filtered_count > 0:
             print(f"[EVAL] Filtered out {filtered_count} samples with > 50 relevant STIX IDs")
-        print(f"[EVAL] Remaining samples for evaluation: {len(self.samples)}")
+
+        if max_samples and max_samples < len(self.samples):
+            self.samples = self.samples[:max_samples]
+            print(f"[EVAL] Capped to {max_samples} samples (--max-samples)")
+
+        print(f"[EVAL] Samples for evaluation: {len(self.samples)}")
         
         self._embed_model = None
         self._cleanups = []
@@ -315,11 +321,11 @@ class EvalRunner:
         print("═" * 60)
 
         embed_model = self._get_embed_model()
-        fn, cleanup = _make_generation_fn(embed_model)
+        fn, cleanup = _make_generation_fn(embed_model, use_local=self.use_local)
         if cleanup:
             self._cleanups.append(cleanup)
 
-        gen_result = evaluate_generation(fn, self.samples)
+        gen_result = evaluate_generation(fn, self.samples, use_local=self.use_local)
         print(gen_result.to_table())
         return gen_result
 
@@ -390,8 +396,29 @@ def main():
     parser.add_argument(
         "--output", type=str, help="Export output to file (.txt or .md)"
     )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=0,
+        help="Limit evaluation to first N samples (0 = no limit)",
+    )
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help=(
+            "Use local Ollama models instead of Claude/OpenRouter. "
+            "Generation: qwen2.5:7b  |  RAGAS judge: gemma3:4b  "
+            "(requires: ollama pull qwen2.5:7b && ollama pull gemma3:4b)"
+        ),
+    )
 
     args = parser.parse_args()
+
+    if args.local:
+        from ..config import LOCAL_LLM_MODEL, LOCAL_EVAL_MODEL, OLLAMA_BASE_URL
+        print(f"\n[LOCAL MODE]  Generation model : {LOCAL_LLM_MODEL}")
+        print(f"[LOCAL MODE]  RAGAS judge      : {LOCAL_EVAL_MODEL}")
+        print(f"[LOCAL MODE]  Ollama URL        : {OLLAMA_BASE_URL}\n")
 
     if args.output:
         tee = open(args.output, "w", encoding="utf-8")
@@ -408,7 +435,7 @@ def main():
         sys.stdout_orig = sys.stdout  # type: ignore
         sys.stdout = Tee()  # type: ignore
 
-    runner = EvalRunner(dataset_path=args.dataset, mode=args.mode)
+    runner = EvalRunner(dataset_path=args.dataset, mode=args.mode, use_local=args.local, max_samples=args.max_samples)
     runner.run()
 
     print("\n" + "═" * 60)
