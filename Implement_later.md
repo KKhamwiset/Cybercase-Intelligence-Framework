@@ -8,5 +8,5 @@ def technique_coverage(answer: str, relevant_stix_ids: list[str]) -> float:
     # เทียบกับ IDs ที่ควรพูดถึงใน ground truth
     # คืน precision / recall / F1
 
-# Pararell Retrieval
+# Parallel Retrieval
 ระบบนี้มี relevant_stix_ids ทุก sample อยู่แล้ว — สร้าง domain metric ได้ทันที
