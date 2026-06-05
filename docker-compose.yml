@@ -75,6 +75,7 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY is required}
       TYPHOON_API_KEY: ${TYPHOON_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      HF_HUB_OFFLINE: 1
     ports:
       - "8001:8001"
     volumes:
