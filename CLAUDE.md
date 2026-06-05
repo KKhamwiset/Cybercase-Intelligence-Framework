@@ -13,8 +13,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Activate virtual environment (Windows)
 .\env_mitre\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies for all services
+python install_deps.py
+```
 
 # Run backend with Doppler secrets
 cd backend
