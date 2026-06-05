@@ -64,11 +64,8 @@ async def query_rag(request: QueryRequest):
 async def query_rag_file(
     file: UploadFile = File(...),
     query: str = Form(""),
-    page_num: int = Form(1),
+    page_num: str | None = Form(None),
 ):
-    if page_num < 1:
-        raise HTTPException(status_code=400, detail="page_num must be 1 or greater")
-
     try:
         extracted_markdown = await extract_markdown_from_upload(file, page_num=page_num)
         document_query = build_document_query(extracted_markdown, query)

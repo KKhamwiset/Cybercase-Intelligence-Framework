@@ -4,12 +4,13 @@ from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
 
-
 SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
-async def extract_markdown_from_upload(file: UploadFile, page_num: int = 1) -> str:
+async def extract_markdown_from_upload(
+    file: UploadFile, page_num: str | int | None = None
+) -> str:
     """Run Typhoon OCR on one uploaded PDF/image and return Markdown text."""
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
@@ -56,7 +57,9 @@ async def extract_markdown_from_upload(file: UploadFile, page_num: int = 1) -> s
 
         markdown = ocr_document(pdf_or_image_path=temp_path, page_num=page_num)
         if not markdown or not markdown.strip():
-            raise HTTPException(status_code=422, detail="Typhoon OCR returned empty text.")
+            raise HTTPException(
+                status_code=422, detail="Typhoon OCR returned empty text."
+            )
 
         return markdown.strip()
     finally:

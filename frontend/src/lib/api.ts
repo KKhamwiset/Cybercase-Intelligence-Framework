@@ -3,15 +3,8 @@
  */
 import axios from "axios";
 
-/**
- * Returns the API base URL.
- * Fails at runtime if the environment variable is not set.
- */
 function getApiBaseUrl(): string {
   let url = process.env.NEXT_PUBLIC_API_URL;
-
-  // During build time (server-side in CI), we allow it to be empty
-  // to prevent build crashes. It will fail at runtime in the browser.
   if (!url) {
     if (typeof window !== "undefined") {
       throw new Error(
@@ -149,13 +142,11 @@ export const chatContinue = async (
 export const queryRagFile = async (
   file: File,
   query: string,
-  pageNums: string | number,
 ): Promise<QueryResponse> => {
   const baseUrl = getApiBaseUrl();
   const formData = new FormData();
   formData.append("file", file);
   formData.append("query", query);
-  formData.append("page_num", String(pageNums));
 
   try {
     const response = await axios.post<QueryResponse>(

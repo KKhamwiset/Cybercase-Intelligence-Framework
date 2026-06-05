@@ -18,7 +18,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [pageNums, setPageNums] = useState("1");
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +41,7 @@ export default function ChatPage() {
     const userMessage: ChatMessage = {
       role: "user",
       content: currentFile
-        ? `${currentInput || "Analyze this document"}\n\nAttached file: ${currentFile.name} (pages: ${pageNums})`
+        ? `${currentInput || "Analyze this document"}\n\nAttached file: ${currentFile.name}`
         : currentInput,
     };
 
@@ -59,7 +58,7 @@ export default function ChatPage() {
       if (currentSessionId) {
         response = await resumeRag(currentSessionId, currentInput);
       } else if (currentFile) {
-        response = await queryRagFile(currentFile, currentInput, pageNums);
+        response = await queryRagFile(currentFile, currentInput);
       } else {
         response = await chatContinue(currentInput, messages);
       }
@@ -260,21 +259,6 @@ export default function ChatPage() {
               </label>
 
               <div className="flex items-center gap-2">
-                <label
-                  htmlFor="ocr-page"
-                  className="text-xs font-bold uppercase tracking-widest text-neutral"
-                >
-                  Pages
-                </label>
-                <input
-                  id="ocr-page"
-                  type="text"
-                  value={pageNums}
-                  onChange={(e) => setPageNums(e.target.value)}
-                  placeholder="e.g. 1,2,5"
-                  disabled={isLoading}
-                  className="h-10 w-24 rounded-xl border border-gray-200 bg-white px-3 text-sm font-semibold text-primary outline-none focus:border-primary"
-                />
                 {selectedFile && (
                   <button
                     type="button"
