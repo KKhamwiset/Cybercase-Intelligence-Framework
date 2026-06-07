@@ -9,6 +9,7 @@ import {
   QueryResponse,
 } from "@/lib/api";
 import Link from "next/link";
+import FollowUpModule from "@/components/FollowUpModule";
 
 /**
  * Chat Page Component
@@ -20,6 +21,7 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [followUpResponse, setFollowUpResponse] = useState<QueryResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -65,13 +67,10 @@ export default function ChatPage() {
 
       if (response.status === "followup") {
         setCurrentSessionId(response.session_id || null);
-        const aiMessage: ChatMessage = {
-          role: "assistant",
-          content: response.followup_question || "I need more information.",
-        };
-        setMessages((prev) => [...prev, aiMessage]);
+        setFollowUpResponse(response);
       } else {
         setCurrentSessionId(null);
+        setFollowUpResponse(null);
         const aiMessage: ChatMessage = {
           role: "assistant",
           content: response.answer,
@@ -188,6 +187,26 @@ export default function ChatPage() {
               </div>
             </div>
           ))}
+
+          {followUpResponse && followUpResponse.status === "followup" && (
+            <FollowUpModule
+              question={followUpResponse.followup_question || "I need more information."}
+              sessionId={followUpResponse.session_id || ""}
+              onResolved={(response) => {
+                setFollowUpResponse(null);
+                setCurrentSessionId(null);
+                const aiMessage: ChatMessage = {
+                  role: "assistant",
+                  content: response.answer,
+                };
+                setMessages((prev) => [...prev, aiMessage]);
+              }}
+              onError={(error) => {
+                console.error("Follow-up error:", error);
+                setFollowUpResponse(null);
+              }}
+            />
+          )}
 
           {isLoading && (
             <div className="flex justify-start animate-pulse">
