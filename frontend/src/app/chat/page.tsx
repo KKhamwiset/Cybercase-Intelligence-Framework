@@ -71,9 +71,13 @@ export default function ChatPage() {
       } else {
         setCurrentSessionId(null);
         setFollowUpResponse(null);
+        const answer =
+          response.answer && response.answer.trim()
+            ? response.answer
+            : "⚠️ Not enough context to answer this question. The knowledge base may not have relevant information on this topic. Try rephrasing or ask about MITRE ATT&CK techniques, malware analysis, or cybersecurity incidents.";
         const aiMessage: ChatMessage = {
           role: "assistant",
-          content: response.answer,
+          content: answer,
         };
         setMessages((prev) => [...prev, aiMessage]);
       }
@@ -306,7 +310,7 @@ export default function ChatPage() {
                     ? "Answer the follow-up question..."
                     : selectedFile
                       ? "Ask what to analyze from this file..."
-                      : "Ask anything about Thai regulations..."
+                      : "Ask about MITRE ATT&CK, malware analysis, or cyber incidents..."}
                 }
                 disabled={isLoading}
                 className={`w-full bg-gray-50 border ${currentSessionId ? "border-amber-300 ring-1 ring-amber-100" : "border-gray-200"} focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md`}
