@@ -26,8 +26,6 @@ from ..config import (
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,
-    LOCAL_LLM_MODEL,
-    OLLAMA_BASE_URL,
     USE_FP16,
     VECTOR_TOP_K,
     sep,
@@ -53,12 +51,7 @@ def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
 class GraphRAGChain:
     """Full GraphRAG pipeline with cross-lingual support."""
 
-    def __init__(
-        self,
-        embed_model: Optional[BGEM3FlagModel] = None,
-        reranker: Optional[Any] = None,
-        use_local: bool = False,
-    ):
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
         sep("Initializing GraphRAG Chain")
 
         # Load embedding model (shared across components)
@@ -68,44 +61,26 @@ class GraphRAGChain:
         else:
             self.embed_model = embed_model
 
-        # Initialize components — propagate use_local to all LLM-bearing components
-        self.translator = CrossLingualLayer(use_local=use_local)
-        self.retriever = HybridRetriever(
-            embed_model=self.embed_model, reranker=reranker
-        )
-        self.router = QueryRouter(use_local=use_local)
+        # Initialize components
+        self.translator = CrossLingualLayer()
+        self.retriever = HybridRetriever(embed_model=self.embed_model)
+        self.router = QueryRouter()
 
         # Stage 2: Reasoning LLM — simplifies jargon into plain English
         # Stage 3: Translation LLM — renders simplified English into Thai
-        if use_local:
-            from langchain_ollama import ChatOllama
-
-            self.reasoning_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
-                temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-            )
-            self.translation_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
-                temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-            )
-            print(f"[CHAIN] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
-            print(f"[CHAIN] Translation LLM: {LOCAL_LLM_MODEL} (local)")
-        elif ANTHROPIC_API_KEY:
+        # Both use the same underlying model; prompts enforce the stage boundary.
+        if ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore
-                model=LLM_MODEL,
+                model_name=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                max_tokens=LLM_MAX_TOKENS,
+                max_tokens_to_sample=LLM_MAX_TOKENS,
             )
             self.translation_llm = ChatAnthropic(  # type: ignore
-                model=LLM_MODEL,
+                model_name=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=LLM_TEMPERATURE,
-                max_tokens=LLM_MAX_TOKENS,
+                max_tokens_to_sample=LLM_MAX_TOKENS,
             )
             print(f"[CHAIN] Reasoning LLM : {LLM_MODEL}")
             print(f"[CHAIN] Translation LLM: {LLM_MODEL}")
@@ -120,7 +95,12 @@ class GraphRAGChain:
         """Clean up resources."""
         self.retriever.close()
 
-    def query(self, user_query: str, verbose: bool = True) -> str:
+    def query(
+        self,
+        user_query: str,
+        verbose: bool = True,
+        followup_callback: Any = None,  # For interface compatibility
+    ) -> str:
         """Execute the full GraphRAG pipeline.
 
         Pipeline:
