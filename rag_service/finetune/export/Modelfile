@@ -1,0 +1,30 @@
+# Ollama Modelfile — registers the fine-tuned MITRE specialist as a SEPARATE
+# model (mitre-qwen:7b). The original qwen2.5:7b is left untouched, so both can
+# be A/B compared via the LOCAL_LLM_MODEL env var.
+#
+# Build (run from the finetune/ directory, after downloading the .gguf):
+#   ollama create mitre-qwen:7b -f export/Modelfile
+#
+# Adjust the FROM path to the actual .gguf produced by training:
+#   - Unsloth  --gguf  ->  export/outputs/gguf/  (e.g. unsloth.Q4_K_M.gguf)
+#   - merge_and_gguf.py + llama.cpp  ->  the file you quantised
+
+FROM ./outputs/gguf/mitre-qwen-7b-Q4_K_M.gguf
+
+# Qwen2.5 ChatML template (system + single user turn — matches the RAG pipeline).
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+# Default persona baked into the model (the pipeline still passes its own system
+# prompt for incident analysis; this is the fallback identity).
+SYSTEM """You are a MITRE ATT&CK cybersecurity specialist. Answer questions about ATT&CK techniques, tactics, mitigations, groups, software, and campaigns accurately and concisely. Always cite ATT&CK IDs (e.g., T1566, G0016, S0154, M1037, TA0001) for every entity you mention."""
+
+PARAMETER temperature 0
+PARAMETER num_ctx 4096
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"

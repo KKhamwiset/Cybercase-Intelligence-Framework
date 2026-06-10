@@ -1,0 +1,23 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Fine-tune dependencies — install ONLY on the Cloud GPU (Colab / Kaggle / WSL
+# with a >=12 GB GPU). DO NOT install on the 4 GB RTX 2050 dev box; training a
+# 7B model does not fit there. Inference of the exported GGUF runs fine locally
+# via Ollama (no Python deps needed).
+#
+# On Google Colab, install Unsloth with the official one-liner instead of this
+# file (it pins CUDA-matched wheels):
+#   pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+# ─────────────────────────────────────────────────────────────────────────────
+
+unsloth                # fast 4-bit QLoRA for Qwen2.5 (2x faster, low VRAM)
+trl>=0.9.6             # SFTTrainer
+peft>=0.11.0           # LoRA adapters
+transformers>=4.44.0
+datasets>=2.20.0
+accelerate>=0.33.0
+bitsandbytes>=0.43.0   # 4-bit quantisation
+sentencepiece
+protobuf
+
+# The dataset builder (data/build_dataset.py) only needs what rag_service
+# already provides (pydantic + the GraphRAG package) — it runs on the dev box.

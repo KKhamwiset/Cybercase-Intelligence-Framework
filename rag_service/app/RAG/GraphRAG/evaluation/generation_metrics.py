@@ -123,7 +123,7 @@ def _try_ragas_evaluate(
                 model=EVALUATOR_LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
                 temperature=0.0,
-                max_tokens=1024,
+                max_tokens=4096,  # RAGAS needs room for statements + NLI verdicts per chunk
             )
             ragas_llm = LangchainLLMWrapper(chat_model)
             print(f"[EVAL] Using Claude {EVALUATOR_LLM_MODEL} as RAGAS judge")
@@ -149,13 +149,15 @@ def _try_ragas_evaluate(
         "contexts": contexts,
     }
 
-    metrics = [faithfulness, answer_relevancy]
+    # Use faithfulness only — answer_relevancy requires OpenAI embeddings by default
+    # in RAGAS, which causes 429 errors even when a custom LLM judge is configured.
+    metrics = [faithfulness]
 
     if reference_answers:
         eval_data["ground_truth"] = reference_answers
         try:
-            from ragas.metrics import context_precision, context_recall, answer_correctness
-            metrics.extend([context_precision, context_recall, answer_correctness])
+            from ragas.metrics import answer_correctness
+            metrics.append(answer_correctness)  # LLM-only, no embeddings needed
         except ImportError:
             pass  # Older RAGAS version
 
