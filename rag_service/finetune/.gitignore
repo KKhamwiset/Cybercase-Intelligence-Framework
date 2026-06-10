@@ -1,0 +1,19 @@
+# Generated training data (regenerate with data/build_dataset.py)
+data/output/
+
+# Training / export artifacts (large — produced on the cloud GPU)
+train/outputs/
+export/outputs/
+*.gguf
+*.safetensors
+*.bin
+checkpoint-*/
+
+# Comparison reports
+compare/results_*.md
+compare/comparison_*.md
+
+# misc
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
