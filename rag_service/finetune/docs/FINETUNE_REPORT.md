@@ -324,6 +324,42 @@ recover it.
 > The deterministic metrics (Token F1, ROUGE-L, BERTScore) and the RAGAS metrics
 > agree on the overall direction.
 
+## 9.5 Follow-up retrains (v2 degraded, v3 clean)
+
+Two dataset iterations were attempted to lift Answer Correctness — the one metric
+where the specialist regresses against base:
+
+- **v2** added a compound `technique_profile` template plus longer answers. It
+  **degraded** the model: fluent but hallucinated output, fabricated IDs, mid-word
+  fragments. Root cause was the dataset builder truncating descriptions **mid-word**
+  (and over-long answers drifting), which the model faithfully learned. v2 is unused.
+- **v3** rebuilt the dataset with clean truncation (sentence/word boundaries only,
+  first-sentence per-mitigation blurbs, dangling-citation cleanup). This **fixed**
+  the v2 degradation — v3 answers are accurate and well-formed again.
+
+v3 was scored on the same 20-sample `eval_dataset.json`, same retrieval
+(bge-reranker-v2-m3) and Haiku judge. The base column is reused from the identical
+v1 run (same model / dataset / retriever / judge); v3 was scored on its own because
+the base model's long answers exhaust the 16 GB dev box during a paired run.
+
+| Metric | qwen2.5:7b (base) | mitre-qwen:7b-v3 | Change (v3 vs base) |
+|---|---:|---:|---:|
+| Faithfulness (RAGAS) | 0.243 | **0.587** | +0.344 |
+| Answer Correctness (RAGAS) | **0.351** | 0.310 | -0.041 |
+| Token F1 | 0.131 | **0.199** | +0.068 |
+| ROUGE-L | 0.082 | **0.127** | +0.045 |
+| BERTScore F1 | 0.826 | **0.851** | +0.025 |
+| Avg Latency (ms) | 40,765 | **35,442** | -5,323 |
+
+**Finding:** v3 matches v1 rather than beating it. Answer Correctness is essentially
+unchanged (v1 0.305 -> v3 0.310, within judge noise), and v3 trails v1 slightly on
+lexical overlap (Token F1 0.226 vs 0.199, ROUGE-L 0.150 vs 0.127). The ~0.04
+Answer-Correctness regression versus base persists in **both** v1 and v3 — it is a
+property of the specialist's concise, grounded style, not a dataset artefact. The
+"longer / compound answers" hypothesis for raising Answer Correctness did not hold;
+a different lever (e.g. distilling richer reference-style answers from a stronger
+teacher) would be needed.
+
 ---
 
 # 10. End-to-End Workflow

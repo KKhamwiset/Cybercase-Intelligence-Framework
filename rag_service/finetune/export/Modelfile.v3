@@ -1,0 +1,25 @@
+# Ollama Modelfile — v3 of the fine-tuned MITRE specialist. v3 rebuilt the dataset
+# with CLEAN truncation (sentence/word boundaries, no mid-word cuts; per-mitigation
+# first-sentence blurbs) after v2 degraded from mid-word artifacts. Registered as a
+# SEPARATE model `mitre-qwen:7b-v3` so base / v1 / v2 / v3 all stay comparable.
+#
+# Build (run from the finetune/export directory, after placing the .gguf):
+#   ollama create mitre-qwen:7b-v3 -f Modelfile.v3
+
+FROM ./outputs/gguf/mitre-qwen-7b-v3-Q4_K_M.gguf
+
+# Qwen2.5 ChatML template (system + single user turn — matches the RAG pipeline).
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+SYSTEM """You are a MITRE ATT&CK cybersecurity specialist. Answer questions about ATT&CK techniques, tactics, mitigations, groups, software, and campaigns accurately and concisely. Always cite ATT&CK IDs (e.g., T1566, G0016, S0154, M1037, TA0001) for every entity you mention."""
+
+PARAMETER temperature 0
+PARAMETER num_ctx 4096
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"
