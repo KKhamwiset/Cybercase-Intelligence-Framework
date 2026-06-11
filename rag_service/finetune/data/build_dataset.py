@@ -182,6 +182,7 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
     software = [e for e in parser.entities if e.node_label == "Software"]
     tactics = [e for e in parser.entities if e.node_label == "Tactic"]
     campaigns = [e for e in parser.entities if e.node_label == "Campaign"]
+    tac_by_short = {getattr(t, "shortname", ""): t for t in tactics}
 
     # ── TECHNIQUES ────────────────────────────────────────────────────────────
     for tech in techniques:
@@ -190,6 +191,19 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
         desc = T.clean_text(tech.description, C.MAX_DESC_CHARS)
         if not desc:
             continue
+
+        # Precompute relationships (shared by single-fact + compound templates)
+        mit_tuples = [
+            (m.name, m.attack_id, T.clean_text(m.description, C.MAX_MIT_DESC_CHARS))
+            for m in idx["tech_mitigations"].get(tech.stix_id, []) if m.attack_id
+        ]
+        gt = [(g.name, g.attack_id)
+              for g in idx["tech_groups"].get(tech.stix_id, []) if g.attack_id]
+        tac_tuples = [
+            (tac_by_short[s].name, tac_by_short[s].attack_id)
+            for s in getattr(tech, "tactics", [])
+            if s in tac_by_short and tac_by_short[s].attack_id
+        ]
 
         # technique_lookup (closed-book)
         q, a = T.technique_lookup(tech.name, tech.attack_id, desc, rng)
@@ -203,22 +217,13 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             out.append(_record(GP, T.grounded_user_prompt(ctx, gq), a,
                                "technique_lookup", tech.stix_id, "grounded"))
 
-        # mitigation_lookup
-        mits = idx["tech_mitigations"].get(tech.stix_id, [])
-        if mits:
-            mit_tuples = [
-                (m.name, m.attack_id, T.clean_text(m.description, 140))
-                for m in mits if m.attack_id
-            ]
-            if mit_tuples:
-                short_desc = T.clean_text(tech.description, C.MAX_DESC_CHARS // 2)
-                q, a = T.mitigation_lookup(tech.name, tech.attack_id, short_desc,
-                                           mit_tuples, rng)
-                out.append(_record(SP, q, a, "mitigation_lookup", tech.stix_id, "closed"))
+        # mitigation_lookup — pass the FULL technique description so the answer
+        # matches the richer reference-answer style (more facts → better recall).
+        if mit_tuples:
+            q, a = T.mitigation_lookup(tech.name, tech.attack_id, desc, mit_tuples, rng)
+            out.append(_record(SP, q, a, "mitigation_lookup", tech.stix_id, "closed"))
 
         # technique_groups
-        grps = idx["tech_groups"].get(tech.stix_id, [])
-        gt = [(g.name, g.attack_id) for g in grps if g.attack_id]
         if gt:
             q, a = T.technique_groups(tech.name, tech.attack_id, gt, rng)
             out.append(_record(SP, q, a, "technique_groups", tech.stix_id, "closed"))
@@ -228,6 +233,18 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
         if comps:
             q, a = T.technique_detection(tech.name, tech.attack_id, comps, rng)
             out.append(_record(SP, q, a, "technique_detection", tech.stix_id, "closed"))
+
+        # technique_profile (COMPOUND — desc + tactic(s) + mitigations + groups in
+        # one complete answer; teaches the model NOT to stop after the lookup part)
+        if mit_tuples or gt:
+            q, a = T.technique_profile(tech.name, tech.attack_id, desc,
+                                       mit_tuples, gt, tac_tuples, rng)
+            out.append(_record(SP, q, a, "technique_profile", tech.stix_id, "closed"))
+            if rng.random() < grounded_ratio:
+                ctx = T.build_entity_context("Entity", tech.node_label, tech.name,
+                                             tech.attack_id, desc)
+                out.append(_record(GP, T.grounded_user_prompt(ctx, q), a,
+                                   "technique_profile", tech.stix_id, "grounded"))
 
     # ── TACTICS ───────────────────────────────────────────────────────────────
     for tac in tactics:

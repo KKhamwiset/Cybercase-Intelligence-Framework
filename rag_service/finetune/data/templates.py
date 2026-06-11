@@ -82,6 +82,37 @@ def mitigation_lookup(name, attack_id, desc, mitigations, rng=None):
     return q, a
 
 
+def technique_profile(name, attack_id, desc, mitigations, groups, tactics, rng=None):
+    """Compound 'full overview' answer — description + tactic(s) + mitigations +
+    groups in one reply. Teaches the model to give COMPLETE multi-part answers
+    (lifts answer-correctness/completeness) instead of stopping after the lookup.
+    mitigations: [(m_name, m_id, m_desc)]; groups: [(g_name, g_id)];
+    tactics: [(tac_name, tac_id)].
+    """
+    q = _pick(rng, [
+        f"Give a complete overview of {name} ({attack_id}).",
+        f"Provide a full MITRE ATT&CK profile for {name} ({attack_id}).",
+        f"Tell me about {name} ({attack_id}) — what it is, how to mitigate it, "
+        f"and which groups use it.",
+    ])
+    intro = f"{name} ({attack_id}) is a MITRE ATT&CK technique — {desc}"
+    if not intro.rstrip().endswith("."):
+        intro = intro.rstrip() + "."
+    parts = [intro]
+    if tactics:
+        parts.append(
+            "It falls under the "
+            f"{_join_list([f'{tn} ({ti})' for tn, ti in tactics], 6)} tactic(s)."
+        )
+    if mitigations:
+        mit_str = _join_list([f"{mn} ({mi}): {md}" for mn, mi, md in mitigations], 8)
+        parts.append(f"Recommended mitigations include: {mit_str}.")
+    if groups:
+        grp_str = _join_list([f"{gn} ({gi})" for gn, gi in groups], 12)
+        parts.append(f"Threat groups known to use it include: {grp_str}.")
+    return q, " ".join(parts)
+
+
 def technique_groups(name, attack_id, groups, rng=None):
     """groups: list of (g_name, g_id)."""
     q = _pick(rng, [
