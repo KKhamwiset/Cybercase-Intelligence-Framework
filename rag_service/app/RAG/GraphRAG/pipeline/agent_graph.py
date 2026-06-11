@@ -50,7 +50,7 @@ from ..config import (
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
-from .cross_lingual import CrossLingualLayer
+from .cross_lingual import CrossLingualLayer, build_retrieval_queries
 from .evaluator import (
     VERDICT_INSUFFICIENT,
     VERDICT_NEED_CLARIFICATION,
@@ -237,7 +237,8 @@ class GraphRAGAgent:
     def retrieve_only(self, user_query: str) -> str:
         """Execute only the retrieval portion of the pipeline."""
         english_query = self.translator.translate_query(user_query)
-        rag_result = self.retriever.retrieve(english_query)
+        queries = build_retrieval_queries(user_query, english_query)
+        rag_result = self.retriever.retrieve_multi(queries)
         return build_context(rag_result)
 
     def query(
@@ -603,17 +604,22 @@ class GraphRAGAgent:
     def _node_retrieve(self, state: AgentState) -> dict:
         """Execute multi-query hybrid retrieval (Vector + Graph).
 
-        On the first pass only ``english_query`` is used.  After each
-        follow-up round, MITRE-aligned rewritten queries are appended to
-        ``rewritten_queries`` and all queries are retrieved in parallel via
-        ``retrieve_multi()``.
+        The query list always starts with ``english_query``. When the user's
+        query is Thai and ``DUAL_QUERY_RETRIEVAL`` is enabled, the original
+        Thai query is retrieved in parallel as a second channel so a bad
+        translation cannot sink retrieval on its own. After each follow-up
+        round, MITRE-aligned rewritten queries are appended and all queries
+        are retrieved together via ``retrieve_multi()``.
         """
         english_query = state.get("english_query", "")
         rewritten_queries: list = list(state.get("rewritten_queries") or [])
         verbose = state.get("verbose", True)
 
-        # Build the full query list: original always first
-        all_queries = [english_query] + rewritten_queries
+        # English translation first, Thai original second (if dual-query),
+        # then any follow-up rewrites
+        all_queries = build_retrieval_queries(
+            state.get("original_query", ""), english_query, rewritten_queries
+        )
 
         if verbose:
             sep("AGENT — HYBRID RETRIEVAL (multi-query)")

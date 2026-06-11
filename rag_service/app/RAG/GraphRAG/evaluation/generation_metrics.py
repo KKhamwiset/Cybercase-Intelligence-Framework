@@ -143,6 +143,21 @@ def _try_ragas_evaluate(
         except Exception as e:
             print(f"[EVAL] Failed to init OpenRouter LLM: {e}")
 
+    # Local embeddings for RAGAS. answer_correctness's semantic component needs an
+    # embedding model; RAGAS defaults to OpenAI → 429 insufficient_quota → nan (and
+    # the retries hang the run). Use Ollama nomic-embed-text locally so no cloud
+    # embedding key is required.
+    ragas_embeddings = None
+    try:
+        from langchain_ollama import OllamaEmbeddings
+        from ragas.embeddings import LangchainEmbeddingsWrapper
+        ragas_embeddings = LangchainEmbeddingsWrapper(
+            OllamaEmbeddings(model="nomic-embed-text", base_url=OLLAMA_BASE_URL)
+        )
+        print("[EVAL] RAGAS embeddings: nomic-embed-text (Ollama, local)")
+    except Exception as e:
+        print(f"[EVAL] Local RAGAS embeddings unavailable ({e}); answer_correctness may be nan")
+
     eval_data = {
         "question": questions,
         "answer": answers,
@@ -157,7 +172,8 @@ def _try_ragas_evaluate(
         eval_data["ground_truth"] = reference_answers
         try:
             from ragas.metrics import answer_correctness
-            metrics.append(answer_correctness)  # LLM-only, no embeddings needed
+            # Uses LLM (factual) + embeddings (semantic) — embeddings set above.
+            metrics.append(answer_correctness)
         except ImportError:
             pass  # Older RAGAS version
 
@@ -167,6 +183,18 @@ def _try_ragas_evaluate(
         kwargs = {"metrics": metrics}
         if ragas_llm:
             kwargs["llm"] = ragas_llm
+        if ragas_embeddings:
+            kwargs["embeddings"] = ragas_embeddings
+        # Throttle concurrency and back off through provider rate limits. Bursting
+        # ~hundreds of judge calls (50 samples) triggers 429 → nan; few workers +
+        # generous retries/backoff keep the judge under the rate limit.
+        try:
+            from ragas.run_config import RunConfig
+            kwargs["run_config"] = RunConfig(
+                timeout=300, max_retries=8, max_wait=90, max_workers=2
+            )
+        except Exception:
+            pass
 
         result = evaluate(dataset, **kwargs)
         return result.to_pandas().to_dict(orient="list")

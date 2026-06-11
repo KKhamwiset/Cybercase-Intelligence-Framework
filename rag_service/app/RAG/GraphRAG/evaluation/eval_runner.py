@@ -166,9 +166,12 @@ def _make_generation_fn(embed_model=None, use_local: bool = False):
 
     def fn(query: str) -> tuple[str, list[str]]:
         """Returns (answer, list_of_context_chunks)."""
-        # Get retrieval context
+        # Get retrieval context (same dual-query flow as GraphRAGChain.query)
+        from ..pipeline.cross_lingual import build_retrieval_queries
+
         english_query = chain.translator.translate_query(query)
-        graphrag_result = chain.retriever.retrieve(english_query)
+        queries = build_retrieval_queries(query, english_query)
+        graphrag_result = chain.retriever.retrieve_multi(queries)
 
         from ..pipeline.context_builder import build_context
 

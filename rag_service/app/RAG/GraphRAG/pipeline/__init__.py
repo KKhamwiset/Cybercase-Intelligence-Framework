@@ -2,7 +2,7 @@
 from .agent_graph import AgentResponse, GraphRAGAgent
 from .chain import GraphRAGChain
 from .context_builder import build_context, build_generation_prompt
-from .cross_lingual import CrossLingualLayer
+from .cross_lingual import CrossLingualLayer, build_retrieval_queries
 from .evaluator import ContextEvaluator, EvaluationResult
 from .query_merger import QueryMerger
 from .report_generator import CyberCaseReport, ReportGenerator
@@ -23,4 +23,5 @@ __all__ = [
     "QueryRouter",
     "build_context",
     "build_generation_prompt",
+    "build_retrieval_queries",
 ]

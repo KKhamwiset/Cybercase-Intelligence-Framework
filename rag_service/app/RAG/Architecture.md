@@ -35,7 +35,7 @@ The core execution logic uses **LangGraph** (`agent_graph.py`) to move beyond si
 
 ### Agent Workflow (Nodes)
 - **Routing (`router.py`)**: Classifies the user's intent into either a general explanation (no retrieval needed) or an incident analysis (requires retrieval).
-- **Cross-Lingual Layer (`cross_lingual.py`)**: Translates Thai queries to English before retrieval, as English queries yield better results against MITRE data.
+- **Cross-Lingual Layer (`cross_lingual.py`)**: Translates Thai queries to English before retrieval. With `DUAL_QUERY_RETRIEVAL` (default on), the original Thai query is retrieved in parallel with the translation and the results are fused, so a bad translation cannot sink retrieval on its own (BGE-M3's dense space handles Thai→English matching directly).
 - **Retrieval**: Invokes the `HybridRetriever`.
 - **Evaluation / Self-Reflection (`evaluator.py`)**: The retrieved context is evaluated against the query:
   - **Sufficient**: Proceeds to reasoning.
@@ -47,7 +47,7 @@ The core execution logic uses **LangGraph** (`agent_graph.py`) to move beyond si
 ## 4. Configuration & Infrastructure (`config.py`)
 
 - **Embedding Model**: `BAAI/bge-m3` (dim: 1024, running in fp16).
-- **Reranker Model**: `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`.
+- **Reranker Model**: `BAAI/bge-reranker-v2-m3` (multilingual incl. Thai — required for dual-query reranking; previously `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`, whose mMARCO training data does not cover Thai).
 - **Vector Database**: **Qdrant** (Collections: `mitre_entities`, `mitre_relationships`).
 - **Graph Database**: **Neo4j**.
 - **LLMs**:

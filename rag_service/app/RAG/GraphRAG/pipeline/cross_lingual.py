@@ -14,7 +14,13 @@ throughout all stages.
 
 import re
 
-from ..config import ANTHROPIC_API_KEY, LLM_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
+from ..config import (
+    ANTHROPIC_API_KEY,
+    DUAL_QUERY_RETRIEVAL,
+    LLM_MODEL,
+    LOCAL_LLM_MODEL,
+    OLLAMA_BASE_URL,
+)
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -125,6 +131,37 @@ def _is_thai(text: str) -> bool:
     """Check if text contains Thai characters."""
     thai_pattern = re.compile(r"[\u0E00-\u0E7F]")
     return bool(thai_pattern.search(text))
+
+
+def build_retrieval_queries(
+    original_query: str,
+    english_query: str,
+    extra_queries: list[str] | None = None,
+) -> list[str]:
+    """Build the query list for cross-lingual retrieval.
+
+    The English translation always comes first (the evaluator and follow-up
+    rewrites key off it). When ``DUAL_QUERY_RETRIEVAL`` is enabled and the
+    original query is Thai, the untranslated query is added as a second
+    retrieval channel: BGE-M3's dense space handles Thai\u2192English matching
+    while English keywords embedded in the Thai text still hit the sparse
+    index \u2014 so a bad translation no longer sinks the whole retrieval.
+    """
+    queries = [english_query]
+
+    if (
+        DUAL_QUERY_RETRIEVAL
+        and _is_thai(original_query)
+        and original_query.strip()
+        and original_query.strip() != english_query.strip()
+    ):
+        queries.append(original_query.strip())
+
+    for q in extra_queries or []:
+        if q and q not in queries:
+            queries.append(q)
+
+    return queries
 
 
 def _is_mostly_english(text: str) -> bool:

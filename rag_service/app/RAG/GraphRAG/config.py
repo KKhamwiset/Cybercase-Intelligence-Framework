@@ -114,8 +114,25 @@ VECTOR_TOP_K = 10  # Initial vector retrieval count
 GRAPH_EXPANSION_DEPTH = 2  # How many hops to expand in graph
 FINAL_TOP_K = 5  # After reranking
 
-# Reranker
-RERANKER_MODEL = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+# Reranker — must handle Thai↔English pairs when DUAL_QUERY_RETRIEVAL is on
+# (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)
+RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# LEGACY — mmarco reranker (kept for reference / rollback)
+# ──────────────────────────────────────────────────────────────────────────────
+# RERANKER_MODEL = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CROSS-LINGUAL RETRIEVAL — Dual-Query (Thai original + English translation)
+# ──────────────────────────────────────────────────────────────────────────────
+# Translate-then-retrieve alone (tRAG) makes the LLM translation a single
+# point of failure: one bad translation poisons dense, sparse, and every
+# follow-up rewrite (cf. arXiv:2504.03616). With dual-query the original
+# Thai query is retrieved in parallel — BGE-M3's cross-lingual dense space
+# and exact English keywords embedded in the Thai text (sparse) can recover
+# results the translation missed.
+DUAL_QUERY_RETRIEVAL = os.getenv("DUAL_QUERY_RETRIEVAL", "true").lower() == "true"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # DOMAINS

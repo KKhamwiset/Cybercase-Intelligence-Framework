@@ -60,7 +60,13 @@ def run_eval(model: str, dataset: str, max_samples: int, out_md: Path) -> None:
     print(f"\n{'=' * 70}\n  EVAL  LOCAL_LLM_MODEL={model}\n{'=' * 70}")
     print("  cwd:", C.RAG_PKG_ROOT)
     print("  cmd:", " ".join(cmd))
+    # Free the GPU before loading this model: on a small (4 GB) GPU two resident
+    # 7B models thrash to CPU and generation slows ~10x. Unload everything first.
+    for m in (C.BASE_MODEL_OLLAMA, C.FT_MODEL_OLLAMA):
+        subprocess.run(["ollama", "stop", m], capture_output=True)
     subprocess.run(cmd, cwd=str(C.RAG_PKG_ROOT), env=env, check=True)
+    # Unload this model too so the next round (or the RAGAS embed model) has room.
+    subprocess.run(["ollama", "stop", model], capture_output=True)
 
 
 def parse_metrics(md_path: Path) -> dict[str, float]:
