@@ -1,0 +1,30 @@
+# Ollama Modelfile — v2 of the fine-tuned MITRE specialist (dataset v2: compound
+# `technique_profile` template + longer answers, aimed at lifting Answer
+# Correctness/completeness). Registered as a SEPARATE model `mitre-qwen:7b-v2`
+# so v1 (`mitre-qwen:7b`) and the base (`qwen2.5:7b`) all stay available for A/B.
+#
+# Build (run from the finetune/ directory, after downloading the v2 .gguf):
+#   ollama create mitre-qwen:7b-v2 -f export/Modelfile.v2
+#
+# Place the downloaded file at the path below (create outputs/gguf/ if needed):
+#   export/outputs/gguf/mitre-qwen-7b-v2-Q4_K_M.gguf
+
+FROM ./outputs/gguf/mitre-qwen-7b-v2-Q4_K_M.gguf
+
+# Qwen2.5 ChatML template (system + single user turn — matches the RAG pipeline).
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>
+"""
+
+# Default persona baked into the model (the pipeline still passes its own system
+# prompt for incident analysis; this is the fallback identity).
+SYSTEM """You are a MITRE ATT&CK cybersecurity specialist. Answer questions about ATT&CK techniques, tactics, mitigations, groups, software, and campaigns accurately and concisely. Always cite ATT&CK IDs (e.g., T1566, G0016, S0154, M1037, TA0001) for every entity you mention."""
+
+PARAMETER temperature 0
+PARAMETER num_ctx 4096
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|im_start|>"

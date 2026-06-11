@@ -194,7 +194,7 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
 
         # Precompute relationships (shared by single-fact + compound templates)
         mit_tuples = [
-            (m.name, m.attack_id, T.clean_text(m.description, C.MAX_MIT_DESC_CHARS))
+            (m.name, m.attack_id, T.first_sentence(m.description, C.MAX_MIT_DESC_CHARS))
             for m in idx["tech_mitigations"].get(tech.stix_id, []) if m.attack_id
         ]
         gt = [(g.name, g.attack_id)
