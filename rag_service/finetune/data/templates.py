@@ -20,22 +20,54 @@ import re
 _CITATION_RE = re.compile(r"\(Citation:[^)]*\)")
 _MD_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 _WS_RE = re.compile(r"\s+")
+_EMPTY_PARENS_RE = re.compile(r"\(\s*\)")
+# list-introducers left dangling after their items (links/citations) were stripped,
+# e.g. "such as  and" / "including ." -> drop the orphaned introducer
+_DANGLING_RE = re.compile(
+    r"\b(?:such as|including|for example|e\.g\.,?)\s*(?=[.,;:]|\band\b|\bor\b)", re.I
+)
+_SPACE_BEFORE_PUNCT_RE = re.compile(r"\s+([,.;:!?])")
+_SENTENCE_RE = re.compile(r"\s*(.+?[.!?])(?:\s|$)", re.S)
 
 
 def clean_text(text: str, max_chars: int | None = None) -> str:
-    """Strip MITRE markdown noise (citations, links) and collapse whitespace."""
+    """Strip MITRE markdown noise (citations, links) and collapse whitespace.
+
+    Truncation NEVER cuts mid-word: it prefers a sentence boundary, then falls
+    back to a word boundary. Gaps left by removed citations/links (e.g.
+    "such as  and") are cleaned so the model never learns broken fragments —
+    the v2 dataset's mid-word cuts taught the model to hallucinate/garble.
+    """
     if not text:
         return ""
     text = _CITATION_RE.sub("", text)
     text = _MD_LINK_RE.sub(r"\1", text)        # [ftp](url) -> ftp
     text = text.replace("<code>", "`").replace("</code>", "`")
+    text = _EMPTY_PARENS_RE.sub("", text)
+    text = _DANGLING_RE.sub("", text)
+    text = _SPACE_BEFORE_PUNCT_RE.sub(r"\1", text)
     text = _WS_RE.sub(" ", text).strip()
     if max_chars and len(text) > max_chars:
-        # cut on a sentence boundary near the limit when possible
         cut = text[:max_chars]
-        dot = cut.rfind(". ")
-        text = (cut[: dot + 1] if dot > max_chars * 0.5 else cut).strip()
+        end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+        if end >= max_chars * 0.5:
+            text = cut[: end + 1].strip()                  # stop at a full sentence
+        else:
+            sp = cut.rfind(" ")
+            text = (cut[:sp] if sp > 0 else cut).strip()   # at least stop at a word
     return text
+
+
+def first_sentence(text: str, max_chars: int = 300) -> str:
+    """First COMPLETE sentence of a description — used for per-mitigation blurbs
+    so list answers never contain a sentence chopped mid-way."""
+    text = clean_text(text)
+    m = _SENTENCE_RE.match(text)
+    s = (m.group(1) if m else text).strip()
+    if len(s) > max_chars:                                 # safety cap, word-boundary
+        sp = s[:max_chars].rfind(" ")
+        s = (s[:sp] if sp > 0 else s[:max_chars]).strip()
+    return s
 
 
 def _pick(rng: random.Random | None, options: list[str]) -> str:
@@ -71,7 +103,8 @@ def mitigation_lookup(name, attack_id, desc, mitigations, rng=None):
         f"How can an organisation defend against {name} ({attack_id})?",
         f"What are the recommended mitigations for {attack_id}?",
     ])
-    mit_strs = [f"{m_name} ({m_id}): {m_desc}" for m_name, m_id, m_desc in mitigations]
+    mit_strs = [f"{m_name} ({m_id}): {m_desc.rstrip('.!?')}"
+                for m_name, m_id, m_desc in mitigations]
     mit_list = _join_list(mit_strs, 8)
     a = (
         f"{name} ({attack_id}) is a MITRE ATT&CK technique — {desc} "
@@ -80,6 +113,38 @@ def mitigation_lookup(name, attack_id, desc, mitigations, rng=None):
         f"successfully executing {name} against your environment."
     )
     return q, a
+
+
+def technique_profile(name, attack_id, desc, mitigations, groups, tactics, rng=None):
+    """Compound 'full overview' answer — description + tactic(s) + mitigations +
+    groups in one reply. Teaches the model to give COMPLETE multi-part answers
+    (lifts answer-correctness/completeness) instead of stopping after the lookup.
+    mitigations: [(m_name, m_id, m_desc)]; groups: [(g_name, g_id)];
+    tactics: [(tac_name, tac_id)].
+    """
+    q = _pick(rng, [
+        f"Give a complete overview of {name} ({attack_id}).",
+        f"Provide a full MITRE ATT&CK profile for {name} ({attack_id}).",
+        f"Tell me about {name} ({attack_id}) — what it is, how to mitigate it, "
+        f"and which groups use it.",
+    ])
+    intro = f"{name} ({attack_id}) is a MITRE ATT&CK technique — {desc}"
+    if not intro.rstrip().endswith("."):
+        intro = intro.rstrip() + "."
+    parts = [intro]
+    if tactics:
+        parts.append(
+            "It falls under the "
+            f"{_join_list([f'{tn} ({ti})' for tn, ti in tactics], 6)} tactic(s)."
+        )
+    if mitigations:
+        mit_str = _join_list(
+            [f"{mn} ({mi}): {md.rstrip('.!?')}" for mn, mi, md in mitigations], 8)
+        parts.append(f"Recommended mitigations include: {mit_str}.")
+    if groups:
+        grp_str = _join_list([f"{gn} ({gi})" for gn, gi in groups], 12)
+        parts.append(f"Threat groups known to use it include: {grp_str}.")
+    return q, " ".join(parts)
 
 
 def technique_groups(name, attack_id, groups, rng=None):

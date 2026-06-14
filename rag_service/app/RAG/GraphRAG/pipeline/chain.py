@@ -34,7 +34,7 @@ from ..config import (
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
-from .cross_lingual import CrossLingualLayer
+from .cross_lingual import CrossLingualLayer, build_retrieval_queries
 from .router import QueryRouter
 
 
@@ -179,7 +179,9 @@ class GraphRAGChain:
             print(f"  Translated: {english_query}")
 
         # ── Step 2: Hybrid retrieval (Vector + Graph) ──────────────────────
-        graphrag_result = self.retriever.retrieve(english_query, top_k=VECTOR_TOP_K)
+        # Dual-query: English translation + original Thai query in parallel
+        queries = build_retrieval_queries(user_query, english_query)
+        graphrag_result = self.retriever.retrieve_multi(queries, top_k=VECTOR_TOP_K)
 
         # ── Step 3: Build context ──────────────────────────────────────────
         context = build_context(graphrag_result)
@@ -257,5 +259,6 @@ class GraphRAGChain:
         Returns the assembled context text.
         """
         english_query = self.translator.translate_query(user_query)
-        result = self.retriever.retrieve(english_query, top_k=VECTOR_TOP_K)
+        queries = build_retrieval_queries(user_query, english_query)
+        result = self.retriever.retrieve_multi(queries, top_k=VECTOR_TOP_K)
         return build_context(result)

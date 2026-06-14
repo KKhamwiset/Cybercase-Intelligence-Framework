@@ -39,6 +39,7 @@ from .pipeline import (
     ReportGenerator,
     build_context,
     build_generation_prompt,
+    build_retrieval_queries,
 )
 from .retrieval import (
     GraphRAGResult,
@@ -79,6 +80,7 @@ __all__ = [
     "CyberCaseReport",
     "build_context",
     "build_generation_prompt",
+    "build_retrieval_queries",
     "CrossLingualLayer",
     "QueryRouter",
 ]

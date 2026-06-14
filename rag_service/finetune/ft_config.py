@@ -72,7 +72,8 @@ DOMAINS_TO_BUILD = ["enterprise", "mobile"]   # ICS available but off by default
 
 VAL_SPLIT = 0.08          # ~8% held out for validation
 RANDOM_SEED = 42
-MAX_DESC_CHARS = 600      # truncate long technique descriptions in answers
+MAX_DESC_CHARS = 900      # truncate long technique descriptions in answers
+MAX_MIT_DESC_CHARS = 280  # per-mitigation blurb cap (first full sentence, word-safe)
 MAX_LIST_ITEMS = 12       # cap items in "list" answers (mitigations, techniques…)
 
 # ──────────────────────────────────────────────────────────────────────────────

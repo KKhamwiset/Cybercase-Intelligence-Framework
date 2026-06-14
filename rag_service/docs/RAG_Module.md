@@ -65,7 +65,7 @@ graph TB
 
     subgraph Models["Shared ML Models (โหลดครั้งเดียวตอน startup)"]
         EMB["BGE-M3<br/>embedding (1024-dim, FP16)"]
-        RR["Cross-Encoder<br/>reranker"]
+        RR["bge-reranker-v2-m3<br/>reranker (multilingual)"]
     end
 
     subgraph Data["Data Stores"]
@@ -187,7 +187,7 @@ rag_service/
 
 **โมเดล ML 2 ตัวที่โหลดเข้าหน่วยความจำ:**
 - **BGE-M3** (`BAAI/bge-m3`) — embedding 1024 มิติ, FP16, รองรับ dense + sparse ในตัวเดียว
-- **mmarco-mMiniLMv2-L12-H384-v1** — cross-encoder reranker (multilingual)
+- **bge-reranker-v2-m3** (`BAAI/bge-reranker-v2-m3`) — cross-encoder reranker (multilingual รวมภาษาไทย — จำเป็นสำหรับ dual-query; ดู [DUAL_QUERY_UPGRADE.md](DUAL_QUERY_UPGRADE.md))
 
 ทั้งสองตัวถูกโหลด **ครั้งเดียวตอน startup** แล้ว share ให้ทุก component (ดู [§11](#11-service-api--appmainpy))
 
@@ -227,7 +227,8 @@ _STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
 | **Retrieval** | `VECTOR_TOP_K` | `10` | จำนวนผลค้นเริ่มต้นต่อ query |
 | | `GRAPH_EXPANSION_DEPTH` | `2` | จำนวน hop *(ดูหมายเหตุ §16)* |
 | | `FINAL_TOP_K` | `5` | จำนวนผลหลัง rerank ที่ส่งเข้า context |
-| | `RERANKER_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | |
+| | `RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | multilingual รวมไทย (ตัวเดิม `mmarco-mMiniLMv2` comment ไว้ rollback) |
+| **Cross-lingual** | `DUAL_QUERY_RETRIEVAL` | `true` (env) | query ไทยถูก retrieve ทั้งต้นฉบับ + คำแปลขนานกันแล้ว fuse — ปิดเพื่อกลับเป็น tRAG เดิม |
 | **Domains** | `ATTACK_DOMAINS` | `{enterprise, mobile}` | โดเมน ATT&CK ที่ ingest |
 
 ### ฟังก์ชัน
@@ -452,10 +453,10 @@ Embed แล้วโหลดลง **Qdrant**
   3. **ดึง STIX IDs** ตามลำดับความเกี่ยวข้อง (Node → ใช้ `stix_id` ตรง ๆ; Relationship → ใช้ `source_id`+`target_id`) จนได้ครบ `FINAL_TOP_K`
   4. **Graph expansion** (`graph_retriever.expand`)
   5. คืน `GraphRAGResult`
-- **`retrieve_multi(queries, top_k, ...)`** — รัน `retrieve()` หลาย query (original + rewrites) แล้ว **merge + dedupe**:
+- **`retrieve_multi(queries, top_k, ...)`** — รัน `retrieve()` หลาย query (คำแปลอังกฤษ + ไทยต้นฉบับ [dual-query] + rewrites) แล้ว **merge + dedupe**:
   - vector: key ด้วย `stix_id` เก็บตัว score สูงสุด
   - graph: key ด้วย center `stix_id` เก็บตัวแรก
-  - เรียง vector ใหม่ตาม score → คืน `GraphRAGResult` เดียว *(ใช้ในโหมด agent ที่มี multi-query)*
+  - เรียง vector ใหม่ตาม score → คืน `GraphRAGResult` เดียว *(ปัจจุบันเป็นทางเข้าหลักของทุกโหมด — agent, chain, `/generate-report`)*
 
 ---
 
@@ -486,6 +487,7 @@ Embed แล้วโหลดลง **Qdrant**
 **Helper functions:**
 - **`_is_thai(text)`** — มีอักขระไทยไหม (regex `฀-๿`)
 - **`_is_mostly_english(text)`** — สัดส่วนตัวอักษรอังกฤษ > 70% ไหม
+- **`build_retrieval_queries(original_query, english_query, extra_queries)`** — สร้าง query list สำหรับ **dual-query retrieval**: คำแปลอังกฤษมาก่อนเสมอ (evaluator/rewrites key จากตัวนี้) → เพิ่มไทยต้นฉบับเป็น query ที่สองเมื่อ `DUAL_QUERY_RETRIEVAL` เปิด + query เป็นไทย + ไม่ซ้ำคำแปล → ต่อท้าย rewrites (dedup) — เป็น**จุดเดียว**ที่กำหนดนโยบาย cross-lingual retrieval ทุก path ใช้ร่วมกัน (ดู [DUAL_QUERY_UPGRADE.md](DUAL_QUERY_UPGRADE.md))
 
 **class `CrossLingualLayer`:**
 - **`__init__(use_local)`** — สร้าง LLM สำหรับแปล (max_tokens 256)
@@ -547,11 +549,11 @@ Pipeline เชิงเส้นแบบดั้งเดิม ไม่ม�
   - **`query(user_query, verbose)`** — flow ครบ:
     1. route (ถ้า GENERAL → ตอบตรง)
     2. แปลคำถาม→อังกฤษ
-    3. hybrid `retrieve` (single query)
+    3. hybrid `retrieve_multi` กับ `build_retrieval_queries` (dual-query: คำแปล + ไทยต้นฉบับ)
     4. `build_context`
     5. Reasoning LLM → narrative อังกฤษ
     6. ถ้าคำถามไทย → Translation LLM → ไทย
-  - **`retrieve_only(user_query)`** — รันแค่ retrieval คืน context (debug)
+  - **`retrieve_only(user_query)`** — รันแค่ retrieval (dual-query เช่นกัน) คืน context (debug)
 
 ### 10.7 `agent_graph.py` — `GraphRAGAgent` (LangGraph) ★
 
@@ -571,7 +573,7 @@ Pipeline แบบ agentic — state machine ที่ loop ได้ มี fol
 
 *Public API:*
 - **`close()`** — ปิด retriever
-- **`retrieve_only(user_query)`** — แปล + retrieve คืน context (debug)
+- **`retrieve_only(user_query)`** — แปล + dual-query retrieve (`retrieve_multi`) คืน context (debug)
 - **`query(user_query, verbose, followup_callback)`** — รัน graph:
   - **CLI mode** (มี callback): ถ้าต้อง follow-up → เรียก callback ถามผู้ใช้ทันที วนจนจบ
   - **API mode** (ไม่มี callback): ถ้าต้อง follow-up → เก็บ state ลง `_sessions` คืน `status="followup"` + `session_id`
@@ -586,7 +588,7 @@ Pipeline แบบ agentic — state machine ที่ loop ได้ มี fol
 - **`_node_route_query`** — จัดประเภทคำถาม
 - **`_node_general_explanation`** — ตอบความรู้ทั่วไป (ไม่ retrieve)
 - **`_node_translate_query`** — ตรวจภาษา + แปล→อังกฤษ
-- **`_node_retrieve`** — multi-query hybrid retrieval (`retrieve_multi` กับ original + rewrites) + build context
+- **`_node_retrieve`** — multi-query hybrid retrieval: สร้าง query list ด้วย `build_retrieval_queries` (คำแปลอังกฤษ + ไทยต้นฉบับ [dual-query] + rewrites) → `retrieve_multi` + build context
 - **`_node_evaluate_context`** — เรียก evaluator (ส่ง incident_facts + asked_slots + total retry)
 - **`_node_prepare_followup`** — เตรียมคำถาม follow-up + ตั้ง `awaiting_followup=True`
 - **`_node_broaden_search`** — เพิ่ม rewritten query จาก strategy BROADEN_SEARCH แล้ว loop กลับ retrieve
@@ -647,7 +649,7 @@ FastAPI service จุดเข้าออกของ RAG (port `8001`)
 | GET | `/health` | `health` | เช็กว่า chain/agent โหลดสำเร็จไหม |
 | POST | `/query` | `query_rag` | ค้นถาม — `use_agent=True`→Agent, `False`→Chain |
 | POST | `/resume` | `resume_agent` | ส่งคำตอบ follow-up กลับด้วย `session_id` |
-| POST | `/generate-report` | `generate_report` | retrieve → สร้าง `CyberCaseReport` 7 หัวข้อ |
+| POST | `/generate-report` | `generate_report` | แปลคำถาม → dual-query `retrieve_multi` → สร้าง `CyberCaseReport` 7 หัวข้อ |
 
 > Path เหล่านี้คือของ `rag_service` เอง ส่วน `/api/v1/rag/...` ใน CLAUDE.md คือ path ฝั่ง Backend ที่ proxy มา
 
@@ -771,6 +773,21 @@ python -m evaluation.eval_runner --dataset evaluation/Thai_dataset.json --mode f
 
 ไฟล์ชุดข้อมูลสำเร็จ: `Thai_dataset.json`, `Thai_dataset_08.json`, `eval_dataset*.json` — โครงสร้างตาม `EvalSample` (query / relevant_stix_ids / reference_answer / language / category)
 
+### 14.8 `crosslingual_benchmark.py` — เทียบกลยุทธ์ cross-lingual retrieval
+
+Benchmark เฉพาะทางสำหรับคำถามภาษาไทย เทียบ 3 คอนฟิกบน dataset เดียวกัน:
+
+| Config | Query ที่ retrieve | แทนอะไร |
+|--------|--------------------|---------|
+| `tRAG` | คำแปลอังกฤษอย่างเดียว | พฤติกรรมเดิม (translate-then-retrieve) |
+| `Thai-direct` | ไทยต้นฉบับอย่างเดียว | ขีดความสามารถ cross-lingual ของ BGE-M3 ล้วน |
+| `Dual-query` | ทั้งสอง fuse กัน | พฤติกรรมปัจจุบัน (`DUAL_QUERY_RETRIEVAL`) |
+
+- ใช้ `evaluate_retriever` + เมตริกชุดเดียวกับ `eval_runner` (Hit/Recall/NDCG@K, MRR, MAP)
+- คำแปลถูก cache ใน `evaluation/translation_cache.json` — ทุกคอนฟิกเห็นคำแปลเดียวกัน รันซ้ำฟรี
+- Default วัด vector + rerank (ส่วนที่ภาษามีผล); `--with-graph` วัด pipeline เต็ม
+- รัน: `python -m evaluation.crosslingual_benchmark --max-samples 50` — รายละเอียดดู [DUAL_QUERY_UPGRADE.md §5](DUAL_QUERY_UPGRADE.md)
+
 ---
 
 ## 15. End-to-End Flow (ตัวอย่างจริง)
@@ -791,7 +808,7 @@ sequenceDiagram
     U->>API: POST /query {query: "ผู้ต้องหาใช้ SQL Injection..."}
     API->>AG: agent.query(q)
     AG->>TR: translate_query (ไทย→อังกฤษ)
-    AG->>RT: retrieve_multi([english_query])
+    AG->>RT: retrieve_multi([english_query, thai_original])
     RT-->>AG: GraphRAGResult (vector + graph)
     AG->>EV: evaluate(context, facts, slots)
     EV-->>AG: INSUFFICIENT + follow_up
@@ -801,7 +818,7 @@ sequenceDiagram
     U->>API: POST /resume {session_id, answer}
     API->>AG: agent.resume(session_id, answer)
     AG->>QM: merge(orig, question, answer) → rewritten query
-    AG->>RT: retrieve_multi([english_query, rewritten])
+    AG->>RT: retrieve_multi([english_query, thai_original, rewritten])
     AG->>EV: evaluate (retry_count++)
     EV-->>AG: SUFFICIENT
     AG->>LLM: reasoning (อังกฤษ) → translate (ไทย)

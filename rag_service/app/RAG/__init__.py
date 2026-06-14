@@ -7,6 +7,7 @@ from .GraphRAG import (
     HybridRetriever,
     ReportGenerator,
     build_context,
+    build_retrieval_queries,
 )
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "ReportGenerator",
     "CyberCaseReport",
     "build_context",
+    "build_retrieval_queries",
 ]

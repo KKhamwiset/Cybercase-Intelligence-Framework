@@ -17,6 +17,7 @@ from RAG import (
     HybridRetriever,
     ReportGenerator,
     build_context,
+    build_retrieval_queries,
 )
 
 
@@ -160,9 +161,16 @@ async def generate_report(request: QueryRequest, req: Request):
         )
 
     try:
-        # 1. Retrieve context
+        # 1. Translate (Thai → English) and retrieve via dual-query
         print(f"[REPORT] Generating report for: {request.query[:50]}...")
-        rag_result = retriever.retrieve(request.query)
+        rag_chain = req.app.state.rag_chain
+        english_query = (
+            rag_chain.translator.translate_query(request.query)
+            if rag_chain
+            else request.query
+        )
+        queries = build_retrieval_queries(request.query, english_query)
+        rag_result = retriever.retrieve_multi(queries)
         context = build_context(rag_result)
 
         # 2. Generate structured report

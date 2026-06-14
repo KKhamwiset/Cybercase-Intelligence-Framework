@@ -17,7 +17,7 @@ graph TD
 
     B -->|Incident Analysis| D["Cross-Lingual Layer: Translate to English"]
 
-    D --> E["Hybrid Retrieval: Multi-Query (original + rewrites)"]
+    D --> E["Hybrid Retrieval: Multi-Query (EN translation + Thai original + rewrites)"]
     E --> F{Context Evaluator}
 
     F -->|Sufficient| K["Reasoning LLM: Grounded QA"]
@@ -49,6 +49,15 @@ To ensure maximum accuracy against the English-based MITRE ATT&CK database, the 
 * It explicitly preserves all technical identifiers (e.g., T1566, APT29, Phishing).
 * If the user asks the query in English initially, this step is skipped.
 * The system notes the original language so it can translate the final output back to the user's preferred language at the very end.
+
+### Dual-Query Retrieval (`DUAL_QUERY_RETRIEVAL`)
+
+Translate-then-retrieve alone (tRAG) makes the translation a single point of failure: one bad translation poisons both retrieval channels and every follow-up rewrite (cf. [arXiv:2504.03616](https://arxiv.org/abs/2504.03616)). When the query is Thai, `build_retrieval_queries()` therefore issues **both** queries in parallel:
+
+1. The English translation (always first — the evaluator and rewrites key off it).
+2. The original Thai query — BGE-M3's cross-lingual dense space matches Thai→English semantically, and English keywords embedded in the Thai text (e.g., "Phishing", "T1566") still hit the sparse index exactly.
+
+Results are merged and deduplicated by `retrieve_multi()` (highest reranker score per STIX ID wins). The flag defaults to on; set the env var `DUAL_QUERY_RETRIEVAL=false` to fall back to pure tRAG. Benchmark the two with `evaluation/crosslingual_benchmark.py`.
 
 ## 3. Hybrid Retrieval (`hybrid_retriever.py`)
 
