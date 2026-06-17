@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**CyberCase Intelligence Framework** is a full-stack RAG platform that analyzes cybersecurity incidents using MITRE ATT&CK intelligence and Thai legal documents (Cybersecurity Act, PDPA, Electronic Transactions Acts). It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), and self-reflection loops.
+**CyberCase Intelligence Framework** is a full-stack RAG platform that analyzes cybersecurity incidents using MITRE ATT&CK intelligence. It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), interactive follow-up handling, and self-reflection loops.
 
 ## Service Layout
 
@@ -165,7 +165,7 @@ When the evaluator returns `INSUFFICIENT`, the API responds with `status: "follo
 
 ## Data Sources
 - `Mitre_ATT&CK Doc/` — STIX 2.1 JSON bundles (enterprise, mobile, ICS attack patterns)
-- `Documents/` — Thai legal PDFs (Cybersecurity Act, PDPA, Electronic Transactions Act)
+- `Documents/` — reference documents and case-analysis knowledge assets
 
 ## Windows-Specific Notes
 - The project is developed on Windows; `rag_service/app/RAG/GraphRAG/main.py` includes UTF-8 encoding fixes for the console

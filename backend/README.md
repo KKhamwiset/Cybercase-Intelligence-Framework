@@ -1,6 +1,6 @@
-# TSR Mitre - FastAPI Backend
+# CyberCase Intelligence Framework - FastAPI Backend
 
-This is the Python-based backend for the TSR Mitre RAG platform.
+This is the Python-based backend for the CyberCase Intelligence Framework RAG platform.
 
 ## Tech Stack
 - **FastAPI**: Web framework.
@@ -23,7 +23,7 @@ Ensure you have the virtual environment activated from the root directory.
 Create a `.env` file in this directory based on the defaults in `app/config.py`.
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/tsr_mitre
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/cybercase
 CORS_ORIGINS=http://localhost:3000
 DEBUG=True
 ANTHROPIC_API_KEY=your_key_here
