@@ -1,0 +1,29 @@
+# Ollama Modelfile — MITRE specialist on Qwen3.5-4B (16-bit LoRA, merged → GGUF).
+# Registered as a SEPARATE model `mitre-qwen3.5:4b` so the stock `qwen3.5:4b`
+# stays untouched as the A/B baseline.
+#
+# Requires Ollama >= 0.17.1 (Qwen3.5 renderer/parser). The GGUF already embeds the
+# Qwen3.5 chat template, so we DON'T override TEMPLATE here — only the system
+# prompt + decoding params.
+#
+# Build (run from finetune/export, after placing the downloaded .gguf):
+#   ollama create mitre-qwen3.5:4b -f Modelfile.qwen35
+#   ollama run mitre-qwen3.5:4b "What is T1059?"
+
+FROM ./outputs/gguf/mitre-qwen3.5-4b-Q4_K_M.gguf
+
+SYSTEM """You are a MITRE ATT&CK cybersecurity specialist. Answer questions about ATT&CK techniques, tactics, mitigations, groups, software, and campaigns accurately and concisely. Always cite ATT&CK IDs (e.g., T1566, G0016, S0154, M1037, TA0001) for every entity you mention."""
+
+# Deterministic for A/B eval. (Stock qwen3.5:4b ships temp 1 / top_k 20 / top_p
+# 0.95 / presence_penalty 1.5 — use those if you want its default sampling.)
+PARAMETER temperature 0
+PARAMETER num_ctx 4096
+
+# ── Thinking mode ────────────────────────────────────────────────────────────
+# Qwen3.5 has thinking ON by default. This model was trained on DIRECT answers
+# (no <think> blocks), so it should answer plainly — but thinking is controlled
+# per-REQUEST, not in the Modelfile. If you see a <think>…</think> block:
+#   • interactive : `ollama run mitre-qwen3.5:4b` then `/set nothink`
+#   • API/pipeline: send "think": false  (ChatOllama: reasoning=False)
+# The RAG pipeline's --local reasoning_llm should send think=false so the
+# downstream Thai-translation stage gets a clean answer, not reasoning text.

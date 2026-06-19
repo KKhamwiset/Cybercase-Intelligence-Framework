@@ -169,6 +169,18 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
     SP = C.SPECIALIST_SYSTEM_PROMPT
     GP = C.GROUNDED_SYSTEM_PROMPT
 
+    def add_grounded(category, sid, label, name, aid, desc, relation, neighbors, q, a):
+        """Emit a grounded (context + Q → A) twin of a list/relationship example,
+        sampled at grounded_ratio. The context mirrors the pipeline's real shape
+        (semantic + graph blocks) so the model learns to answer from retrieved
+        context — which is what inference ALWAYS provides."""
+        if not neighbors or rng.random() >= grounded_ratio:
+            return
+        ctx = T.build_relation_context(label, name, aid, desc or "", relation,
+                                       neighbors[:15])
+        out.append(_record(GP, T.grounded_user_prompt(ctx, q), a, category, sid,
+                           "grounded"))
+
     def ok(stix_id):
         # With holdout disabled (default) we train on the full KB so the model
         # becomes a real MITRE specialist. The eval datasets enumerate huge id
@@ -222,11 +234,17 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
         if mit_tuples:
             q, a = T.mitigation_lookup(tech.name, tech.attack_id, desc, mit_tuples, rng)
             out.append(_record(SP, q, a, "mitigation_lookup", tech.stix_id, "closed"))
+            add_grounded("mitigation_lookup", tech.stix_id, tech.node_label,
+                         tech.name, tech.attack_id, desc, "Mitigated by",
+                         [mn for mn, _mi, _md in mit_tuples], q, a)
 
         # technique_groups
         if gt:
             q, a = T.technique_groups(tech.name, tech.attack_id, gt, rng)
             out.append(_record(SP, q, a, "technique_groups", tech.stix_id, "closed"))
+            add_grounded("technique_groups", tech.stix_id, tech.node_label,
+                         tech.name, tech.attack_id, desc, "Used by",
+                         [gn for gn, _gi in gt], q, a)
 
         # technique_detection
         comps = sorted(set(idx["tech_components"].get(tech.stix_id, [])))
@@ -255,39 +273,59 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
         if tt:
             q, a = T.tactic_techniques(tac.name, tac.attack_id, tt, rng)
             out.append(_record(SP, q, a, "tactic_techniques", tac.stix_id, "closed"))
+            tac_desc = T.clean_text(getattr(tac, "description", ""), 300)
+            add_grounded("tactic_techniques", tac.stix_id, "Tactic", tac.name,
+                         tac.attack_id, tac_desc, "Belongs to tactic",
+                         [tn for tn, _ti in tt], q, a)
 
     # ── GROUPS ────────────────────────────────────────────────────────────────
     for grp in groups:
         if not grp.attack_id or not ok(grp.stix_id):
             continue
+        grp_desc = T.clean_text(getattr(grp, "description", ""), 300)
         techs = idx["group_techs"].get(grp.stix_id, [])
         tt = [(t.name, t.attack_id) for t in techs if t.attack_id]
         if tt:
             q, a = T.group_techniques(grp.name, grp.attack_id, tt, rng)
             out.append(_record(SP, q, a, "group_techniques", grp.stix_id, "closed"))
+            add_grounded("group_techniques", grp.stix_id, "Group", grp.name,
+                         grp.attack_id, grp_desc, "Used by",
+                         [tn for tn, _ti in tt], q, a)
 
         sws = idx["group_software"].get(grp.stix_id, [])
         ss = [(s.name, s.attack_id) for s in sws if s.attack_id]
         if ss:
             q, a = T.group_software(grp.name, grp.attack_id, ss, rng)
             out.append(_record(SP, q, a, "group_software", grp.stix_id, "closed"))
+            add_grounded("group_software", grp.stix_id, "Group", grp.name,
+                         grp.attack_id, grp_desc, "Used by",
+                         [sn for sn, _si in ss], q, a)
 
     # ── SOFTWARE ──────────────────────────────────────────────────────────────
     for sw in software:
         if not sw.attack_id or not ok(sw.stix_id):
             continue
         sw_type = getattr(sw, "software_type", "")
+        sw_desc = T.clean_text(sw.description, 300)
 
         techs = idx["software_techs"].get(sw.stix_id, [])
         tt = [(t.name, t.attack_id) for t in techs if t.attack_id]
         if tt:
             q, a = T.software_techniques(sw.name, sw.attack_id, sw_type, tt, rng)
             out.append(_record(SP, q, a, "software_techniques", sw.stix_id, "closed"))
+            add_grounded("software_techniques", sw.stix_id, "Software", sw.name,
+                         sw.attack_id, sw_desc, "Used by",
+                         [tn for tn, _ti in tt], q, a)
 
-        desc = T.clean_text(sw.description, 300)
-        if desc:
-            q, a = T.software_type_query(sw.name, sw.attack_id, sw_type, desc, rng)
+        if sw_desc:
+            q, a = T.software_type_query(sw.name, sw.attack_id, sw_type, sw_desc, rng)
             out.append(_record(SP, q, a, "software_type_query", sw.stix_id, "closed"))
+            # single-fact → semantic-only grounded context (no graph block)
+            if rng.random() < grounded_ratio:
+                ctx = T.build_entity_context("Entity", "Software", sw.name,
+                                             sw.attack_id, sw_desc)
+                out.append(_record(GP, T.grounded_user_prompt(ctx, q), a,
+                                   "software_type_query", sw.stix_id, "grounded"))
 
     # ── CAMPAIGNS ─────────────────────────────────────────────────────────────
     for camp in campaigns:
@@ -298,6 +336,10 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
         if gg:
             q, a = T.campaign_attribution(camp.name, camp.attack_id, gg, rng)
             out.append(_record(SP, q, a, "campaign_attribution", camp.stix_id, "closed"))
+            camp_desc = T.clean_text(getattr(camp, "description", ""), 300)
+            add_grounded("campaign_attribution", camp.stix_id, "Campaign",
+                         camp.name, camp.attack_id, camp_desc, "Attributed to",
+                         [gn for gn, _gi in gg], q, a)
 
     return out
 
