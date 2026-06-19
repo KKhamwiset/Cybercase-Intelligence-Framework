@@ -183,7 +183,7 @@ rag_service/
 | **stix2** | ≥3.0 | (library STIX; การ parse จริงใช้ json ตรง ๆ) |
 | **ragas** / **datasets** / **bert-score** / **rouge-score** | — | Evaluation suite (`evaluation/`) |
 | **python-dotenv** | ≥1.0 | โหลด `.env` ใน `config.py` |
-| **pypdf** | ≥5.0 | อ่าน PDF (เอกสารกฎหมายไทย — ใช้ใน flow อื่น) |
+| **pypdf** | ≥5.0 | อ่าน PDF จาก reference documents หรือ knowledge assets ที่ใช้ใน flow อื่น |
 
 **โมเดล ML 2 ตัวที่โหลดเข้าหน่วยความจำ:**
 - **BGE-M3** (`BAAI/bge-m3`) — embedding 1024 มิติ, FP16, รองรับ dense + sparse ในตัวเดียว

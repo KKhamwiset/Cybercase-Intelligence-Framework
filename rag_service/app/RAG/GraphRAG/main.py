@@ -64,7 +64,7 @@ def run_ingest():
     sep("INGESTION COMPLETE")
     print("✓ Neo4j: Graph loaded with nodes + edges")
     print("✓ Qdrant: Entity + relationship embeddings stored")
-    print(f"✓ Hybrid Vectors Generated (Dense + Sparse)")
+    print("✓ Hybrid Vectors Generated (Dense + Sparse)")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -105,18 +105,16 @@ TEST_QUERIES = [
 ]
 
 
-def run_tests(
-    retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False
-):
+def run_tests(retrieve_only: bool = False, use_agent: bool = False):
     """Run test queries."""
     if use_agent:
         from .pipeline.agent_graph import GraphRAGAgent
 
-        pipeline = GraphRAGAgent(use_local=use_local)
+        pipeline = GraphRAGAgent()
     else:
         from .pipeline.chain import GraphRAGChain
 
-        pipeline = GraphRAGChain(use_local=use_local)
+        pipeline = GraphRAGChain()
 
     mode_label = "agent" if use_agent else "chain"
     if retrieve_only:
@@ -160,18 +158,16 @@ def _interactive_followup_callback(question: str) -> str:
     return answer
 
 
-def run_interactive(
-    retrieve_only: bool = False, use_agent: bool = False, use_local: bool = False
-):
+def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
     """Interactive query mode."""
     if use_agent:
         from .pipeline.agent_graph import GraphRAGAgent
 
-        pipeline = GraphRAGAgent(use_local=use_local)
+        pipeline = GraphRAGAgent()
     else:
         from .pipeline.chain import GraphRAGChain
 
-        pipeline = GraphRAGChain(use_local=use_local)
+        pipeline = GraphRAGChain()
 
     mode_parts = []
     if use_agent:
@@ -260,35 +256,14 @@ Examples:
         help="Use the Agentic RAG pipeline (LangGraph) with self-reflection and follow-up",
     )
 
-    arg_parser.add_argument(
-        "--local",
-        action="store_true",
-        help=(
-            "Use local Ollama models instead of Claude API. "
-            f"Pipeline: qwen2.5:7b  |  Eval/Router: gemma3:4b  "
-            "(requires: ollama pull qwen2.5:7b && ollama pull gemma3:4b)"
-        ),
-    )
-
     args = arg_parser.parse_args()
-
-    if args.local:
-        from .config import LOCAL_EVAL_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
-
-        print(f"\n[LOCAL MODE]  Pipeline model : {LOCAL_LLM_MODEL}")
-        print(f"[LOCAL MODE]  Eval model     : {LOCAL_EVAL_MODEL}")
-        print(f"[LOCAL MODE]  Ollama URL     : {OLLAMA_BASE_URL}\n")
 
     if args.ingest:
         run_ingest()
     elif args.test:
-        run_tests(
-            retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local
-        )
+        run_tests(retrieve_only=args.retrieve_only, use_agent=args.agent)
     else:
-        run_interactive(
-            retrieve_only=args.retrieve_only, use_agent=args.agent, use_local=args.local
-        )
+        run_interactive(retrieve_only=args.retrieve_only, use_agent=args.agent)
 
 
 if __name__ == "__main__":

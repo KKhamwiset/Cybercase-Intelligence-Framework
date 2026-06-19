@@ -9,6 +9,7 @@ import {
   QueryResponse,
 } from "@/lib/api";
 import Link from "next/link";
+import FollowUpModule from "@/components/FollowUpModule";
 
 /**
  * Chat Page Component
@@ -20,6 +21,7 @@ export default function ChatPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [followUpResponse, setFollowUpResponse] = useState<QueryResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -65,16 +67,17 @@ export default function ChatPage() {
 
       if (response.status === "followup") {
         setCurrentSessionId(response.session_id || null);
-        const aiMessage: ChatMessage = {
-          role: "assistant",
-          content: response.followup_question || "I need more information.",
-        };
-        setMessages((prev) => [...prev, aiMessage]);
+        setFollowUpResponse(response);
       } else {
         setCurrentSessionId(null);
+        setFollowUpResponse(null);
+        const answer =
+          response.answer && response.answer.trim()
+            ? response.answer
+            : "⚠️ Not enough context to answer this question. The knowledge base may not have relevant information on this topic. Try rephrasing or ask about MITRE ATT&CK techniques, malware analysis, or cybersecurity incidents.";
         const aiMessage: ChatMessage = {
           role: "assistant",
-          content: response.answer,
+          content: answer,
         };
         setMessages((prev) => [...prev, aiMessage]);
       }
@@ -189,6 +192,26 @@ export default function ChatPage() {
             </div>
           ))}
 
+          {followUpResponse && followUpResponse.status === "followup" && (
+            <FollowUpModule
+              question={followUpResponse.followup_question || "I need more information."}
+              sessionId={followUpResponse.session_id || ""}
+              onResolved={(response) => {
+                setFollowUpResponse(null);
+                setCurrentSessionId(null);
+                const aiMessage: ChatMessage = {
+                  role: "assistant",
+                  content: response.answer,
+                };
+                setMessages((prev) => [...prev, aiMessage]);
+              }}
+              onError={(error) => {
+                console.error("Follow-up error:", error);
+                setFollowUpResponse(null);
+              }}
+            />
+          )}
+
           {isLoading && (
             <div className="flex justify-start animate-pulse">
               <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-5 py-4 shadow-sm">
@@ -287,7 +310,7 @@ export default function ChatPage() {
                     ? "Answer the follow-up question..."
                     : selectedFile
                       ? "Ask what to analyze from this file..."
-                      : "Ask anything about Thai regulations..."
+                      : "Ask about MITRE ATT&CK, malware analysis, or cyber incidents..."
                 }
                 disabled={isLoading}
                 className={`w-full bg-gray-50 border ${currentSessionId ? "border-amber-300 ring-1 ring-amber-100" : "border-gray-200"} focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md`}

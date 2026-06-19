@@ -1,12 +1,12 @@
-# TSR Mitre
+# CyberCase Intelligence Framework
 
-TSR Mitre is an advanced Retrieval-Augmented Generation (RAG) platform specialized in analyzing and querying Thai legal documents, particularly focusing on the Cybersecurity Act, PDPA, and Electronic Transactions Acts.
+CyberCase Intelligence Framework is an interactive web-based Retrieval-Augmented Generation (RAG) platform for cybercrime case analysis. It helps users submit incident details, identify missing investigative information, map technical evidence to cybersecurity knowledge such as MITRE ATT&CK, and generate structured investigation reports.
 
-It features a modern Next.js frontend, a high-performance FastAPI backend, and leverages powerful vector search and LLM capabilities to provide accurate, cited answers to complex legal queries.
+It features a modern Next.js frontend, a high-performance FastAPI backend, and a standalone RAG service that combines vector retrieval, graph-based MITRE ATT&CK knowledge, and LLM reasoning to provide grounded, evidence-based analysis.
 
 ## Project Structure
 
-*   `Documents/`: Source Thai law PDF documents.
+*   `Documents/`: Source reference documents and case-analysis knowledge assets.
 *   `rag_service/`: Standalone RAG service with GraphRAG pipelines.
 *   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy. Calls `rag_service` for RAG capabilities.
 *   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
