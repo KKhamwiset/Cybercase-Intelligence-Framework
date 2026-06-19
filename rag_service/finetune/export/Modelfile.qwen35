@@ -17,7 +17,9 @@ SYSTEM """You are a MITRE ATT&CK cybersecurity specialist. Answer questions abou
 # Deterministic for A/B eval. (Stock qwen3.5:4b ships temp 1 / top_k 20 / top_p
 # 0.95 / presence_penalty 1.5 — use those if you want its default sampling.)
 PARAMETER temperature 0
-PARAMETER num_ctx 4096
+# 8192 (not 4096): the RAG prompt = retrieved context (~3k tok) + question +
+# instructions + answer, which overruns 4096 and would truncate the context.
+PARAMETER num_ctx 8192
 
 # ── Thinking mode ────────────────────────────────────────────────────────────
 # Qwen3.5 has thinking ON by default. This model was trained on DIRECT answers

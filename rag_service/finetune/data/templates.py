@@ -346,6 +346,33 @@ def build_relation_context(center_label, center_name, center_id, center_desc,
     )
 
 
+def grounded_list_answer(center_name, center_id, lead, names, rng=None):
+    """Grounded list answer. Cites ONLY the center entity's ID (it appears in the
+    context's semantic block) and lists the neighbour NAMES — never their IDs,
+    because the graph context shows names only. Attaching neighbour IDs would
+    teach the model to fabricate IDs from memory (the v4 failure mode).
+    """
+    joined = _join_list(names, 15)
+    return _pick(rng, [
+        f"Based on the provided context, {center_name} ({center_id}) {lead}: {joined}.",
+        f"According to the retrieved context, {center_name} ({center_id}) {lead}: {joined}.",
+        f"{center_name} ({center_id}) {lead}: {joined}.",
+    ])
+
+
+def abstention_answer(name, attack_id, missing, present_phrase, rng=None):
+    """Answer for an abstention example: the question asks about something NOT in
+    the context, so the model must say so plainly instead of guessing from memory.
+    ``missing`` / ``present_phrase`` are self-contained clauses (e.g. "its
+    recommended mitigations", "the threat groups that use it")."""
+    return _pick(rng, [
+        f"Based on the provided context for {name} ({attack_id}), there is no "
+        f"information about {missing}; the context only describes {present_phrase}.",
+        f"The context for {name} ({attack_id}) does not include {missing} — it only "
+        f"provides {present_phrase}.",
+    ])
+
+
 def grounded_user_prompt(context: str, question: str) -> str:
     """User turn for a grounded example (context + question)."""
     return f"{context}\n\n{'=' * 60}\nQUESTION\n{'=' * 60}\n{question}"

@@ -164,22 +164,40 @@ def _record(system, user, assistant, category, subject_id, style, lang="en"):
     }
 
 
-def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=False):
+def generate_examples(parser, by_id, idx, held, rng, grounded_ratio,
+                      abstention_ratio=0.45, holdout=False):
     out = []
     SP = C.SPECIALIST_SYSTEM_PROMPT
     GP = C.GROUNDED_SYSTEM_PROMPT
 
-    def add_grounded(category, sid, label, name, aid, desc, relation, neighbors, q, a):
-        """Emit a grounded (context + Q → A) twin of a list/relationship example,
-        sampled at grounded_ratio. The context mirrors the pipeline's real shape
-        (semantic + graph blocks) so the model learns to answer from retrieved
-        context — which is what inference ALWAYS provides."""
-        if not neighbors or rng.random() >= grounded_ratio:
+    def add_grounded(category, sid, label, name, aid, desc, relation, neighbors,
+                     lead, q):
+        """Grounded twin of a list/relationship example — now ALWAYS emitted so
+        grounded is the majority (the v4 model over-fit the closed-book template).
+        The answer cites ONLY the center's ID (it is in the context's semantic
+        block) and lists neighbour NAMES — never their IDs, because the graph
+        context shows names only and attaching IDs taught the model to fabricate
+        them. Context mirrors the pipeline's real shape (semantic + graph blocks)."""
+        names = [n for n in neighbors if n][:15]
+        if not names:
             return
-        ctx = T.build_relation_context(label, name, aid, desc or "", relation,
-                                       neighbors[:15])
+        ctx = T.build_relation_context(label, name, aid, desc or "", relation, names)
+        a = T.grounded_list_answer(name, aid, lead, names, rng)
         out.append(_record(GP, T.grounded_user_prompt(ctx, q), a, category, sid,
                            "grounded"))
+
+    def add_abstention(sid, label, name, aid, desc, present_rel, present_names,
+                       present_phrase, question, missing):
+        """Emit a grounded example whose question asks about something NOT in the
+        context → the model must say so instead of guessing (the v4 model could
+        not abstain; this category did not exist before)."""
+        names = [n for n in present_names if n][:15]
+        if not names or rng.random() >= abstention_ratio:
+            return
+        ctx = T.build_relation_context(label, name, aid, desc or "", present_rel, names)
+        a = T.abstention_answer(name, aid, missing, present_phrase, rng)
+        out.append(_record(GP, T.grounded_user_prompt(ctx, question), a,
+                           "abstention", sid, "grounded"))
 
     def ok(stix_id):
         # With holdout disabled (default) we train on the full KB so the model
@@ -217,34 +235,49 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             if s in tac_by_short and tac_by_short[s].attack_id
         ]
 
-        # technique_lookup (closed-book)
+        # technique_lookup (closed-book) + grounded twin (always; center ID + desc
+        # are both in the context, so the grounded answer is fully faithful).
         q, a = T.technique_lookup(tech.name, tech.attack_id, desc, rng)
         out.append(_record(SP, q, a, "technique_lookup", tech.stix_id, "closed"))
+        ctx = T.build_entity_context("Entity", tech.node_label, tech.name,
+                                     tech.attack_id, desc)
+        gq = (f"Based on the context, what is {tech.name} ({tech.attack_id}) and "
+              f"what does it involve?")
+        out.append(_record(GP, T.grounded_user_prompt(ctx, gq), a,
+                           "technique_lookup", tech.stix_id, "grounded"))
 
-        # grounded variant (sampled)
-        if rng.random() < grounded_ratio:
-            ctx = T.build_entity_context("Entity", tech.node_label, tech.name,
-                                         tech.attack_id, desc)
-            gq = f"What is {tech.name} ({tech.attack_id}) and what does it involve?"
-            out.append(_record(GP, T.grounded_user_prompt(ctx, gq), a,
-                               "technique_lookup", tech.stix_id, "grounded"))
-
-        # mitigation_lookup — pass the FULL technique description so the answer
-        # matches the richer reference-answer style (more facts → better recall).
+        # mitigation_lookup (closed) + grounded twin (names-only neighbours)
         if mit_tuples:
             q, a = T.mitigation_lookup(tech.name, tech.attack_id, desc, mit_tuples, rng)
             out.append(_record(SP, q, a, "mitigation_lookup", tech.stix_id, "closed"))
             add_grounded("mitigation_lookup", tech.stix_id, tech.node_label,
                          tech.name, tech.attack_id, desc, "Mitigated by",
-                         [mn for mn, _mi, _md in mit_tuples], q, a)
+                         [mn for mn, _mi, _md in mit_tuples],
+                         "can be mitigated by", q)
 
-        # technique_groups
+        # technique_groups (closed) + grounded twin
         if gt:
             q, a = T.technique_groups(tech.name, tech.attack_id, gt, rng)
             out.append(_record(SP, q, a, "technique_groups", tech.stix_id, "closed"))
             add_grounded("technique_groups", tech.stix_id, tech.node_label,
                          tech.name, tech.attack_id, desc, "Used by",
-                         [gn for gn, _gi in gt], q, a)
+                         [gn for gn, _gi in gt],
+                         "is used by the following threat groups", q)
+
+        # abstention — context holds ONE relation, question asks for the OTHER →
+        # the model must say it is not in the context instead of guessing.
+        if gt:
+            add_abstention(tech.stix_id, tech.node_label, tech.name, tech.attack_id,
+                           desc, "Used by", [gn for gn, _gi in gt],
+                           "the threat groups that use it",
+                           f"What are the recommended mitigations for {tech.name} "
+                           f"({tech.attack_id})?", "its recommended mitigations")
+        if mit_tuples:
+            add_abstention(tech.stix_id, tech.node_label, tech.name, tech.attack_id,
+                           desc, "Mitigated by", [mn for mn, _mi, _md in mit_tuples],
+                           "its recommended mitigations",
+                           f"Which threat groups are known to use {tech.name} "
+                           f"({tech.attack_id})?", "the threat groups that use it")
 
         # technique_detection
         comps = sorted(set(idx["tech_components"].get(tech.stix_id, [])))
@@ -252,17 +285,10 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             q, a = T.technique_detection(tech.name, tech.attack_id, comps, rng)
             out.append(_record(SP, q, a, "technique_detection", tech.stix_id, "closed"))
 
-        # technique_profile (COMPOUND — desc + tactic(s) + mitigations + groups in
-        # one complete answer; teaches the model NOT to stop after the lookup part)
-        if mit_tuples or gt:
-            q, a = T.technique_profile(tech.name, tech.attack_id, desc,
-                                       mit_tuples, gt, tac_tuples, rng)
-            out.append(_record(SP, q, a, "technique_profile", tech.stix_id, "closed"))
-            if rng.random() < grounded_ratio:
-                ctx = T.build_entity_context("Entity", tech.node_label, tech.name,
-                                             tech.attack_id, desc)
-                out.append(_record(GP, T.grounded_user_prompt(ctx, q), a,
-                                   "technique_profile", tech.stix_id, "grounded"))
+        # NOTE: technique_profile (the compound full-overview answer) was DROPPED.
+        # It taught the model to auto-complete an entire profile from memory, which
+        # was the main cause of the v4 model ignoring the prompt, fabricating IDs,
+        # and being unable to abstain.
 
     # ── TACTICS ───────────────────────────────────────────────────────────────
     for tac in tactics:
@@ -276,7 +302,8 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             tac_desc = T.clean_text(getattr(tac, "description", ""), 300)
             add_grounded("tactic_techniques", tac.stix_id, "Tactic", tac.name,
                          tac.attack_id, tac_desc, "Belongs to tactic",
-                         [tn for tn, _ti in tt], q, a)
+                         [tn for tn, _ti in tt],
+                         "includes the following techniques", q)
 
     # ── GROUPS ────────────────────────────────────────────────────────────────
     for grp in groups:
@@ -290,7 +317,8 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             out.append(_record(SP, q, a, "group_techniques", grp.stix_id, "closed"))
             add_grounded("group_techniques", grp.stix_id, "Group", grp.name,
                          grp.attack_id, grp_desc, "Used by",
-                         [tn for tn, _ti in tt], q, a)
+                         [tn for tn, _ti in tt],
+                         "uses the following techniques", q)
 
         sws = idx["group_software"].get(grp.stix_id, [])
         ss = [(s.name, s.attack_id) for s in sws if s.attack_id]
@@ -299,7 +327,8 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             out.append(_record(SP, q, a, "group_software", grp.stix_id, "closed"))
             add_grounded("group_software", grp.stix_id, "Group", grp.name,
                          grp.attack_id, grp_desc, "Used by",
-                         [sn for sn, _si in ss], q, a)
+                         [sn for sn, _si in ss],
+                         "uses the following software and tools", q)
 
     # ── SOFTWARE ──────────────────────────────────────────────────────────────
     for sw in software:
@@ -315,17 +344,20 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             out.append(_record(SP, q, a, "software_techniques", sw.stix_id, "closed"))
             add_grounded("software_techniques", sw.stix_id, "Software", sw.name,
                          sw.attack_id, sw_desc, "Used by",
-                         [tn for tn, _ti in tt], q, a)
+                         [tn for tn, _ti in tt],
+                         "implements the following techniques", q)
 
         if sw_desc:
             q, a = T.software_type_query(sw.name, sw.attack_id, sw_type, sw_desc, rng)
             out.append(_record(SP, q, a, "software_type_query", sw.stix_id, "closed"))
-            # single-fact → semantic-only grounded context (no graph block)
-            if rng.random() < grounded_ratio:
-                ctx = T.build_entity_context("Entity", "Software", sw.name,
-                                             sw.attack_id, sw_desc)
-                out.append(_record(GP, T.grounded_user_prompt(ctx, q), a,
-                                   "software_type_query", sw.stix_id, "grounded"))
+            # single-fact → semantic-only grounded context (center ID + desc are
+            # both present, so the grounded answer is faithful). Always emitted.
+            ctx = T.build_entity_context("Entity", "Software", sw.name,
+                                         sw.attack_id, sw_desc)
+            gq = (f"Based on the context, how is {sw.name} ({sw.attack_id}) "
+                  f"classified in MITRE ATT&CK?")
+            out.append(_record(GP, T.grounded_user_prompt(ctx, gq), a,
+                               "software_type_query", sw.stix_id, "grounded"))
 
     # ── CAMPAIGNS ─────────────────────────────────────────────────────────────
     for camp in campaigns:
@@ -339,7 +371,7 @@ def generate_examples(parser, by_id, idx, held, rng, grounded_ratio, holdout=Fal
             camp_desc = T.clean_text(getattr(camp, "description", ""), 300)
             add_grounded("campaign_attribution", camp.stix_id, "Campaign",
                          camp.name, camp.attack_id, camp_desc, "Attributed to",
-                         [gn for gn, _gi in gg], q, a)
+                         [gn for gn, _gi in gg], "is attributed to", q)
 
     return out
 
@@ -384,8 +416,12 @@ def main():
     ap.add_argument("--domains", nargs="+", default=C.DOMAINS_TO_BUILD)
     ap.add_argument("--all-versions", action="store_true",
                     help="parse every STIX version (slow) instead of latest only")
-    ap.add_argument("--grounded-ratio", type=float, default=0.3,
-                    help="fraction of techniques that also get a grounded example")
+    ap.add_argument("--grounded-ratio", type=float, default=1.0,
+                    help="LEGACY (grounded twins are now always emitted; kept for "
+                         "compatibility)")
+    ap.add_argument("--abstention-ratio", type=float, default=0.45,
+                    help="fraction of techniques that also get an abstention example "
+                         "(question asks for a relation NOT in the context)")
     ap.add_argument("--max-per-category", type=int, default=0,
                     help="cap examples per category (0 = no cap; ~600 balances it)")
     ap.add_argument("--holdout", choices=["none", "ids"], default="none",
@@ -402,6 +438,7 @@ def main():
     by_id, idx = build_indices(parser)
 
     records = generate_examples(parser, by_id, idx, held, rng, args.grounded_ratio,
+                                abstention_ratio=args.abstention_ratio,
                                 holdout=(args.holdout == "ids"))
     records = dedup(records)
     records = cap_per_category(records, args.max_per_category, rng)
