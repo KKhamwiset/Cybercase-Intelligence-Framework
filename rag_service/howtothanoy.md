@@ -72,13 +72,21 @@ uvicorn app.main:app --port 8001 --reload
 
 ## 3. วิธีเรียกใช้ + เทส
 
-เรียก endpoint เดิม ไม่มี param เพิ่ม:
+Thanoy เป็น **opt-in** — ต้องส่ง `"legal": true` ใน request (เทียบเท่า flag `--legal`)
+ถ้าไม่ส่ง → **ไม่เรียก Thanoy เลย** ได้รายงานแค่ 2 ส่วน (`legal_advice = null`)
+
 ```bash
 curl -X POST http://localhost:8001/generate-report \
   -H "Content-Type: application/json" \
-  -d '{"query":"ผู้โจมตีใช้ SQL Injection เข้าระบบ แล้ว credential dumping ยกระดับเป็น root ก่อนลบฐานข้อมูล postgres ทั้งหมด"}'
+  -d '{"query":"ผู้โจมตีใช้ SQL Injection เข้าระบบ แล้ว credential dumping ยกระดับเป็น root ก่อนลบฐานข้อมูล postgres ทั้งหมด", "legal": true}'
 ```
 ดู field `legal_advice` ใน response — ควรมีข้อกฎหมาย + เลขมาตรา + disclaimer ต่อท้าย
+
+| request | ผล |
+|---|---|
+| ไม่มี `legal` (หรือ `false`) | **ไม่เรียก Thanoy** → 2 ส่วน (`legal_advice = null`) |
+| `"legal": true` + มี `THANOY_API_KEY` | เรียก Thanoy → 3 ส่วน |
+| `"legal": true` แต่ไม่มี key / error | `legal_advice = null` (ไม่ crash) |
 
 ---
 

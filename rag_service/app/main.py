@@ -71,6 +71,10 @@ app = FastAPI(title="Cybercase RAG Service", lifespan=lifespan)
 class QueryRequest(BaseModel):
     query: str
     use_agent: bool = True
+    # Opt-in for the Thai legal section (part 3, via Thanoy). The service-equivalent
+    # of a `--legal` flag: omit it (default False) → report has only parts 1+2 and
+    # Thanoy is never called. Set true (and THANOY_API_KEY) → adds legal_advice.
+    legal: bool = False
 
 
 class QueryResponse(BaseModel):
@@ -172,9 +176,12 @@ async def generate_report(request: QueryRequest, req: Request):
         # retrieval (real id/name/type), so the table never carries hallucinated IDs.
         report.mitre_entities = extract_mitre_entities(rag_result)
 
-        # 3. Append Thai legal advice from Thanoy (part 3). Optional — returns None
-        #    if THANOY_API_KEY is unset or the call fails, so the report still ships.
-        report.legal_advice = await get_legal_advice(report.case_summary)
+        # 3. Append Thai legal advice from Thanoy (part 3) — ONLY when opted in via
+        #    `legal: true`. Without the flag, Thanoy is never called (parts 1+2 only).
+        #    Even when requested it returns None if THANOY_API_KEY is unset / the call
+        #    fails, so the report always ships.
+        if request.legal:
+            report.legal_advice = await get_legal_advice(report.case_summary)
         return report
     except Exception as e:
         print(f"[REPORT] Error: {e}")
