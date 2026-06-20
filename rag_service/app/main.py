@@ -19,6 +19,8 @@ from RAG import (
     build_context,
     build_retrieval_queries,
 )
+from RAG.GraphRAG.pipeline.thanoy_client import get_legal_advice
+from RAG.GraphRAG.pipeline.report_generator import extract_mitre_entities
 
 
 @asynccontextmanager
@@ -27,17 +29,19 @@ async def lifespan(app: FastAPI):
     print("[RAG Service] Initializing RAG modules...")
     try:
         from FlagEmbedding import BGEM3FlagModel
-        from RAG.GraphRAG.config import EMBED_MODEL, USE_FP16
+        from RAG.GraphRAG.config import EMBED_MODEL, USE_FP16, USE_LOCAL
 
         # 1. Load embedding model once
         print(f"[RAG Service] Loading shared embedding model: {EMBED_MODEL}")
         embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
-        # 2. Initialize components with shared model
-        app.state.rag_chain = GraphRAGChain(embed_model=embed_model)
-        app.state.rag_agent = GraphRAGAgent(embed_model=embed_model)
+        # 2. Initialize components with shared model. USE_LOCAL drives the WHOLE
+        #    pipeline (chain + agent + report) onto local Ollama models vs Claude.
+        print(f"[RAG Service] LLM mode: {'LOCAL (Ollama)' if USE_LOCAL else 'CLOUD (Claude)'}")
+        app.state.rag_chain = GraphRAGChain(embed_model=embed_model, use_local=USE_LOCAL)
+        app.state.rag_agent = GraphRAGAgent(embed_model=embed_model, use_local=USE_LOCAL)
         app.state.retriever = HybridRetriever(embed_model=embed_model)
-        app.state.report_gen = ReportGenerator()
+        app.state.report_gen = ReportGenerator(use_local=USE_LOCAL)
         print("[RAG Service] RAG modules initialized successfully.")
     except Exception as e:
         print(f"[RAG Service] Error initializing RAG modules: {e}")
@@ -161,8 +165,16 @@ async def generate_report(request: QueryRequest, req: Request):
         rag_result = retriever.retrieve_multi(queries)
         context = build_context(rag_result)
 
-        # 2. Generate structured report
+        # 2. Generate structured report (part 1: case summary; + LLM mitre_mapping)
         report = report_gen.generate(request.query, context)
+
+        # Part 2 (ID table): overwrite with the FAITHFUL entities straight from
+        # retrieval (real id/name/type), so the table never carries hallucinated IDs.
+        report.mitre_entities = extract_mitre_entities(rag_result)
+
+        # 3. Append Thai legal advice from Thanoy (part 3). Optional — returns None
+        #    if THANOY_API_KEY is unset or the call fails, so the report still ships.
+        report.legal_advice = await get_legal_advice(report.case_summary)
         return report
     except Exception as e:
         print(f"[REPORT] Error: {e}")

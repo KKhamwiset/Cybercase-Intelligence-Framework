@@ -26,6 +26,8 @@ from ..config import (
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,
+    LOCAL_LLM_MODEL,
+    OLLAMA_BASE_URL,
     USE_FP16,
     VECTOR_TOP_K,
     sep,
@@ -51,8 +53,10 @@ def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
 class GraphRAGChain:
     """Full GraphRAG pipeline with cross-lingual support."""
 
-    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None):
+    def __init__(self, embed_model: Optional[BGEM3FlagModel] = None,
+                 use_local: bool = False):
         sep("Initializing GraphRAG Chain")
+        self.use_local = use_local
 
         # Load embedding model (shared across components)
         if embed_model is None:
@@ -61,15 +65,36 @@ class GraphRAGChain:
         else:
             self.embed_model = embed_model
 
-        # Initialize components
-        self.translator = CrossLingualLayer()
+        # Initialize components — propagate use_local so the whole chain is local.
+        self.translator = CrossLingualLayer(use_local=use_local)
         self.retriever = HybridRetriever(embed_model=self.embed_model)
-        self.router = QueryRouter()
+        self.router = QueryRouter(use_local=use_local)
 
         # Stage 2: Reasoning LLM — simplifies jargon into plain English
         # Stage 3: Translation LLM — renders simplified English into Thai
         # Both use the same underlying model; prompts enforce the stage boundary.
-        if ANTHROPIC_API_KEY:
+        if use_local:
+            from langchain_ollama import ChatOllama
+
+            # reasoning=False disables Qwen3.5 thinking, so no <think> blocks leak
+            # into the answer or the downstream Thai translation stage.
+            self.reasoning_llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=LLM_TEMPERATURE,
+                num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
+            )
+            self.translation_llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=LLM_TEMPERATURE,
+                num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
+            )
+            print(f"[CHAIN] Reasoning LLM : {LOCAL_LLM_MODEL} (local)")
+            print(f"[CHAIN] Translation LLM: {LOCAL_LLM_MODEL} (local)")
+        elif ANTHROPIC_API_KEY:
             self.reasoning_llm = ChatAnthropic(  # type: ignore
                 model_name=LLM_MODEL,
                 api_key=ANTHROPIC_API_KEY,
