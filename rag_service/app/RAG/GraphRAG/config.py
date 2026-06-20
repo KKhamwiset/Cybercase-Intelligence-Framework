@@ -99,6 +99,18 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ──────────────────────────────────────────────────────────────────────────────
+# THANOY — Thai legal AI (iApp) for the report's "legal advice" section.
+# A SEPARATE specialist from the MITRE pipeline: our pipeline explains the
+# technical incident, Thanoy maps it to Thai law (Computer Crime Act, Cybersecurity
+# Act, Criminal Code …). OPTIONAL — if THANOY_API_KEY is unset, the legal section
+# is simply skipped (the report still renders). Docs: iapp.co.th/docs/llm/thanoy-legal
+# ──────────────────────────────────────────────────────────────────────────────
+THANOY_API_KEY = os.getenv("THANOY_API_KEY", "")
+THANOY_API_URL = os.getenv("THANOY_API_URL", "https://api.iapp.co.th/thanoy")
+THANOY_TIMEOUT = float(os.getenv("THANOY_TIMEOUT", "30"))
+THANOY_ENABLED = bool(THANOY_API_KEY)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # LOCAL MODELS (Ollama) — used when --local flag is passed
 # Install: https://ollama.com  |  pip install langchain-ollama
 # Pull   : ollama pull qwen2.5:7b && ollama pull gemma3:4b
@@ -112,6 +124,11 @@ LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen2.5:7b")
 # Model 2 — Evaluation judge  (context sufficiency + query merger + offline RAGAS)
 # gemma3:4b   Q4_K_M ≈ 2.6 GB VRAM  |  different family → lower judge bias
 LOCAL_EVAL_MODEL = os.getenv("LOCAL_EVAL_MODEL", "gemma3:4b")
+
+# Master switch — when true the SERVICE runs the WHOLE pipeline on local Ollama
+# models (reasoning + translation + routing + report) instead of Claude, mirroring
+# the CLI's --local flag. Set USE_LOCAL=true in the env to enable.
+USE_LOCAL = os.getenv("USE_LOCAL", "false").lower() in ("1", "true", "yes")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRIEVAL

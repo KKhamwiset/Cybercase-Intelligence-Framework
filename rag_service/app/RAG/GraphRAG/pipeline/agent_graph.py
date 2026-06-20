@@ -188,17 +188,21 @@ class GraphRAGAgent:
         if use_local:
             from langchain_ollama import ChatOllama
 
+            # reasoning=False disables Qwen3.5 thinking, so no <think> blocks leak
+            # into the answer or the downstream Thai translation stage.
             self.reasoning_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
                 temperature=LLM_TEMPERATURE,
                 num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
             )
             self.translation_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
                 temperature=LLM_TEMPERATURE,
                 num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
             )
             print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
             print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
