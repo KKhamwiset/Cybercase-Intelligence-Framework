@@ -62,6 +62,16 @@ export interface QueryResponse {
   session_id?: string;
 }
 
+export interface CyberCaseReport {
+  case_summary: string;
+  detected_indicators: string[];
+  mitre_mapping: string[];
+  mapping_justification: string;
+  evidence_to_investigate: string[];
+  preliminary_recommendations: string[];
+  system_limitations: string;
+}
+
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -92,6 +102,34 @@ export const queryRag = async (
     return response.data;
   } catch (error) {
     console.error("RAG query failed:", error);
+    throw error;
+  }
+};
+
+/**
+ * Generates a preliminary cyber case analysis/report draft.
+ */
+export const generateReport = async (
+  query: string,
+): Promise<CyberCaseReport> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<CyberCaseReport>(
+      `${baseUrl}/rag/generate-report`,
+      {
+        query: query,
+        use_agent: false,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Report generation failed:", error);
     throw error;
   }
 };

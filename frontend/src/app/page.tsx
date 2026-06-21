@@ -37,12 +37,12 @@ export default function Home() {
         </div>
         <ul className="hidden md:flex gap-8 list-none">
           <li>
-            <a
-              href="#"
+            <Link
+              href="/report"
               className="text-neutral text-sm font-medium transition-colors hover:text-primary"
             >
-              Documents
-            </a>
+              Reports
+            </Link>
           </li>
           <li>
             <Link
@@ -101,7 +101,9 @@ export default function Home() {
           <Link href="/chat" className="btn-primary inline-block">
             Start Search
           </Link>
-          <button className="btn-outlined">View Documents</button>
+          <Link href="/report" className="btn-outlined inline-block">
+            Generate Report
+          </Link>
         </div>
 
         {/* Feature Cards */}
