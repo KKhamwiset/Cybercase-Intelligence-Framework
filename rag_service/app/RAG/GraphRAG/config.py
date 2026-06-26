@@ -88,6 +88,11 @@ LLM_MODEL = "claude-haiku-4-5"
 LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
 
+# Ultrafast mode (--ultrafast): vector-only retrieve (no graph) + terse, capped
+# output. Output-token count dominates LLM latency, so the answer is short.
+ULTRAFAST_MAX_TOKENS = int(os.getenv("ULTRAFAST_MAX_TOKENS", "1024"))
+ULTRAFAST_TOP_K = int(os.getenv("ULTRAFAST_TOP_K", "6"))
+
 EVALUATOR_LLM_MODEL = "claude-haiku-4-5"
 EVALUATOR_MAX_TOKENS = (
     1024  # Must fit: verdict + reason + rewritten_query + followup_question
@@ -130,12 +135,25 @@ LOCAL_EVAL_MODEL = os.getenv("LOCAL_EVAL_MODEL", "gemma3:4b")
 # the CLI's --local flag. Set USE_LOCAL=true in the env to enable.
 USE_LOCAL = os.getenv("USE_LOCAL", "false").lower() in ("1", "true", "yes")
 
+# Context window for local Ollama models. ChatOllama otherwise defaults to a small
+# num_ctx and SILENTLY truncates large prompts (decomposition input + retrieved
+# context) → degenerate/empty output. Must comfortably hold the incident text.
+LOCAL_NUM_CTX = int(os.getenv("LOCAL_NUM_CTX", "8192"))
+
 # ──────────────────────────────────────────────────────────────────────────────
 # RETRIEVAL
 # ──────────────────────────────────────────────────────────────────────────────
 VECTOR_TOP_K = 10  # Initial vector retrieval count
 GRAPH_EXPANSION_DEPTH = 2  # How many hops to expand in graph
 FINAL_TOP_K = 5  # After reranking
+
+# Restrict entity vector search to one ATT&CK domain. The corpus is ingested with
+# mobile + enterprise, but mobile entities (Pegasus, FluBot, mobile-only Phishing
+# variants) pollute enterprise incident analysis. Set to "" / unset to disable.
+# NOTE: only the ENTITY collection is domain-tagged; relationships are not, so a
+# few mobile relationship hits can still slip through — re-ingest enterprise-only
+# for a 100% clean corpus.
+ATTACK_DOMAIN_FILTER = os.getenv("ATTACK_DOMAIN_FILTER", "enterprise").strip() or None
 
 # Reranker — must handle Thai↔English pairs when DUAL_QUERY_RETRIEVAL is on
 # (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)

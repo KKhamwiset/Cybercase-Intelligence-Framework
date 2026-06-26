@@ -124,31 +124,65 @@ def _make_graph_retriever_fn():
     return fn, retriever.close
 
 
+def _collect_hybrid_ids(result) -> list[str]:
+    """Flatten a GraphRAGResult into an ordered, deduped STIX-id list
+    (vector hits first, then each subgraph's center node + neighbors)."""
+    ids: list[str] = []
+    seen: set[str] = set()
+    for vr in result.vector_results:
+        if vr.stix_id not in seen:
+            ids.append(vr.stix_id)
+            seen.add(vr.stix_id)
+    for gr in result.graph_results:
+        if gr.center_node and gr.center_node.stix_id not in seen:
+            ids.append(gr.center_node.stix_id)
+            seen.add(gr.center_node.stix_id)
+        for nb in gr.neighbors:
+            if nb.stix_id not in seen:
+                ids.append(nb.stix_id)
+                seen.add(nb.stix_id)
+    return ids
+
+
 def _make_hybrid_retriever_fn(embed_model=None):
-    """Create a retriever function for hybrid (Vector + Graph) search."""
+    """Create a retriever function for hybrid (Vector + Graph) search —
+    single-query baseline (no decomposition)."""
     from ..retrieval.hybrid_retriever import HybridRetriever
 
     retriever = HybridRetriever(embed_model=embed_model)
 
     def fn(query: str) -> list[str]:
         result = retriever.retrieve(query, top_k=10)
+        return _collect_hybrid_ids(result)
 
-        # Collect STIX IDs from both vector and graph results
-        ids = []
-        seen = set()
-        for vr in result.vector_results:
-            if vr.stix_id not in seen:
-                ids.append(vr.stix_id)
-                seen.add(vr.stix_id)
-        for gr in result.graph_results:
-            if gr.center_node and gr.center_node.stix_id not in seen:
-                ids.append(gr.center_node.stix_id)
-                seen.add(gr.center_node.stix_id)
-            for nb in gr.neighbors:
-                if nb.stix_id not in seen:
-                    ids.append(nb.stix_id)
-                    seen.add(nb.stix_id)
-        return ids
+    return fn, retriever.close
+
+
+def _make_hybrid_quota_retriever_fn(embed_model=None, use_local: bool = False):
+    """Hybrid retriever with query decomposition + per-query quota — mirrors the
+    production agent path (``_node_retrieve``). The incident is decomposed into
+    atomic per-technique sub-queries, each retrieved under a quota and round-robin
+    interleaved, so every technique survives the final trim. Compare against
+    ``_make_hybrid_retriever_fn`` (single-query) to measure whether decompose +
+    quota improves multi-technique recall.
+
+    NOTE: decomposition needs an LLM (ANTHROPIC_API_KEY, or --local Ollama). With
+    no LLM the decomposer falls back to the whole query → this degenerates to a
+    single-query hybrid run (the eval would then just mirror the baseline).
+    """
+    from ..config import VECTOR_TOP_K
+    from ..pipeline.query_decomposer import QueryDecomposer
+    from ..retrieval.hybrid_retriever import HybridRetriever
+
+    retriever = HybridRetriever(embed_model=embed_model)
+    decomposer = QueryDecomposer(use_local=use_local)
+
+    def fn(query: str) -> list[str]:
+        sub_queries = decomposer.decompose(incident=query, verbose=False)
+        result = retriever.retrieve_multi_quota(
+            sub_queries, per_query_k=3, top_k=VECTOR_TOP_K, max_vector=15, max_graph=8
+        )
+        return _collect_hybrid_ids(result)
 
     return fn, retriever.close
 
@@ -312,6 +346,24 @@ class EvalRunner:
             print(hr_result.to_table())
         except Exception as e:
             print(f"  [SKIP] Hybrid retriever unavailable: {e}")
+
+        # 4. Hybrid + Quota (decompose → retrieve_multi_quota) — production agent path
+        print("\n" + "═" * 60)
+        print("  Evaluating: Hybrid + Quota (decompose + per-query quota)")
+        print("═" * 60)
+        try:
+            fn, cleanup = _make_hybrid_quota_retriever_fn(
+                embed_model, use_local=self.use_local
+            )
+            if cleanup:
+                self._cleanups.append(cleanup)
+            hq_result = evaluate_retriever(
+                fn, eval_samples, retriever_name="Hybrid+Quota (decompose)"
+            )
+            results.append(hq_result)
+            print(hq_result.to_table())
+        except Exception as e:
+            print(f"  [SKIP] Hybrid+Quota retriever unavailable: {e}")
 
         # Comparison table
         self._print_comparison(results)

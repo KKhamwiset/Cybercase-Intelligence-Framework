@@ -1,6 +1,13 @@
+import re
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
+
+# CJK ideographs + Japanese kana + Korean Hangul. Haiku occasionally code-switches
+# a single word into Chinese mid-Thai (e.g. "隔离" for "isolate"); a strict Thai-only
+# prompt does NOT reliably stop it, so we detect + repair after generation.
+_CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿가-힣豈-﫿]")
 
 from ..config import (
     ANTHROPIC_API_KEY,
@@ -124,7 +131,12 @@ class ReportGenerator:
                         "generate a formal, highly accurate incident report in Thai language. "
                         "You must strictly follow the provided 7-section structure. "
                         "Base your analysis ONLY on the provided context. If information is missing, "
-                        "note it in the 'System Limitations' section."
+                        "note it in the 'System Limitations' section.\n\n"
+                        "LANGUAGE: Every field MUST be written in 100% Thai. Do NOT use Chinese, "
+                        "Japanese, Korean, or any non-Thai prose. The ONLY tokens allowed to stay "
+                        "in English are preserved technical identifiers — ATT&CK IDs (T1566, TA0001, "
+                        "G0016, S0154), and the English names of techniques/tactics/tools/groups/CVEs. "
+                        "Never substitute a Thai word with a foreign-language equivalent."
                     ),
                 ),
                 (
@@ -144,32 +156,91 @@ class ReportGenerator:
             raise ValueError("LLM not initialized. Check ANTHROPIC_API_KEY.")
 
         chain = self.prompt | self.structured_llm
-        return chain.invoke({"query": query, "context": context})
+        report = chain.invoke({"query": query, "context": context})
+        return self._sanitize_thai(report)
+
+    # ------------------------------------------------------------------
+    # Thai-only guard
+    # ------------------------------------------------------------------
+    def _rewrite_to_thai(self, text: str) -> str:
+        """Re-translate a single field that leaked non-Thai (CJK) into pure Thai.
+
+        Falls back to stripping the offending characters if the repair call fails,
+        so the report always ships without foreign-language tokens.
+        """
+        try:
+            resp = self.llm.invoke(
+                "เขียนข้อความต่อไปนี้ใหม่เป็นภาษาไทยทั้งหมด ห้ามมีอักษรจีน/ญี่ปุ่น/เกาหลี "
+                "คงเฉพาะ ATT&CK ID และชื่อ technique/tool/group ที่เป็นภาษาอังกฤษไว้ "
+                "ตอบกลับเฉพาะข้อความที่แก้แล้วเท่านั้น ห้ามมีคำอธิบายนำ:\n\n" + text
+            )
+            cleaned = (resp.content if hasattr(resp, "content") else str(resp)).strip()
+            return cleaned if cleaned and not _CJK_RE.search(cleaned) else _CJK_RE.sub("", text)
+        except Exception:
+            return _CJK_RE.sub("", text)
+
+    def _sanitize_thai(self, report: CyberCaseReport) -> CyberCaseReport:
+        """Repair any report field that contains CJK characters (foreign-language
+        leakage). Scans the free-text + list fields; leaves ATT&CK IDs untouched."""
+        for field in ("case_summary", "mapping_justification", "system_limitations"):
+            val = getattr(report, field, "") or ""
+            if _CJK_RE.search(val):
+                print(f"[REPORT] CJK leak in '{field}' — repairing to Thai")
+                setattr(report, field, self._rewrite_to_thai(val))
+
+        for field in (
+            "detected_indicators",
+            "evidence_to_investigate",
+            "preliminary_recommendations",
+        ):
+            items = getattr(report, field, None) or []
+            repaired = []
+            for item in items:
+                if isinstance(item, str) and _CJK_RE.search(item):
+                    print(f"[REPORT] CJK leak in '{field}' item — repairing to Thai")
+                    repaired.append(self._rewrite_to_thai(item))
+                else:
+                    repaired.append(item)
+            setattr(report, field, repaired)
+
+        return report
 
 
-def extract_mitre_entities(rag_result) -> list[MitreEntity]:
-    """Build the faithful MITRE table (part 2) from the RETRIEVED entities —
-    vector hits (``metadata``) + graph nodes (center + neighbours) — deduped by
-    ATT&CK ID. Sourced from retrieval, never the LLM, so IDs can't be hallucinated.
+# The mapping table (part 2) is a Technique→incident map for a prosecutor, NOT a
+# data dump. Only these node types belong in it. Groups/Software/Campaigns are
+# attribution context (graph section), not mapping rows — and graph EXPANSION
+# neighbours pull in hundreds of unrelated entities (every Group that uses
+# Phishing, every mobile malware), so we deliberately skip neighbours.
+_MAPPING_TABLE_TYPES = {"Technique", "Subtechnique", "Tactic"}
+_MAPPING_TABLE_MAX = 25
+
+
+def extract_mitre_entities(rag_result, max_rows: int = _MAPPING_TABLE_MAX) -> list[MitreEntity]:
+    """Build the faithful MITRE table (part 2) from the RETRIEVED entities.
+
+    Sourced from retrieval (never the LLM, so IDs can't be hallucinated), but kept
+    FOCUSED:
+      - vector hits (already reranked + capped) filtered to Technique/Subtechnique/Tactic
+      - graph CENTER nodes only (the reranked seed of each subgraph) — NOT neighbours
+    Groups/Software/Campaigns and graph neighbours are excluded so the table maps
+    techniques to the incident instead of dumping the whole knowledge base.
     """
     seen: set[str] = set()
     rows: list[MitreEntity] = []
 
     def add(attack_id, name, etype):
         attack_id = (attack_id or "").strip()
-        if not attack_id or attack_id in seen:
+        etype = (etype or "").strip()
+        if not attack_id or attack_id in seen or etype not in _MAPPING_TABLE_TYPES:
             return
         seen.add(attack_id)
-        rows.append(
-            MitreEntity(
-                id=attack_id,
-                name=(name or "").strip(),
-                type=(etype or "").strip(),
-            )
-        )
+        rows.append(MitreEntity(id=attack_id, name=(name or "").strip(), type=etype))
 
-    # Vector hits — metadata is a dict (shapes mirror context_builder).
+    # Vector hits — metadata is a dict (shapes mirror context_builder). These are
+    # already in reranked relevance order, so the table follows relevance too.
     for vr in getattr(rag_result, "vector_results", None) or []:
+        if len(rows) >= max_rows:
+            break
         md = getattr(vr, "metadata", None) or {}
         add(
             md.get("attack_id", ""),
@@ -177,14 +248,12 @@ def extract_mitre_entities(rag_result) -> list[MitreEntity]:
             md.get("node_label", md.get("edge_label", "")),
         )
 
-    # Graph nodes — center + neighbours each carry attack_id/name/label.
+    # Graph CENTER nodes only (skip neighbours — they explode the table).
     for sg in getattr(rag_result, "graph_results", None) or []:
-        nodes = []
+        if len(rows) >= max_rows:
+            break
         center = getattr(sg, "center_node", None)
         if center:
-            nodes.append(center)
-        nodes.extend(getattr(sg, "neighbors", None) or [])
-        for n in nodes:
-            add(getattr(n, "attack_id", ""), getattr(n, "name", ""), getattr(n, "label", ""))
+            add(getattr(center, "attack_id", ""), getattr(center, "name", ""), getattr(center, "label", ""))
 
-    return rows
+    return rows[:max_rows]

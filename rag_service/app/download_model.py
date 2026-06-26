@@ -15,8 +15,10 @@ def download_model():
     print(f"[BUILD] Downloading and caching embedding model: {embed_model_name}")
     BGEM3FlagModel(embed_model_name, use_fp16=True)
 
-    # 2. Reranker Model
-    reranker_model_name = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+    # 2. Reranker Model — MUST match config.RERANKER_MODEL used at runtime
+    # (hard-coded here because this script runs during the Docker build before the
+    # RAG package is copied in, so config.py cannot be imported).
+    reranker_model_name = "BAAI/bge-reranker-v2-m3"
     print(f"[BUILD] Downloading and caching reranker model: {reranker_model_name}")
     CrossEncoder(reranker_model_name)
 

@@ -21,6 +21,7 @@ from qdrant_client.models import (
 from FlagEmbedding import BGEM3FlagModel
 
 from ..config import (
+    ATTACK_DOMAIN_FILTER,
     QDRANT_API_KEY,
     QDRANT_COLLECTION_ENTITIES,
     QDRANT_COLLECTION_RELATIONSHIPS,
@@ -145,25 +146,40 @@ class VectorRetriever:
         top_k: int = VECTOR_TOP_K,
         node_label_filter: Optional[str] = None,
     ) -> list[VectorResult]:
-        """Search entity descriptions semantically."""
-        
+        """Search entity descriptions semantically.
+
+        Restricts to ``ATTACK_DOMAIN_FILTER`` (e.g. enterprise) so mobile-only
+        entities don't pollute enterprise incident analysis. We filter on the
+        ``domain`` payload AFTER retrieval (over-fetch then trim) rather than via a
+        Qdrant filter: the cloud collection has no payload index on ``domain``, and
+        post-filtering avoids mutating shared infra (no index creation needed).
+        """
         q_filter = None
         if node_label_filter:
             q_filter = Filter(
                 must=[
                     FieldCondition(
-                        key="node_label",
-                        match=MatchValue(value=node_label_filter)
+                        key="node_label", match=MatchValue(value=node_label_filter)
                     )
                 ]
             )
 
-        return self._search_hybrid(
+        fetch_k = top_k * 3 if ATTACK_DOMAIN_FILTER else top_k
+        results = self._search_hybrid(
             collection_name=QDRANT_COLLECTION_ENTITIES,
             query=query,
-            top_k=top_k,
+            top_k=fetch_k,
             qdrant_filter=q_filter,
         )
+
+        if ATTACK_DOMAIN_FILTER:
+            results = [
+                r
+                for r in results
+                if (r.metadata.get("domain") or "") == ATTACK_DOMAIN_FILTER
+            ][:top_k]
+
+        return results
 
     def search_relationships(
         self,

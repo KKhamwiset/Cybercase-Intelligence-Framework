@@ -9,7 +9,12 @@ from ..config import FINAL_TOP_K
 from ..retrieval.hybrid_retriever import GraphRAGResult
 
 
-def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> str:
+def build_context(
+    result: GraphRAGResult,
+    max_context_length: int = 10000,
+    max_vector: int | None = None,
+    max_graph: int = 3,
+) -> str:
     """Build a structured context string from GraphRAG results.
 
     The context is formatted for optimal LLM consumption:
@@ -19,6 +24,10 @@ def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> st
     Args:
         result: The GraphRAGResult from hybrid retrieval.
         max_context_length: Maximum character length of context.
+        max_vector: How many vector results to render (defaults to FINAL_TOP_K).
+            Pass a larger value with quota retrieval so every decomposed
+            sub-query's technique survives into the context.
+        max_graph: How many subgraphs to render.
 
     Returns:
         Formatted context string.
@@ -32,7 +41,7 @@ def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> st
 
     sections.append("\n--- Semantic Search Results ---")
 
-    for i, vr in enumerate(result.vector_results[:FINAL_TOP_K], 1):
+    for i, vr in enumerate(result.vector_results[: (max_vector or FINAL_TOP_K)], 1):
         entity_type = vr.metadata.get("entity_type", "Unknown")
         node_label = vr.metadata.get("node_label", vr.metadata.get("edge_label", ""))
         name = vr.metadata.get("name", vr.metadata.get("source_name", ""))
@@ -55,7 +64,7 @@ def build_context(result: GraphRAGResult, max_context_length: int = 10000) -> st
     if result.graph_results:
         sections.append("\n\n--- Graph Context (Structured Relationships) ---")
 
-        for sg in result.graph_results[:3]:
+        for sg in result.graph_results[:max_graph]:
             text = sg.to_text()
             if text:
                 sections.append(f"\n{text}")
