@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal
+import re
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -23,6 +24,13 @@ WorkflowStatus = Literal["completed", "followup"]
 LEGAL_DISCLAIMER = (
     "This is preliminary investigation support only and is not a legal conclusion."
 )
+INCOMPLETE_TITLE = "Preliminary Report - Incomplete Case Information"
+SUFFICIENT_LABEL = "Sufficient for preliminary report"
+INCOMPLETE_LABEL = "Incomplete - follow-up required"
+REPORT_TYPES = {"overview", "subject", "timeline", "vulnerability"}
+TECHNIQUE_ID_PATTERN = re.compile(r"T\d{4}(?:\.\d{3})?")
+EVIDENCE_ID_PATTERN = re.compile(r"\[(E-\d{3})\]")
+COMPLETENESS_THRESHOLD = 80
 
 
 class EvidenceReference(BaseModel):
@@ -150,7 +158,7 @@ class CaseFactPack(BaseModel):
             raise ValueError("Evidence IDs must be unique")
 
         missing: set[str] = set()
-        collections: list[object] = [
+        collections: list[Any] = [
             *self.facts,
             *self.indicators,
             *self.timeline,
@@ -195,7 +203,7 @@ class CyberCaseReport(BaseModel):
     case_fact_pack: CaseFactPack
     created_at: str
 
-    # Backward-compatible fields for old report clients.
+    # Backward-compatible fields for existing clients that still render the old shape.
     case_summary: str = ""
     detected_indicators: list[str] = Field(default_factory=list)
     mitre_mapping: list[str] = Field(default_factory=list)
@@ -203,29 +211,6 @@ class CyberCaseReport(BaseModel):
     evidence_to_investigate: list[str] = Field(default_factory=list)
     preliminary_recommendations: list[str] = Field(default_factory=list)
     system_limitations: str = ""
-
-
-class QueryRequest(BaseModel):
-    query: str
-    use_agent: bool = True
-    report_type: ReportType = "overview"
-    legal: bool = False
-    force_generate: bool = False
-    evidence_registry: list[EvidenceReference] = Field(default_factory=list)
-    retrieval_context_id: str = ""
-
-
-class QueryResponse(BaseModel):
-    status: Literal["completed", "followup"]
-    answer: str = ""
-    followup_question: str = ""
-    session_id: str = ""
-    retrieval_context_id: str = ""
-
-
-class ResumeRequest(BaseModel):
-    session_id: str
-    answer: str
 
 
 class ReportWorkflowResponse(BaseModel):
@@ -241,5 +226,28 @@ class ReportWorkflowResponse(BaseModel):
     missing_information: list[str] = Field(default_factory=list)
 
 
-class ReviewStatusUpdate(BaseModel):
-    review_status: ReviewStatus
+class ReportEntity(BaseModel):
+    name: str
+    kind: str
+    attack_id: str = ""
+    stix_id: str = ""
+    description: str = ""
+    relevance: float | None = None
+    source: str = "retrieval"
+
+
+class ReportRelationship(BaseModel):
+    source: str
+    relationship: str
+    target: str
+    description: str = ""
+
+
+class ReportEvidencePacket(BaseModel):
+    report_type: ReportType
+    user_query: str
+    semantic_matches: list[ReportEntity] = Field(default_factory=list)
+    graph_entities: list[ReportEntity] = Field(default_factory=list)
+    relationships: list[ReportRelationship] = Field(default_factory=list)
+    ttp_candidates: list[ReportEntity] = Field(default_factory=list)
+    raw_context_excerpt: str = ""
