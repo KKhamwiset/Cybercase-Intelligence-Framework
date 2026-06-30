@@ -4,13 +4,16 @@ Build an HTML (mermaid-rendering, Thai-font) file from RAG_Module.md.
 The HTML is then printed to PDF via headless Chrome.
 """
 import re
+import sys
 import html
 import markdown
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-MD_PATH = HERE / "RAG_Module.md"
-HTML_PATH = HERE / "_RAG_Module.html"
+# Optional CLI arg: path to the markdown file to build (default: RAG_Module.md).
+# e.g.  python docs/_build_pdf.py ../ARCHITECTURE.md
+MD_PATH = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else (HERE / "RAG_Module.md")
+HTML_PATH = HERE / f"_{MD_PATH.stem}.html"
 
 md_text = MD_PATH.read_text(encoding="utf-8")
 

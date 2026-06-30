@@ -5,7 +5,13 @@ from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer, build_retrieval_queries
 from .evaluator import ContextEvaluator, EvaluationResult
 from .query_merger import QueryMerger
-from .report_generator import CyberCaseReport, ReportGenerator
+from .report_generator import (
+    CaseFactPack,
+    CyberCaseReport,
+    EvidenceReference,
+    ReportGenerator,
+    ReportWorkflowResponse,
+)
 from .router import QueryRouter
 
 __all__ = [
@@ -20,6 +26,9 @@ __all__ = [
     "QueryMerger",
     "ReportGenerator",
     "CyberCaseReport",
+    "ReportWorkflowResponse",
+    "EvidenceReference",
+    "CaseFactPack",
     "QueryRouter",
     "build_context",
     "build_generation_prompt",

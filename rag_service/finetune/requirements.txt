@@ -4,18 +4,25 @@
 # 7B model does not fit there. Inference of the exported GGUF runs fine locally
 # via Ollama (no Python deps needed).
 #
-# On Google Colab, install Unsloth with the official one-liner instead of this
-# file (it pins CUDA-matched wheels):
+# ── Qwen3.5-4B (current target, 16-bit LoRA) ────────────────────────────────
+# Qwen3.5 needs transformers v5 + a recent unsloth/unsloth_zoo. On Kaggle/Colab
+# install with the official one-liner (pulls matching transformers v5) INSTEAD of
+# pinning here:
+#   pip install --upgrade --force-reinstall --no-cache-dir unsloth unsloth_zoo
+# Do NOT 4-bit QLoRA Qwen3.5 (Unsloth: quant error too high) — train 16-bit LoRA.
+#
+# ── Qwen2.5-7B (legacy path) ────────────────────────────────────────────────
 #   pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
 # ─────────────────────────────────────────────────────────────────────────────
 
-unsloth                # fast 4-bit QLoRA for Qwen2.5 (2x faster, low VRAM)
+unsloth                # 16-bit LoRA (Qwen3.5) / 4-bit QLoRA (Qwen2.5)
+unsloth_zoo            # required by recent unsloth (Qwen3.5 support)
 trl>=0.9.6             # SFTTrainer
 peft>=0.11.0           # LoRA adapters
-transformers>=4.44.0
+transformers>=5.0.0    # Qwen3.5 REQUIRES v5 (older versions will not load it)
 datasets>=2.20.0
 accelerate>=0.33.0
-bitsandbytes>=0.43.0   # 4-bit quantisation
+bitsandbytes>=0.43.0   # quantisation (GGUF export / optional 4-bit)
 sentencepiece
 protobuf
 

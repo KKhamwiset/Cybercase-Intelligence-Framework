@@ -7,6 +7,18 @@ Fine-tune โมเดล local ที่ใช้ **generate คำตอบ** 
 > `mitre-qwen:7b` ใน Ollama → สลับใช้ใน pipeline ผ่าน env `LOCAL_LLM_MODEL` ตัวเดียว
 > โดย **ไม่ต้องแก้โค้ด pipeline เลย**
 
+## 🎯 Target ปัจจุบัน: Qwen3.5-4B (16-bit LoRA)
+`ft_config.py` ตั้ง target เป็น **`Qwen/Qwen3.5-4B`** แล้ว (เดิมคือ Qwen2.5-7B — ยังสลับกลับได้ใน config)
+- **ห้ามใช้ 4-bit QLoRA กับ Qwen3.5** — Unsloth เตือนว่า quant error สูงผิดปกติ → เทรนแบบ **16-bit LoRA**
+  (`LOAD_IN_4BIT=False`, `LOAD_IN_16BIT=True`) base 4.7B 16-bit (~9.4 GB) พอใน **T4/P100 ตัวเดียว**
+- ต้องใช้ **transformers v5** + unsloth ใหม่: `pip install --upgrade --force-reinstall --no-cache-dir unsloth unsloth_zoo`
+- Qwen3.5 เป็น **thinking model** → trainer render chat template ด้วย `enable_thinking=False` (dataset เราเป็น direct answer)
+- รันบน Kaggle: เปิด **`train/Finetune_Kaggle.ipynb`** (แนบ dataset เป็น Kaggle Dataset → train → export GGUF)
+- Register: `ollama create mitre-qwen3.5:4b -f export/Modelfile.qwen35` → baseline A/B คือ stock `qwen3.5:4b`
+
+> Legacy Qwen2.5-7B (Colab + 4-bit QLoRA) ยังอยู่ครบ — `Finetune_Colab.ipynb`, `Modelfile`/`Modelfile.v3`,
+> และค่า config เดิม (คอมเมนต์ไว้ใน `ft_config.py`)
+
 ## ทำไมต้องเทรนบน Cloud
 GPU ของเครื่องนี้ (RTX 2050, **VRAM 4 GB**) ไม่พอ fine-tune โมเดล 7B (QLoRA ต้องการ
 ~12–16 GB) → **เทรนบน Cloud GPU ฟรี (Colab/Kaggle T4 16 GB)** แล้ว export เป็น GGUF

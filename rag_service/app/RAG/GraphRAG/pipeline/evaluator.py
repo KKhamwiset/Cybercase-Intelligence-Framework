@@ -87,6 +87,7 @@ RULES:
 - A technique is "covered" if its description matches the attack behavior, even if not explicitly named
 - Only mark INSUFFICIENT if a critical attack phase is completely absent from context
 - Prefer SUFFICIENT over INSUFFICIENT when in doubt — it is better to answer with partial context than to over-ask
+- In `reason`, refer to attack phases by NAME only (e.g. "Credential Access", "Privilege Escalation"). Do NOT cite numeric ATT&CK IDs (T#### or TA####) — invented IDs mislead the analyst. Only quote an ID if it appears VERBATIM in the RETRIEVED CONTEXT.
 
 ATTACK PHASES to check (mark each as covered / partial / missing):
 1. Initial Access

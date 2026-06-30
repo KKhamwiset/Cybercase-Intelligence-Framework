@@ -59,6 +59,21 @@ class GraphRAGResult:
         return context
 
 
+# Per-type score multipliers applied AFTER reranking. For incident analysis we
+# want Technique/Subtechnique/Tactic nodes to anchor the mapping; Groups/Software/
+# Campaigns are attribution context and were outranking the actual techniques
+# (e.g. APT41 scoring above Phishing). They stay in the results (useful for the
+# graph section) but are nudged below the techniques.
+_TYPE_WEIGHTS = {
+    "Technique": 1.2,
+    "Subtechnique": 1.2,
+    "Tactic": 1.1,
+    "Group": 0.75,
+    "Software": 0.8,
+    "Campaign": 0.75,
+}
+
+
 class HybridRetriever:
     """Orchestrates Vector + Graph retrieval for GraphRAG."""
 
@@ -74,12 +89,31 @@ class HybridRetriever:
 
     def close(self):
         self.graph_retriever.close()
+        # Also release the Qdrant HTTP connection (else a noisy RuntimeWarning
+        # "Unable to close http connection" is emitted at shutdown).
+        try:
+            self.vector_retriever.client.close()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _reweight_by_type(vector_results: list) -> list:
+        """Down/up-weight reranked vector hits by node type, then re-sort so the
+        graph-seed order (taken from this list) is technique-first."""
+        for vr in vector_results:
+            md = getattr(vr, "metadata", None) or {}
+            w = _TYPE_WEIGHTS.get(md.get("node_label", ""))
+            if w is not None:
+                vr.score *= w
+        vector_results.sort(key=lambda r: r.score, reverse=True)
+        return vector_results
 
     def retrieve(
         self,
         query: str,
         top_k: int = VECTOR_TOP_K,
         node_label_filter: Optional[str] = None,
+        expand_graph: bool = True,
     ) -> GraphRAGResult:
         """Execute the full GraphRAG retrieval pipeline.
 
@@ -87,6 +121,9 @@ class HybridRetriever:
             query: The search query (should be in English for best results).
             top_k: Number of vector results to retrieve.
             node_label_filter: Optional filter for entity types.
+            expand_graph: When False, skip Neo4j graph expansion and return
+                vector + rerank results only (used by --ultrafast to drop the
+                graph round-trips entirely).
 
         Returns:
             GraphRAGResult with combined vector + graph context.
@@ -100,6 +137,13 @@ class HybridRetriever:
 
         # ── Step 1b: Rerank ───────────────────────────────────────────────
         vector_results = self.reranker.rerank(query, vector_results, top_k=top_k)
+
+        # ── Step 1c: Re-weight by node type (techniques first) ─────────────
+        vector_results = self._reweight_by_type(vector_results)
+
+        # ── Ultrafast: vector + rerank only, no Neo4j graph expansion ──────
+        if not expand_graph:
+            return GraphRAGResult(vector_results=vector_results, graph_results=[])
 
         # ── Step 2: Extract STIX IDs for graph expansion (relevance order) ──
         # Use an ordered dedup list so graph seeds reflect reranker ranking,
@@ -206,6 +250,75 @@ class HybridRetriever:
         print(
             f"[RETRIEVE-MULTI] Merged: {len(merged_vector)} unique vector results, "
             f"{len(merged_graph)} unique subgraphs"
+        )
+
+        return GraphRAGResult(
+            vector_results=merged_vector,
+            graph_results=merged_graph,
+        )
+
+    def retrieve_multi_quota(
+        self,
+        queries: list[str],
+        per_query_k: int = 3,
+        top_k: int = VECTOR_TOP_K,
+        max_vector: int = 15,
+        max_graph: int = 8,
+        node_label_filter: Optional[str] = None,
+    ) -> "GraphRAGResult":
+        """Multi-query retrieval with a PER-QUERY QUOTA.
+
+        Unlike ``retrieve_multi`` (which merges everything by score and lets the
+        final top-K trim silently drop a whole technique), this keeps each
+        sub-query's top ``per_query_k`` results and ROUND-ROBIN interleaves them,
+        so the first entries cover every sub-query. Use with a decomposed query
+        list so each attacker technique is guaranteed representation in context.
+
+        Args:
+            queries:      Atomic sub-queries (e.g. one per technique).
+            per_query_k:  How many top results to KEEP from each sub-query.
+            top_k:        How many to retrieve per sub-query before keeping top-k.
+            max_vector:   Hard cap on merged vector results (fits the LLM ctx).
+            max_graph:    Hard cap on merged subgraphs.
+        """
+        if not queries:
+            return GraphRAGResult(vector_results=[], graph_results=[])
+
+        per_query_vectors: list[list] = []
+        seen_graph: dict[str, "SubgraphResult"] = {}
+
+        for i, query in enumerate(queries, 1):
+            print(f"[RETRIEVE-QUOTA] Query {i}/{len(queries)}: {query[:80]}...")
+            result = self.retrieve(
+                query, top_k=top_k, node_label_filter=node_label_filter
+            )
+            per_query_vectors.append(result.vector_results[:per_query_k])
+            for sg in result.graph_results:
+                cid = sg.center_node.stix_id if sg.center_node else str(id(sg))
+                if cid not in seen_graph:
+                    seen_graph[cid] = sg
+
+        # Round-robin interleave: query1[0], query2[0], …, query1[1], query2[1], …
+        # so the top of the list spans all sub-queries (no technique gets dropped).
+        merged_vector: list = []
+        seen_vec: set[str] = set()
+        depth = max((len(v) for v in per_query_vectors), default=0)
+        for rank in range(depth):
+            for vecs in per_query_vectors:
+                if rank < len(vecs):
+                    vr = vecs[rank]
+                    if vr.stix_id not in seen_vec:
+                        seen_vec.add(vr.stix_id)
+                        merged_vector.append(vr)
+            if len(merged_vector) >= max_vector:
+                break
+        merged_vector = merged_vector[:max_vector]
+        merged_graph = list(seen_graph.values())[:max_graph]
+
+        print(
+            f"[RETRIEVE-QUOTA] {len(merged_vector)} vectors "
+            f"(quota {per_query_k}/query), {len(merged_graph)} subgraphs "
+            f"from {len(queries)} queries"
         )
 
         return GraphRAGResult(

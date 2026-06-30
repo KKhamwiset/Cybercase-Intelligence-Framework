@@ -105,9 +105,15 @@ TEST_QUERIES = [
 ]
 
 
-def run_tests(retrieve_only: bool = False, use_agent: bool = False):
+def run_tests(
+    retrieve_only: bool = False,
+    use_agent: bool = False,
+    fast: bool = False,
+    ultrafast: bool = False,
+):
     """Run test queries."""
-    if use_agent:
+    if fast or ultrafast or use_agent:
+        # --fast / --ultrafast use GraphRAGAgent.query_fast / query_ultrafast.
         from .pipeline.agent_graph import GraphRAGAgent
 
         pipeline = GraphRAGAgent()
@@ -116,8 +122,13 @@ def run_tests(retrieve_only: bool = False, use_agent: bool = False):
 
         pipeline = GraphRAGChain()
 
-    mode_label = "agent" if use_agent else "chain"
-    if retrieve_only:
+    mode_label = (
+        "ultrafast" if ultrafast
+        else "fast" if fast
+        else "agent" if use_agent
+        else "chain"
+    )
+    if retrieve_only and not (fast or ultrafast):
         mode_label += " (retrieve-only)"
 
     sep("TEST SUITE")
@@ -130,7 +141,11 @@ def run_tests(retrieve_only: bool = False, use_agent: bool = False):
             print(f"  TEST {i}/{len(TEST_QUERIES)}")
             print(f"{'=' * 72}")
 
-            if retrieve_only and hasattr(pipeline, "retrieve_only"):
+            if ultrafast:
+                pipeline.query_ultrafast(query, verbose=True)
+            elif fast:
+                pipeline.query_fast(query, verbose=True)
+            elif retrieve_only and hasattr(pipeline, "retrieve_only"):
                 context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:2000])
@@ -158,9 +173,15 @@ def _interactive_followup_callback(question: str) -> str:
     return answer
 
 
-def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
+def run_interactive(
+    retrieve_only: bool = False,
+    use_agent: bool = False,
+    fast: bool = False,
+    ultrafast: bool = False,
+):
     """Interactive query mode."""
-    if use_agent:
+    if fast or ultrafast or use_agent:
+        # --fast / --ultrafast use GraphRAGAgent.query_fast / query_ultrafast.
         from .pipeline.agent_graph import GraphRAGAgent
 
         pipeline = GraphRAGAgent()
@@ -170,9 +191,13 @@ def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
         pipeline = GraphRAGChain()
 
     mode_parts = []
-    if use_agent:
+    if ultrafast:
+        mode_parts.append("ULTRAFAST")
+    elif fast:
+        mode_parts.append("FAST")
+    elif use_agent:
         mode_parts.append("AGENTIC")
-    if retrieve_only:
+    if retrieve_only and not (fast or ultrafast):
         mode_parts.append("RETRIEVE-ONLY")
     mode = " | ".join(mode_parts) if mode_parts else "FULL PIPELINE"
 
@@ -180,7 +205,11 @@ def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
     print(f"  MITRE ATT&CK GraphRAG — Interactive Mode ({mode})")
     print("  Type 'quit' or 'q' to exit")
     print("  Supports Thai and English queries")
-    if use_agent:
+    if ultrafast:
+        print("  ⚡⚡ Ultrafast: vector-only retrieve → terse answer (no graph/decompose/eval/translate)")
+    elif fast:
+        print("  ⚡ Fast mode: single retrieve → direct answer (no decompose/eval/follow-up)")
+    elif use_agent:
         print("  🤖 Agentic features: self-reflection + follow-up")
     print(f"{'=' * 72}")
 
@@ -199,7 +228,11 @@ def run_interactive(retrieve_only: bool = False, use_agent: bool = False):
             if not query:
                 continue
 
-            if retrieve_only and hasattr(pipeline, "retrieve_only"):
+            if ultrafast:
+                pipeline.query_ultrafast(query, verbose=True)
+            elif fast:
+                pipeline.query_fast(query, verbose=True)
+            elif retrieve_only and hasattr(pipeline, "retrieve_only"):
                 context = pipeline.retrieve_only(query)
                 sep("RETRIEVED CONTEXT")
                 print(context[:3000])
@@ -256,14 +289,45 @@ Examples:
         help="Use the Agentic RAG pipeline (LangGraph) with self-reflection and follow-up",
     )
 
+    arg_parser.add_argument(
+        "--fast",
+        action="store_true",
+        help=(
+            "Low-latency mode: single hybrid retrieve → one combined reason+answer "
+            "LLM call. Skips routing, query decomposition, the context evaluator / "
+            "self-reflection loop, follow-up, and the separate translation stage. "
+            "Trades coverage/robustness for ~2-3x lower latency."
+        ),
+    )
+
+    arg_parser.add_argument(
+        "--ultrafast",
+        action="store_true",
+        help=(
+            "Absolute-minimum-latency mode: vector + rerank ONLY (no Neo4j graph "
+            "expansion), small top-K, and one terse capped-output LLM call (brief "
+            "incident→MITRE mapping). Strips the most; lowest fidelity. Overrides --fast."
+        ),
+    )
+
     args = arg_parser.parse_args()
 
     if args.ingest:
         run_ingest()
     elif args.test:
-        run_tests(retrieve_only=args.retrieve_only, use_agent=args.agent)
+        run_tests(
+            retrieve_only=args.retrieve_only,
+            use_agent=args.agent,
+            fast=args.fast,
+            ultrafast=args.ultrafast,
+        )
     else:
-        run_interactive(retrieve_only=args.retrieve_only, use_agent=args.agent)
+        run_interactive(
+            retrieve_only=args.retrieve_only,
+            use_agent=args.agent,
+            fast=args.fast,
+            ultrafast=args.ultrafast,
+        )
 
 
 if __name__ == "__main__":

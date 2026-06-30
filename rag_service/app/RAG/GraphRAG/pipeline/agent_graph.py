@@ -7,23 +7,25 @@ Replaces the linear LCEL chain with a stateful graph that supports:
       asks a targeted follow-up question, stores the answer as a structured
       incident fact, rewrites the query (MITRE-aligned), then re-retrieves
       using ALL accumulated queries in parallel.
-   2. **Multi-Query Retrieval** — original query + all rewrites are run
-      through retrieve_multi() and merged/deduplicated before evaluation.
+   2. **Decomposed Multi-Query Retrieval** — the incident is broken into atomic
+      per-technique sub-queries (in the incident's own language; no English
+      translation — BGE-M3 is multilingual) plus any rewrites, then retrieved
+      via retrieve_multi_quota() so every technique is guaranteed representation.
 
  The graph flow:
 
-     input → route → translate → retrieve_multi → evaluate_context
-                                                        │
-                                        ┌─ sufficient   │  insufficient
-                                        ↓               ↓
+     input → route → prepare → retrieve_quota → evaluate_context
+                   (lang detect)                      │
+                                        ┌─ sufficient │  insufficient
+                                        ↓             ↓
                                    reasoning     prepare_followup
-                                        ↓               ↓
-                               translate_output   (user input)
-                                        ↓               ↓
-                                     output      append fact + rewrite
-                                                         ↓
-                                                  retrieve_multi (loop)
-                                              (max 2 follow-up iterations)
+                                        ↓             ↓
+                               translate_output  (user input)
+                                        ↓             ↓
+                                     output    append fact + rewrite
+                                                       ↓
+                                                retrieve_quota (loop)
+                                            (max 2 follow-up iterations)
 """
 
 from __future__ import annotations
@@ -44,13 +46,16 @@ from ..config import (
     LLM_TEMPERATURE,
     LOCAL_LLM_MODEL,
     OLLAMA_BASE_URL,
+    ULTRAFAST_MAX_TOKENS,
+    ULTRAFAST_TOP_K,
     USE_FP16,
     VECTOR_TOP_K,
     sep,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
-from .cross_lingual import CrossLingualLayer, build_retrieval_queries
+from .cross_lingual import CrossLingualLayer
+from .query_decomposer import QueryDecomposer
 from .evaluator import (
     VERDICT_INSUFFICIENT,
     VERDICT_NEED_CLARIFICATION,
@@ -125,6 +130,8 @@ class AgentResponse:
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""  # Non-empty only when status == "followup"
+    context: str = ""
+    graphrag_result: Any = None
 
     # Convenience helpers
     @property
@@ -165,6 +172,9 @@ class GraphRAGAgent:
     ) -> None:
         sep("Initializing GraphRAG Agent (LangGraph)")
 
+        self.use_local = use_local
+        self._ultrafast_llm = None  # lazily built on first query_ultrafast call
+
         # Shared embedding model
         if embed_model is None:
             print(f"[AGENT] Loading embedding model: {EMBED_MODEL}")
@@ -172,14 +182,17 @@ class GraphRAGAgent:
         else:
             self.embed_model = embed_model
 
-        # Components — propagate use_local to all LLM-bearing components
-        self.translator = CrossLingualLayer(use_local=use_local)
+        # Components — propagate use_local to all LLM-bearing components.
+        # No input-translation component: retrieval is native-language (BGE-M3).
+        # CrossLingualLayer is still used, but only via its @staticmethods
+        # (language detect + system prompts), so no instance is needed.
         self.retriever = HybridRetriever(
             embed_model=self.embed_model, reranker=reranker
         )
         self.router = QueryRouter(use_local=use_local)
         self.evaluator = ContextEvaluator(use_local=use_local)
         self.query_merger = QueryMerger(use_local=use_local)
+        self.decomposer = QueryDecomposer(use_local=use_local)
 
         # In-memory session store for paused follow-up states.
         self._sessions: dict[str, dict] = {}
@@ -188,17 +201,21 @@ class GraphRAGAgent:
         if use_local:
             from langchain_ollama import ChatOllama
 
+            # reasoning=False disables Qwen3.5 thinking, so no <think> blocks leak
+            # into the answer or the downstream Thai translation stage.
             self.reasoning_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
                 temperature=LLM_TEMPERATURE,
                 num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
             )
             self.translation_llm = ChatOllama(
                 model=LOCAL_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
                 temperature=LLM_TEMPERATURE,
                 num_predict=LLM_MAX_TOKENS,
+                reasoning=False,
             )
             print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
             print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
@@ -235,11 +252,147 @@ class GraphRAGAgent:
         self.retriever.close()
 
     def retrieve_only(self, user_query: str) -> str:
-        """Execute only the retrieval portion of the pipeline."""
-        english_query = self.translator.translate_query(user_query)
-        queries = build_retrieval_queries(user_query, english_query)
-        rag_result = self.retriever.retrieve_multi(queries)
-        return build_context(rag_result)
+        """Execute only the retrieval portion of the pipeline.
+
+        Mirrors ``_node_retrieve``: decompose into atomic native-language
+        sub-queries (no translation) then quota-retrieve.
+        """
+        sub_queries = self.decomposer.decompose(incident=user_query, verbose=False)
+        all_queries = [user_query] + [q for q in sub_queries if q and q != user_query]
+        rag_result = self.retriever.retrieve_multi_quota(
+            all_queries, per_query_k=3, top_k=VECTOR_TOP_K, max_vector=15, max_graph=8
+        )
+        return build_context(rag_result, max_vector=15, max_graph=8)
+
+    def query_fast(self, user_query: str, verbose: bool = True) -> AgentResponse:
+        """Minimal-latency path — single retrieve → one combined reason+answer call.
+
+        Deliberately strips everything the full agent does for robustness, trading
+        coverage for ~2-3x lower latency:
+          • NO routing            (always treats input as an incident)
+          • NO query decomposition / per-query quota → ONE hybrid retrieve on the
+            raw query (BGE-M3 is multilingual, so no input translation either)
+          • NO context evaluator / self-reflection loop / follow-up / broaden
+          • NO separate translation stage — the reasoning LLM answers DIRECTLY in
+            the response language (reasoning + translation folded into one call)
+
+        Use when speed matters more than maximal technique coverage or clarifying
+        follow-ups. Always returns ``status="completed"`` (never pauses).
+        """
+        if not self.reasoning_llm:
+            return AgentResponse(
+                status="completed",
+                answer="Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set).",
+            )
+
+        respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
+
+        if verbose:
+            sep("AGENT — FAST MODE (single retrieve → direct answer)")
+            print(f"  Respond in Thai: {respond_in_thai}")
+
+        # 1. Single hybrid retrieve on the raw query (vector + rerank + graph).
+        graphrag_result = self.retriever.retrieve(user_query, top_k=VECTOR_TOP_K)
+        context = build_context(graphrag_result)
+
+        if verbose:
+            sep("CONTEXT PREVIEW")
+            print(context[:500] + "..." if len(context) > 500 else context)
+
+        # 2. One combined reasoning+answer call, output directly in the target language.
+        prompt = build_generation_prompt(
+            context=context,
+            original_query=user_query,
+            english_query=user_query,
+            respond_in_thai=respond_in_thai,
+        )
+        response = self.reasoning_llm.invoke(
+            [
+                SystemMessage(
+                    content=CrossLingualLayer.get_fast_system_prompt(respond_in_thai)
+                ),
+                HumanMessage(content=prompt),
+            ]
+        )
+        answer = str(response.content)
+
+        if verbose:
+            sep("ANSWER (FAST)")
+            print(answer)
+            sep()
+
+        return AgentResponse(status="completed", answer=answer)
+
+    def _get_ultrafast_llm(self):
+        """Lazily build (and cache) a low-output-token LLM for ultrafast mode."""
+        if self._ultrafast_llm is not None:
+            return self._ultrafast_llm
+
+        if self.use_local:
+            from langchain_ollama import ChatOllama
+
+            self._ultrafast_llm = ChatOllama(
+                model=LOCAL_LLM_MODEL,
+                base_url=OLLAMA_BASE_URL,
+                temperature=LLM_TEMPERATURE,
+                num_predict=ULTRAFAST_MAX_TOKENS,
+                reasoning=False,
+            )
+        elif ANTHROPIC_API_KEY:
+            self._ultrafast_llm = ChatAnthropic(  # type: ignore[call-arg]
+                model_name=LLM_MODEL,
+                api_key=ANTHROPIC_API_KEY,
+                temperature=LLM_TEMPERATURE,
+                max_tokens_to_sample=ULTRAFAST_MAX_TOKENS,
+            )
+        return self._ultrafast_llm
+
+    def query_ultrafast(self, user_query: str, verbose: bool = True) -> AgentResponse:
+        """Absolute-minimum-latency path. On top of everything ``query_fast`` strips:
+          • NO graph expansion — vector search + rerank ONLY (skips Neo4j entirely)
+          • smaller top-K + compact context
+          • terse output — capped ``max_tokens`` + a brief incident→MITRE mapping
+            prompt (no 4-section narrative), since output tokens dominate latency
+
+        Returns a short technique mapping in the query's language. Never pauses.
+        """
+        llm = self._get_ultrafast_llm()
+        if not llm:
+            return AgentResponse(
+                status="completed",
+                answer="Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set).",
+            )
+
+        respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
+
+        if verbose:
+            sep("AGENT — ULTRAFAST (vector-only retrieve → terse answer)")
+            print(f"  Respond in Thai: {respond_in_thai}")
+
+        # 1. Vector + rerank only (no graph), small top-K.
+        rag_result = self.retriever.retrieve(
+            user_query, top_k=ULTRAFAST_TOP_K, expand_graph=False
+        )
+        context = build_context(rag_result, max_vector=ULTRAFAST_TOP_K, max_graph=0)
+
+        # 2. One terse LLM call (compact prompt — skip the heavy generation template).
+        user_prompt = f"{context}\n\n{'=' * 60}\nQUESTION\n{'=' * 60}\n{user_query}"
+        response = llm.invoke(
+            [
+                SystemMessage(
+                    content=CrossLingualLayer.get_ultrafast_system_prompt(respond_in_thai)
+                ),
+                HumanMessage(content=user_prompt),
+            ]
+        )
+        answer = str(response.content)
+
+        if verbose:
+            sep("ANSWER (ULTRAFAST)")
+            print(answer)
+            sep()
+
+        return AgentResponse(status="completed", answer=answer)
 
     def query(
         self,
@@ -332,6 +485,8 @@ class GraphRAGAgent:
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
+            context=result.get("context", ""),
+            graphrag_result=result.get("graphrag_result"),
         )
 
     def resume(
@@ -381,6 +536,8 @@ class GraphRAGAgent:
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
+            context=result.get("context", ""),
+            graphrag_result=result.get("graphrag_result"),
         )
 
     # ------------------------------------------------------------------
@@ -475,7 +632,7 @@ class GraphRAGAgent:
         # ── Register nodes ────────────────────────────────────────────
         graph.add_node("route_query", self._node_route_query)
         graph.add_node("general_explanation", self._node_general_explanation)
-        graph.add_node("translate_query", self._node_translate_query)
+        graph.add_node("prepare", self._node_prepare)
         graph.add_node("retrieve", self._node_retrieve)
         graph.add_node("evaluate_context", self._node_evaluate_context)
         graph.add_node("broaden_search", self._node_broaden_search)
@@ -492,14 +649,14 @@ class GraphRAGAgent:
             self._edge_after_route,
             {
                 "general": "general_explanation",
-                "incident": "translate_query",
+                "incident": "prepare",
             },
         )
 
         graph.add_edge("general_explanation", END)
 
-        # Translation → Multi-Query Retrieval → Evaluation
-        graph.add_edge("translate_query", "retrieve")
+        # Prepare (language detect) → Multi-Query Retrieval → Evaluation
+        graph.add_edge("prepare", "retrieve")
         graph.add_edge("retrieve", "evaluate_context")
 
         # Evaluation decides: sufficient → reason, insufficient → ask follow-up, broaden → broaden_search
@@ -585,49 +742,64 @@ class GraphRAGAgent:
 
         return {"answer": answer}
 
-    def _node_translate_query(self, state: AgentState) -> dict:
-        """Detect language and translate to English for retrieval."""
+    def _node_prepare(self, state: AgentState) -> dict:
+        """Detect the response language. NO input translation.
+
+        BGE-M3 is multilingual, so retrieval runs on the native-language query —
+        the decomposer (in ``_node_retrieve``) breaks the Thai incident into
+        atomic Thai sub-queries that match the English MITRE corpus directly. This
+        replaces the old Thai→English dual-query.
+
+        ``english_query`` is kept as a state key for backward-compat but now simply
+        mirrors the original (native) query, so downstream nodes (evaluator,
+        reasoning, query-merger) that key off it keep a stable handle.
+        """
         query = state.get("original_query", "")
         verbose = state.get("verbose", True)
 
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(query)
-        english_query = self.translator.translate_query(query)
 
-        if verbose and english_query != query:
-            print(f"  Translated: {english_query}")
+        if verbose:
+            print(f"  Respond in Thai: {respond_in_thai} (no input translation)")
 
         return {
-            "english_query": english_query,
+            "english_query": query,
             "respond_in_thai": respond_in_thai,
         }
 
     def _node_retrieve(self, state: AgentState) -> dict:
-        """Execute multi-query hybrid retrieval (Vector + Graph).
+        """Execute decomposed multi-query hybrid retrieval (Vector + Graph).
 
-        The query list always starts with ``english_query``. When the user's
-        query is Thai and ``DUAL_QUERY_RETRIEVAL`` is enabled, the original
-        Thai query is retrieved in parallel as a second channel so a bad
-        translation cannot sink retrieval on its own. After each follow-up
-        round, MITRE-aligned rewritten queries are appended and all queries
-        are retrieved together via ``retrieve_multi()``.
+        The incident is decomposed into atomic per-technique sub-queries (in the
+        incident's own language — no English translation; BGE-M3 matches Thai
+        against the English MITRE corpus directly). Any MITRE-aligned follow-up
+        rewrites are appended. All sub-queries are retrieved together via
+        ``retrieve_multi_quota()``, which round-robin interleaves a per-query
+        quota so every technique is guaranteed representation in the context —
+        a plain score-merge would silently drop a low-scoring technique.
         """
-        english_query = state.get("english_query", "")
+        original_query = state.get("original_query", "")
         rewritten_queries: list = list(state.get("rewritten_queries") or [])
         verbose = state.get("verbose", True)
 
-        # English translation first, Thai original second (if dual-query),
-        # then any follow-up rewrites
-        all_queries = build_retrieval_queries(
-            state.get("original_query", ""), english_query, rewritten_queries
-        )
+        # Full original query goes FIRST as a holistic channel — it preserves the
+        # incident's full context (the report path proved this gives better
+        # technique coverage), then the atomic sub-queries pin each technique.
+        sub_queries = self.decomposer.decompose(incident=original_query, verbose=verbose)
+        all_queries: list[str] = []
+        for q in [original_query, *sub_queries, *rewritten_queries]:
+            if q and q.strip() and q not in all_queries:
+                all_queries.append(q)
 
         if verbose:
-            sep("AGENT — HYBRID RETRIEVAL (multi-query)")
+            sep("AGENT — MULTI-QUERY RETRIEVAL (decomposed + per-query quota)")
             for i, q in enumerate(all_queries, 1):
                 print(f"  [{i}] {q[:100]}")
 
-        graphrag_result = self.retriever.retrieve_multi(all_queries, top_k=VECTOR_TOP_K)
-        context = build_context(graphrag_result)
+        graphrag_result = self.retriever.retrieve_multi_quota(
+            all_queries, per_query_k=3, top_k=VECTOR_TOP_K, max_vector=15, max_graph=8
+        )
+        context = build_context(graphrag_result, max_vector=15, max_graph=8)
 
         if verbose:
             sep("CONTEXT PREVIEW")
