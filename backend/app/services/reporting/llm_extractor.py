@@ -55,7 +55,17 @@ class LLMFactPackMixin:
                     f"errors below and return the CaseFactPack schema again.\n{last_error}"
                 )
 
-        raise ValueError(f"Case Fact Pack validation failed after retry: {last_error}")
+        fallback_note = (
+            "Structured LLM case fact extraction failed validation; "
+            "deterministic evidence extraction was used instead."
+        )
+        if fallback_note not in deterministic_pack.limitations:
+            deterministic_pack.limitations.append(fallback_note)
+        print(
+            "[REPORT] Case Fact Pack LLM validation failed; "
+            f"using deterministic fallback: {last_error}"
+        )
+        return deterministic_pack
 
 
     def _build_fact_pack_prompt(

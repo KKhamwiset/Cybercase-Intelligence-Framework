@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API Client for CyberCase Framework Backend
  */
 import axios from "axios";
@@ -14,14 +14,12 @@ function getApiBaseUrl(): string {
     return "http://build-time-placeholder";
   }
 
-  // Ensure protocol is present
   if (!url.startsWith("http")) {
-    url = `https://${url}`;
+    url = "https://" + url;
   }
 
-  // Ensure /api/v1 path is present
   if (!url.endsWith("/api/v1") && !url.endsWith("/api/v1/")) {
-    url = url.endsWith("/") ? `${url}api/v1` : `${url}/api/v1`;
+    url = url.endsWith("/") ? url + "api/v1" : url + "/api/v1";
   }
 
   return url;
@@ -36,11 +34,10 @@ interface HealthStatus {
 export async function getHealthStatus(): Promise<HealthStatus> {
   const baseUrl = getApiBaseUrl();
   try {
-    const response = await axios.get<HealthStatus>(`${baseUrl}/health`, {
+    const response = await axios.get<HealthStatus>(baseUrl + "/health", {
       headers: {
         "Content-Type": "application/json",
       },
-      // Short timeout for health check
       timeout: 5000,
     });
 
@@ -60,16 +57,143 @@ export interface QueryResponse {
   answer: string;
   followup_question?: string;
   session_id?: string;
+  retrieval_context_id?: string;
+}
+
+export type EvidenceStatus = "confirmed" | "reported" | "inferred" | "unknown";
+export type ReviewStatus = "draft" | "ai_generated" | "reviewed" | "approved";
+export type ReportType = "overview" | "subject" | "timeline" | "vulnerability";
+export type SourceType =
+  | "user_input"
+  | "uploaded_file"
+  | "log"
+  | "rag_source"
+  | "mitre_source"
+  | "legal_source";
+export type Confidence = "low" | "medium" | "high";
+export type IndicatorType = "ip" | "domain" | "url" | "email" | "hash" | "cve" | "file" | "other";
+
+export interface EvidenceReference {
+  evidence_id: string;
+  source_type: SourceType;
+  source_name: string;
+  excerpt?: string | null;
+  page_number?: number | null;
+  line_reference?: string | null;
+  file_hash_sha256?: string | null;
+  content_type?: string | null;
+  uploaded_at?: string | null;
+  extraction_method?: string | null;
+}
+
+export interface CaseFact {
+  fact_id: string;
+  statement: string;
+  category: string;
+  status: EvidenceStatus;
+  confidence: Confidence;
+  evidence_ids: string[];
+  notes?: string | null;
+}
+
+export interface TimelineEvent {
+  event_id: string;
+  timestamp?: string | null;
+  event: string;
+  status: EvidenceStatus;
+  evidence_ids: string[];
+}
+
+export interface Indicator {
+  indicator_id: string;
+  indicator_type: IndicatorType;
+  value: string;
+  status: EvidenceStatus;
+  evidence_ids: string[];
+  notes?: string | null;
+}
+
+export interface MitreAssessment {
+  technique_id: string;
+  technique_name: string;
+  mapping_status: EvidenceStatus;
+  justification: string;
+  evidence_ids: string[];
+}
+
+export interface LegalRelevanceAssessment {
+  enabled: boolean;
+  provision_reference: string;
+  preliminary_relevance: string;
+  status: EvidenceStatus;
+  evidence_ids: string[];
+  disclaimer: string;
+}
+
+export interface CompletenessField {
+  field_id: string;
+  label: string;
+  present: boolean;
+  evidence_ids: string[];
+}
+
+export interface CaseInformationCompleteness {
+  percentage: number;
+  status: "Sufficient for preliminary report" | "Incomplete - follow-up required";
+  missing_fields: string[];
+  fields: CompletenessField[];
+}
+
+export interface CaseFactPack {
+  facts: CaseFact[];
+  evidence_registry: EvidenceReference[];
+  indicators: Indicator[];
+  timeline: TimelineEvent[];
+  mitre_assessments: MitreAssessment[];
+  legal_assessments: LegalRelevanceAssessment[];
+  missing_information: string[];
+  limitations: string[];
+  completeness_percentage: number;
+  completeness: CaseInformationCompleteness;
+  review_status: ReviewStatus;
 }
 
 export interface CyberCaseReport {
-  case_summary: string;
-  detected_indicators: string[];
-  mitre_mapping: string[];
-  mapping_justification: string;
-  evidence_to_investigate: string[];
-  preliminary_recommendations: string[];
-  system_limitations: string;
+  report_id: string;
+  title: string;
+  report_type: ReportType;
+  executive_case_summary: string;
+  case_information_completeness: CaseInformationCompleteness;
+  evidence_and_indicators_table: Indicator[];
+  incident_timeline: TimelineEvent[];
+  mitre_attack_assessment: MitreAssessment[];
+  evidence_still_required: string[];
+  investigation_next_steps: string[];
+  legal_assessments: LegalRelevanceAssessment[];
+  limitations_and_disclaimers: string[];
+  review_status: ReviewStatus;
+  case_fact_pack: CaseFactPack;
+  created_at: string;
+  case_summary?: string;
+  detected_indicators?: string[];
+  mitre_mapping?: string[];
+  mapping_justification?: string;
+  evidence_to_investigate?: string[];
+  preliminary_recommendations?: string[];
+  system_limitations?: string;
+}
+
+export interface ReportWorkflowResponse {
+  status: "completed" | "followup";
+  answer: string;
+  followup_question?: string;
+  session_id?: string;
+  retrieval_context_id?: string;
+  report_id?: string | null;
+  report?: CyberCaseReport | null;
+  case_fact_pack?: CaseFactPack | null;
+  completeness?: CaseInformationCompleteness | null;
+  missing_information: string[];
 }
 
 export type ChatMessage = {
@@ -77,9 +201,6 @@ export type ChatMessage = {
   content: string;
 };
 
-/**
- * Sends a query to the RAG engine.
- */
 export const queryRag = async (
   query: string,
   useAgent: boolean = true,
@@ -87,9 +208,9 @@ export const queryRag = async (
   const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<QueryResponse>(
-      `${baseUrl}/rag/query`,
+      baseUrl + "/rag/query",
       {
-        query: query,
+        query,
         use_agent: useAgent,
       },
       {
@@ -106,19 +227,24 @@ export const queryRag = async (
   }
 };
 
-/**
- * Generates a preliminary cyber case analysis/report draft.
- */
 export const generateReport = async (
   query: string,
-): Promise<CyberCaseReport> => {
+  reportType: ReportType = "overview",
+  legal: boolean = false,
+  forceGenerate: boolean = false,
+  retrievalContextId: string = "",
+): Promise<ReportWorkflowResponse> => {
   const baseUrl = getApiBaseUrl();
   try {
-    const response = await axios.post<CyberCaseReport>(
-      `${baseUrl}/rag/generate-report`,
+    const response = await axios.post<ReportWorkflowResponse>(
+      baseUrl + "/rag/generate-report",
       {
-        query: query,
-        use_agent: false,
+        query,
+        use_agent: true,
+        report_type: reportType,
+        legal,
+        force_generate: forceGenerate,
+        retrieval_context_id: retrievalContextId,
       },
       {
         headers: {
@@ -134,9 +260,82 @@ export const generateReport = async (
   }
 };
 
-/**
- * Resumes a follow-up session.
- */
+export const generateReportFile = async (
+  file: File,
+  query: string,
+  reportType: ReportType = "overview",
+  legal: boolean = false,
+  forceGenerate: boolean = false,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("query", query);
+  formData.append("report_type", reportType);
+  formData.append("legal", String(legal));
+  formData.append("force_generate", String(forceGenerate));
+
+  try {
+    const response = await axios.post<ReportWorkflowResponse>(
+      baseUrl + "/rag/generate-report-file",
+      formData,
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Report file generation failed:", error);
+    throw error;
+  }
+};
+
+export const resumeReport = async (
+  sessionId: string,
+  answer: string,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<ReportWorkflowResponse>(
+      baseUrl + "/rag/resume-report",
+      {
+        session_id: sessionId,
+        answer,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Report resume failed:", error);
+    throw error;
+  }
+};
+
+export const getReport = async (reportId: string): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  const response = await axios.get<ReportWorkflowResponse>(
+    baseUrl + "/rag/reports/" + reportId,
+  );
+  return response.data;
+};
+
+export const updateReportReviewStatus = async (
+  reportId: string,
+  reviewStatus: ReviewStatus,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  const response = await axios.patch<ReportWorkflowResponse>(
+    baseUrl + "/rag/reports/" + reportId + "/review-status",
+    {
+      review_status: reviewStatus,
+    },
+  );
+  return response.data;
+};
+
 export const resumeRag = async (
   sessionId: string,
   answer: string,
@@ -144,10 +343,10 @@ export const resumeRag = async (
   const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<QueryResponse>(
-      `${baseUrl}/rag/resume`,
+      baseUrl + "/rag/resume",
       {
         session_id: sessionId,
-        answer: answer,
+        answer,
       },
       {
         headers: {
@@ -163,9 +362,6 @@ export const resumeRag = async (
   }
 };
 
-/**
- * Sends a query to the RAG engine and returns the answer.
- */
 export const chatContinue = async (
   query: string,
   _history: ChatMessage[] = [],
@@ -174,9 +370,6 @@ export const chatContinue = async (
   return queryRag(query);
 };
 
-/**
- * Sends a document/image through the OCR-backed RAG endpoint.
- */
 export const queryRagFile = async (
   file: File,
   query: string,
@@ -188,7 +381,7 @@ export const queryRagFile = async (
 
   try {
     const response = await axios.post<QueryResponse>(
-      `${baseUrl}/rag/query-file`,
+      baseUrl + "/rag/query-file",
       formData,
     );
 

@@ -93,3 +93,67 @@ python main.py --test
 
 ## Documentation
 *   `SKILL.md`: Technical overview and guidelines for AI agents working on the codebase.
+
+## Evidence-Traceable Preliminary Legal Relevance Reports
+
+The report workflow now builds an evidence registry and Case Fact Pack before generating a preliminary investigation report. The report is evidence-locked: facts, timeline items, MITRE mappings, and optional legal relevance must cite known evidence IDs such as `E-001`.
+
+```mermaid
+flowchart LR
+    A[Case input or upload] --> B[Evidence registry]
+    B --> C[Case Fact Pack]
+    C --> D{Completeness gate}
+    D -->|Incomplete| E[Follow-up session]
+    E --> C
+    D -->|Sufficient or force generate| F[Hybrid RAG / GraphRAG]
+    F --> G[Evidence-locked report]
+    G --> H[Human review status]
+```
+
+### Terminology
+
+* `confirmed`: supported by submitted or retrieved evidence and treated as verified for the preliminary report.
+* `reported`: provided by the user, uploaded content, logs, or OCR extraction but still requiring review.
+* `inferred`: derived from retrieval or analysis and requiring investigator confirmation.
+* `unknown`: missing or not supported by available evidence.
+
+### Legal Mode
+
+Legal relevance is disabled by default. When enabled, the system uses preliminary wording and includes this disclaimer:
+
+> This is preliminary investigation support only and is not a legal conclusion.
+
+The system must not determine guilt or innocence, claim court admissibility, make final legal conclusions, or invent laws, MITRE techniques, evidence, dates, or citations.
+
+### Evidence IDs And Provenance Metadata
+
+* User text and uploaded files are registered as evidence references such as `E-001`, `E-002`.
+* Uploaded files include provenance metadata: original filename, content type, SHA-256 hash, upload timestamp, extraction method, and page number when available.
+* This is evidence provenance metadata, not chain-of-custody compliance.
+* Report validators reject unknown evidence IDs and MITRE technique IDs that were not present in retrieved MITRE data.
+
+### Report API Summary
+
+* `POST /api/v1/rag/generate-report`: start report analysis from text.
+* `POST /api/v1/rag/generate-report-file`: start report analysis from an uploaded PDF/image with OCR provenance.
+* `POST /api/v1/rag/resume-report`: resume report generation after a follow-up question.
+* `GET /api/v1/rag/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
+* `PATCH /api/v1/rag/reports/{report_id}/review-status`: update `draft`, `ai_generated`, `reviewed`, or `approved` status.
+
+### Migrations And Tests
+
+This MVP stores generated report/review state in the RAG service in-memory store, so it does not add persisted SQLAlchemy models or an Alembic migration. If persistence is added later, create and apply a migration with:
+
+```bash
+cd backend
+alembic revision --autogenerate -m "add report persistence"
+alembic upgrade head
+```
+
+Run focused checks with:
+
+```bash
+cd backend && pytest
+cd frontend && npm run lint
+cd frontend && npm run build
+```

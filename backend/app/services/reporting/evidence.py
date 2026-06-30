@@ -28,12 +28,17 @@ class ReportEvidenceMixin:
             self._add_vector_results(packet, getattr(rag_result, "vector_results", []))
             self._add_graph_results(packet, getattr(rag_result, "graph_results", []))
 
-        all_entities = self._dedupe_entities(
-            packet.semantic_matches + packet.graph_entities
+        candidate_entities = self._dedupe_entities(
+            packet.semantic_matches
+            + [
+                entity
+                for entity in packet.graph_entities
+                if entity.source == "graph_center"
+            ]
         )
         packet.ttp_candidates = [
             entity
-            for entity in all_entities
+            for entity in candidate_entities
             if self._is_technique(entity) and self._is_attack_technique_id(entity.attack_id)
         ][:10]
         return packet

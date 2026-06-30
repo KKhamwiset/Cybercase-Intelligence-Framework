@@ -218,6 +218,7 @@ class ReportWorkflowResponse(BaseModel):
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""
+    retrieval_context_id: str = ""
     report_id: str | None = None
     report: CyberCaseReport | None = None
     case_fact_pack: CaseFactPack | None = None

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ..config import ANTHROPIC_API_KEY, LLM_MAX_TOKENS, LLM_MODEL
 
-
 def _add_backend_root_to_path() -> None:
     for parent in Path(__file__).resolve().parents:
         reporting_path = parent / "backend" / "app" / "services" / "reporting"
@@ -13,7 +12,6 @@ def _add_backend_root_to_path() -> None:
             if str(parent) not in sys.path:
                 sys.path.insert(0, str(parent))
             return
-
 
 _add_backend_root_to_path()
 

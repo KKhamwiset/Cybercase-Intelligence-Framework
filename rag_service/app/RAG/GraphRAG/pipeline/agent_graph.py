@@ -130,6 +130,8 @@ class AgentResponse:
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""  # Non-empty only when status == "followup"
+    context: str = ""
+    graphrag_result: Any = None
 
     # Convenience helpers
     @property
@@ -483,6 +485,8 @@ class GraphRAGAgent:
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
+            context=result.get("context", ""),
+            graphrag_result=result.get("graphrag_result"),
         )
 
     def resume(
@@ -532,6 +536,8 @@ class GraphRAGAgent:
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
+            context=result.get("context", ""),
+            graphrag_result=result.get("graphrag_result"),
         )
 
     # ------------------------------------------------------------------

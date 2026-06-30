@@ -1,29 +1,21 @@
+import hashlib
+from datetime import datetime, timezone
+
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
 
 from app.config import settings
-from app.schemas.rag import CyberCaseReport
+from app.schemas.rag import (
+    EvidenceReference,
+    QueryRequest,
+    QueryResponse,
+    ReportWorkflowResponse,
+    ResumeRequest,
+    ReviewStatusUpdate,
+)
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/rag", tags=["rag"])
-
-
-class QueryRequest(BaseModel):
-    query: str
-    use_agent: bool = True  # Set to true to use LangGraph agent
-
-
-class QueryResponse(BaseModel):
-    status: str  # "completed" | "followup"
-    answer: str = ""
-    followup_question: str = ""
-    session_id: str = ""
-
-
-class ResumeRequest(BaseModel):
-    session_id: str
-    answer: str
 
 
 def build_document_query(extracted_markdown: str, query: str | None) -> str:
@@ -40,13 +32,64 @@ def build_document_query(extracted_markdown: str, query: str | None) -> str:
     )
 
 
+def hash_bytes_sha256(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+async def hash_upload_and_rewind(file: UploadFile) -> str:
+    content = await file.read()
+    await file.seek(0)
+    return hash_bytes_sha256(content)
+
+
+def build_upload_evidence_registry(
+    *,
+    query: str,
+    file: UploadFile,
+    extracted_markdown: str,
+    file_hash_sha256: str,
+    page_num: str | None,
+) -> list[EvidenceReference]:
+    registry: list[EvidenceReference] = []
+    next_id = 1
+    if query.strip():
+        registry.append(
+            EvidenceReference(
+                evidence_id=f"E-{next_id:03d}",
+                source_type="user_input",
+                source_name="Submitted case text",
+                excerpt=query.strip()[:1200],
+            )
+        )
+        next_id += 1
+
+    page_number: int | None = None
+    if page_num and page_num.isdigit():
+        page_number = int(page_num)
+
+    registry.append(
+        EvidenceReference(
+            evidence_id=f"E-{next_id:03d}",
+            source_type="uploaded_file",
+            source_name=file.filename or "uploaded file",
+            excerpt=extracted_markdown[:1200],
+            page_number=page_number,
+            file_hash_sha256=file_hash_sha256,
+            content_type=file.content_type,
+            uploaded_at=datetime.now(timezone.utc).isoformat(),
+            extraction_method="typhoon_ocr",
+        )
+    )
+    return registry
+
+
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
     async with httpx.AsyncClient(timeout=300.0) as client:
         try:
             response = await client.post(
                 f"{settings.rag_service_url}/query",
-                json=request.model_dump(),
+                json=request.model_dump(mode="json"),
             )
             response.raise_for_status()
             return QueryResponse(**response.json())
@@ -65,6 +108,7 @@ async def query_rag_file(
     file: UploadFile = File(...),
     query: str = Form(""),
     page_num: str | None = Form(None),
+    legal: bool = Form(False),
 ):
     try:
         extracted_markdown = await extract_markdown_from_upload(file, page_num=page_num)
@@ -73,7 +117,7 @@ async def query_rag_file(
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{settings.rag_service_url}/query",
-                json={"query": document_query, "use_agent": False},
+                json={"query": document_query, "use_agent": False, "legal": legal},
             )
             response.raise_for_status()
             return QueryResponse(**response.json())
@@ -93,7 +137,7 @@ async def resume_agent(request: ResumeRequest):
         try:
             response = await client.post(
                 f"{settings.rag_service_url}/resume",
-                json=request.model_dump(),
+                json=request.model_dump(mode="json"),
             )
             response.raise_for_status()
             return QueryResponse(**response.json())
@@ -107,16 +151,16 @@ async def resume_agent(request: ResumeRequest):
             raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/generate-report", response_model=CyberCaseReport)
+@router.post("/generate-report", response_model=ReportWorkflowResponse)
 async def generate_report(request: QueryRequest):
     async with httpx.AsyncClient(timeout=300.0) as client:
         try:
             response = await client.post(
                 f"{settings.rag_service_url}/generate-report",
-                json=request.model_dump(),
+                json=request.model_dump(mode="json"),
             )
             response.raise_for_status()
-            return CyberCaseReport(**response.json())
+            return ReportWorkflowResponse(**response.json())
         except httpx.HTTPStatusError as e:
             print(f"[RAG] Service error: {e.response.text}")
             raise HTTPException(
@@ -124,4 +168,107 @@ async def generate_report(request: QueryRequest):
             )
         except Exception as e:
             print(f"[RAG] Error generating report: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate-report-file", response_model=ReportWorkflowResponse)
+async def generate_report_file(
+    file: UploadFile = File(...),
+    query: str = Form(""),
+    report_type: str = Form("overview"),
+    legal: bool = Form(False),
+    force_generate: bool = Form(False),
+    page_num: str | None = Form(None),
+):
+    try:
+        file_hash_sha256 = await hash_upload_and_rewind(file)
+        extracted_markdown = await extract_markdown_from_upload(file, page_num=page_num)
+        document_query = build_document_query(extracted_markdown, query)
+        evidence_registry = build_upload_evidence_registry(
+            query=query,
+            file=file,
+            extracted_markdown=extracted_markdown,
+            file_hash_sha256=file_hash_sha256,
+            page_num=page_num,
+        )
+        payload = QueryRequest(
+            query=document_query,
+            use_agent=True,
+            report_type=report_type,  # type: ignore[arg-type]
+            legal=legal,
+            force_generate=force_generate,
+            evidence_registry=evidence_registry,
+        )
+
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(
+                f"{settings.rag_service_url}/generate-report",
+                json=payload.model_dump(mode="json"),
+            )
+            response.raise_for_status()
+            return ReportWorkflowResponse(**response.json())
+    except HTTPException:
+        raise
+    except httpx.HTTPStatusError as e:
+        print(f"[RAG] Service error: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
+    except Exception as e:
+        print(f"[RAG] Error generating OCR report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/resume-report", response_model=ReportWorkflowResponse)
+async def resume_report(request: ResumeRequest):
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.rag_service_url}/resume-report",
+                json=request.model_dump(mode="json"),
+            )
+            response.raise_for_status()
+            return ReportWorkflowResponse(**response.json())
+        except httpx.HTTPStatusError as e:
+            print(f"[RAG] Service error: {e.response.text}")
+            raise HTTPException(
+                status_code=e.response.status_code, detail=e.response.text
+            )
+        except Exception as e:
+            print(f"[RAG] Error resuming report: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/reports/{report_id}", response_model=ReportWorkflowResponse)
+async def get_report(report_id: str):
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.get(f"{settings.rag_service_url}/reports/{report_id}")
+            response.raise_for_status()
+            return ReportWorkflowResponse(**response.json())
+        except httpx.HTTPStatusError as e:
+            print(f"[RAG] Service error: {e.response.text}")
+            raise HTTPException(
+                status_code=e.response.status_code, detail=e.response.text
+            )
+        except Exception as e:
+            print(f"[RAG] Error retrieving report: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/reports/{report_id}/review-status", response_model=ReportWorkflowResponse)
+async def update_report_review_status(report_id: str, request: ReviewStatusUpdate):
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        try:
+            response = await client.patch(
+                f"{settings.rag_service_url}/reports/{report_id}/review-status",
+                json=request.model_dump(mode="json"),
+            )
+            response.raise_for_status()
+            return ReportWorkflowResponse(**response.json())
+        except httpx.HTTPStatusError as e:
+            print(f"[RAG] Service error: {e.response.text}")
+            raise HTTPException(
+                status_code=e.response.status_code, detail=e.response.text
+            )
+        except Exception as e:
+            print(f"[RAG] Error updating report review status: {e}")
             raise HTTPException(status_code=500, detail=str(e))

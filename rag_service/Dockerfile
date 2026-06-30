@@ -22,6 +22,10 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 COPY rag_service/app/download_model.py /app/download_model.py
 RUN python /app/download_model.py && rm /app/download_model.py
 
+# Copy shared backend reporting code used by the RAG report shim
+COPY backend/app ./backend/app
+RUN touch ./backend/__init__.py
+
 # Copy RAG service application code
 COPY rag_service/app ./app
 
