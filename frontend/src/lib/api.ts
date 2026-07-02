@@ -3,7 +3,7 @@
  */
 import axios from "axios";
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   let url = process.env.NEXT_PUBLIC_API_URL;
   if (!url) {
     if (typeof window !== "undefined") {

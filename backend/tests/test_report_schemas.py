@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.routers.rag import hash_bytes_sha256
+from app.routers.report import hash_bytes_sha256
 from app.schemas.rag import (
     CaseFact,
     CaseFactPack,
@@ -81,7 +81,7 @@ def test_legal_assessment_requires_disclaimer() -> None:
 
 import asyncio
 
-from app.routers import rag as rag_router
+from app.routers import report as report_router
 from app.schemas.rag import QueryRequest, ResumeRequest
 
 
@@ -128,14 +128,14 @@ def test_report_followup_and_resume_flow_use_typed_responses(monkeypatch: pytest
             "missing_information": [],
         },
     ]
-    monkeypatch.setattr(rag_router.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(report_router.httpx, "AsyncClient", _FakeAsyncClient)
 
-    started = asyncio.run(rag_router.generate_report(QueryRequest(query="short case")))
+    started = asyncio.run(report_router.generate_report(QueryRequest(query="short case")))
     assert started.status == "followup"
     assert started.session_id == "session-1"
 
     resumed = asyncio.run(
-        rag_router.resume_report(ResumeRequest(session_id="session-1", answer="2026-02-14"))
+        report_router.resume_report(ResumeRequest(session_id="session-1", answer="2026-02-14"))
     )
     assert resumed.status == "completed"
     assert resumed.report_id == "report-1"

@@ -3,40 +3,80 @@
 @theme {
     --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
-    --color-primary: #000000;
-    --color-secondary: #1f2937;
-    --color-neutral: #777777;
+    --color-primary: #050505;
+    --color-secondary: #1f1f1f;
+    --color-neutral: #6b6b6b;
 
-    --color-background: #f3f4f6;
+    --color-background: #1f1f1f;
     --color-surface: #ffffff;
 }
 
 :root {
     --background: var(--color-background);
-    --foreground: var(--color-primary);
+    --foreground: #050505;
+}
+
+html {
+    background: var(--background);
 }
 
 body {
+    min-height: 100vh;
     background-color: var(--background);
     color: var(--foreground);
 }
 
 @utility card {
-    @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+    @apply border border-black/15 bg-white;
 }
 
 @utility btn-primary {
-    @apply bg-primary text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-secondary;
+    @apply bg-black px-5 py-2.5 text-sm font-black text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility btn-secondary {
-    @apply bg-gray-100 text-secondary px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-200;
+    @apply border border-black/15 bg-white px-5 py-2.5 text-sm font-black text-black transition-colors hover:border-black hover:bg-neutral-50;
 }
 
 @utility btn-inverted {
-    @apply bg-secondary text-white px-6 py-2 rounded-md font-medium transition-colors hover:bg-black;
+    @apply bg-white px-5 py-2.5 text-sm font-black text-black transition-colors hover:bg-neutral-100;
 }
 
 @utility btn-outlined {
-    @apply bg-white border border-gray-300 text-secondary px-6 py-2 rounded-md font-medium transition-colors hover:bg-gray-50;
+    @apply border border-black/20 bg-transparent px-5 py-2.5 text-sm font-black text-black transition-colors hover:border-black hover:bg-black/5;
+}
+
+@utility panel {
+    @apply border border-black/15 bg-white;
+}
+
+@utility mono-label {
+    @apply text-[10px] font-black uppercase tracking-[0.08em] text-neutral;
+}
+
+::selection {
+    background: #050505;
+    color: #ffffff;
+}
+
+.report-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.report-builder-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+    .report-shell {
+        grid-template-columns: 184px minmax(0, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .report-builder-grid {
+        grid-template-columns: 360px minmax(0, 1fr);
+    }
 }
