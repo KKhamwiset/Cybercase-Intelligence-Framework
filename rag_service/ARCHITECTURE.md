@@ -6,6 +6,8 @@
 >
 > ขอบเขต: `rag_service/app/RAG/GraphRAG` (pipeline RAG หลัก), `rag_service/app` (FastAPI + CLI + utilities),
 > `rag_service/docs`, และ `rag_service/finetune` (โมดูล fine-tune MITRE specialist)
+>
+> 📘 **เพิ่งเข้าโปรเจกต์?** อ่าน [docs/PRIMER.md](docs/PRIMER.md) ก่อน — ปูพื้น MITRE ATT&CK / RAG / GraphRAG / Agentic / ศัพท์เฉพาะ ที่ต้องรู้ก่อนเอกสารนี้
 
 ---
 
