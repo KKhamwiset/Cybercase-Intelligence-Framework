@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
@@ -37,9 +37,17 @@ export default function CaseTextWorkflow({
   const initialText = loadedCase?.[config.field] ?? "";
   const draftKey = `cybercase:${caseId}:${config.field}`;
   const { draft, setDraft, clearDraft } = useSessionDraft(draftKey, initialText);
-  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveState, setSaveState] = useState<SaveState>("saved");
 
   const hasUnsavedChanges = Boolean(loadedCase && draft !== loadedCase[config.field]);
+  const displayedSaveState: SaveState =
+    mutation.isPending || saveState === "saving"
+      ? "saving"
+      : saveState === "failed"
+        ? "failed"
+        : hasUnsavedChanges
+          ? "unsaved"
+          : "saved";
   useUnsavedChangesWarning(hasUnsavedChanges);
 
   const updatePayload = useMemo<CaseUpdateInput>(
@@ -47,37 +55,30 @@ export default function CaseTextWorkflow({
     [config.field, draft],
   );
 
-  const save = async () => {
+  const saveDraft = useCallback(async () => {
     if (!caseId || !loadedCase) {
       return;
     }
     setSaveState("saving");
     try {
-      await mutation.mutateAsync(updatePayload);
-      clearDraft();
+      const savedCase = await mutation.mutateAsync(updatePayload);
+      clearDraft(savedCase[config.field] ?? draft);
       setSaveState("saved");
     } catch {
       setSaveState("failed");
     }
-  };
+  }, [caseId, clearDraft, config.field, draft, loadedCase, mutation, updatePayload]);
 
   useEffect(() => {
     if (!config.autosave || !hasUnsavedChanges || !caseId || !loadedCase) {
       return;
     }
     const timeout = window.setTimeout(() => {
-      setSaveState("saving");
-      mutation
-        .mutateAsync(updatePayload)
-        .then(() => {
-          clearDraft();
-          setSaveState("saved");
-        })
-        .catch(() => setSaveState("failed"));
+      void saveDraft();
     }, 900);
 
     return () => window.clearTimeout(timeout);
-  }, [caseId, clearDraft, config.autosave, hasUnsavedChanges, loadedCase, mutation, updatePayload]);
+  }, [caseId, config.autosave, draft, hasUnsavedChanges, loadedCase, saveDraft]);
 
   if (!caseId) {
     return <CaseRouteState title={heading} message="No case ID was provided." />;
@@ -99,7 +100,7 @@ export default function CaseTextWorkflow({
     <CaseStageShell
       activeStage={activeStage}
       caseData={loadedCase as StructuredCase}
-      actions={<SaveStatus state={saveState} />}
+      actions={<SaveStatus state={displayedSaveState} />}
     >
       <div className="mx-auto max-w-5xl p-5">
         <section className="border border-black/10 bg-white p-5">
@@ -112,7 +113,9 @@ export default function CaseTextWorkflow({
             value={draft}
             onChange={(event) => {
               setDraft(event.target.value);
-              setSaveState("idle");
+              if (saveState === "failed") {
+                setSaveState("saved");
+              }
             }}
             placeholder={config.placeholder}
             className="mt-5 min-h-64 w-full resize-y border border-black/15 bg-white p-4 text-sm font-semibold leading-6 outline-none focus:border-black"
@@ -120,8 +123,8 @@ export default function CaseTextWorkflow({
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={save}
-              disabled={!hasUnsavedChanges || mutation.isPending}
+              onClick={saveDraft}
+              disabled={!hasUnsavedChanges || displayedSaveState === "saving"}
               className="btn-primary"
             >
               Save

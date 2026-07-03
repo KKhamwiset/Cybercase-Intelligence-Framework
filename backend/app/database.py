@@ -35,6 +35,14 @@ class Base(DeclarativeBase):
     pass
 
 
+async def init_db_schema() -> None:
+    """Create declared ORM tables when migrations are not configured."""
+    import app.models  # noqa: F401
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
 # ── Dependency for route injection ───────────────────────────────────────────
 async def get_db():
     """Yield an async DB session for FastAPI dependency injection."""

@@ -3,8 +3,8 @@ import axios from "axios";
 import { getApiBaseUrl } from "./api";
 import type {
   ActionItemView,
-  AttackMappingView,
   EvidenceItemView,
+  FindingMetadataView,
   FindingStatus,
   ReportConfidence,
   ReportSourceType,
@@ -28,6 +28,15 @@ export interface CaseListItem {
   updated_at?: string | null;
 }
 
+export interface CaseAttackMapping {
+  mapping_id: string;
+  technique_id: string;
+  technique_name: string;
+  tactic?: string | null;
+  rationale: string;
+  metadata: FindingMetadataView;
+}
+
 export interface StructuredCase {
   case_id: string;
   title: string;
@@ -39,7 +48,7 @@ export interface StructuredCase {
   affected_assets: string[];
   timeline_events: TimelineEventView[];
   evidence_items: EvidenceItemView[];
-  attack_mappings: AttackMappingView[];
+  attack_mappings: CaseAttackMapping[];
   containment_actions: ActionItemView[];
   recommendations: ActionItemView[];
   gaps: string[];
@@ -67,7 +76,7 @@ export interface CaseUpdateInput {
   affected_assets?: string[];
   timeline_events?: TimelineEventView[];
   evidence_items?: EvidenceItemView[];
-  attack_mappings?: AttackMappingView[];
+  attack_mappings?: CaseAttackMapping[];
   containment_actions?: ActionItemView[];
   recommendations?: ActionItemView[];
   gaps?: string[];

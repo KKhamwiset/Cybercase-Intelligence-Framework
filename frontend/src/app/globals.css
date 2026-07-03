@@ -51,7 +51,7 @@ body {
 }
 
 @utility mono-label {
-    @apply text-[10px] font-black uppercase tracking-[0.08em] text-neutral;
+    @apply text-[10px] font-black uppercase tracking-widest text-neutral;
 }
 
 ::selection {

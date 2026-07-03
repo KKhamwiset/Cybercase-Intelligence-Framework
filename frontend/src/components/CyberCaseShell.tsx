@@ -7,8 +7,7 @@ type ActiveNav = "Home" | "Investigate" | "Reports";
 
 const NAV_ITEMS: { label: ActiveNav; href: string }[] = [
   { label: "Home", href: "/" },
-  { label: "Investigate", href: "/chat" },
-  { label: "Reports", href: "/report" },
+  { label: "Investigate", href: "/cases" },
 ];
 
 type CyberCaseShellProps = {
@@ -42,7 +41,7 @@ export default function CyberCaseShell({
             <span>CyberCase</span>
           </Link>
 
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.13em] text-neutral">
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-neutral">
             Intelligence Framework
           </p>
 
@@ -78,7 +77,7 @@ export default function CyberCaseShell({
               </span>
 
               <div className="min-w-0">
-                <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-neutral">
+                <p className="truncate text-[10px] font-black uppercase tracking-widest text-neutral">
                   {eyebrow}
                 </p>
                 <p className="truncate text-sm font-black">{title}</p>

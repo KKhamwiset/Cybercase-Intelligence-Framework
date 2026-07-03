@@ -1,95 +1,39 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { QueryResponse, resumeRag } from "@/lib/api";
+import React, { useEffect, useRef } from "react";
 
-interface FollowUpEntry {
+export interface FollowUpEntry {
   question: string;
   answer: string;
 }
 
 interface FollowUpModuleProps {
   question: string;
-  sessionId: string;
-  onResolved: (response: QueryResponse) => void;
-  onError?: (error: string) => void;
+  answer: string;
+  entries: FollowUpEntry[];
+  isSubmitting: boolean;
+  onAnswerChange: (answer: string) => void;
+  onSubmit: () => void;
 }
 
 export default function FollowUpModule({
   question,
-  sessionId,
-  onResolved,
-  onError,
+  answer,
+  entries,
+  isSubmitting,
+  onAnswerChange,
+  onSubmit,
 }: FollowUpModuleProps) {
-  const [answer, setAnswer] = useState("");
-  const [entries, setEntries] = useState<FollowUpEntry[]>([]);
-  const [followUpOverride, setFollowUpOverride] = useState<{
-    sourceQuestion: string;
-    sourceSessionId: string;
-    question: string;
-    sessionId: string;
-  } | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const activeQuestion =
-    followUpOverride?.sourceQuestion === question &&
-    followUpOverride.sourceSessionId === sessionId
-      ? followUpOverride.question
-      : question;
-  const activeSessionId =
-    followUpOverride?.sourceQuestion === question &&
-    followUpOverride.sourceSessionId === sessionId
-      ? followUpOverride.sessionId
-      : sessionId;
-
   useEffect(() => {
     inputRef.current?.focus();
-  }, [activeQuestion]);
+  }, [question]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [entries]);
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!answer.trim() || isSubmitting) {
-      return;
-    }
-
-    const currentAnswer = answer;
-    setAnswer("");
-    setIsSubmitting(true);
-
-    try {
-      const response = await resumeRag(activeSessionId, currentAnswer);
-
-      setEntries((previous) => [
-        ...previous,
-        { question: activeQuestion, answer: currentAnswer },
-      ]);
-
-      if (response.status === "followup") {
-        setFollowUpOverride({
-          sourceQuestion: question,
-          sourceSessionId: sessionId,
-          question: response.followup_question || "I need more information.",
-          sessionId: response.session_id || activeSessionId,
-        });
-      } else {
-        onResolved(response);
-      }
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Unknown error during follow-up";
-      console.error("[FollowUpModule] error:", message);
-      onError?.(message);
-      setAnswer(currentAnswer);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="mx-auto my-4 w-full max-w-3xl">
@@ -133,13 +77,19 @@ export default function FollowUpModule({
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+          className="space-y-4 p-5"
+        >
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-black/10 bg-white text-sm font-black text-black">
               C
             </span>
             <p className="text-base font-black leading-relaxed text-black">
-              {activeQuestion}
+              {question}
             </p>
           </div>
 
@@ -147,11 +97,11 @@ export default function FollowUpModule({
             <textarea
               ref={inputRef}
               value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
+              onChange={(event) => onAnswerChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && !event.shiftKey) {
                   event.preventDefault();
-                  handleSubmit(event);
+                  onSubmit();
                 }
               }}
               placeholder="Type your answer here..."

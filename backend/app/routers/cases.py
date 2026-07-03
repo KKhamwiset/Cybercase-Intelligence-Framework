@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.report import CaseCreate, CaseListItem, CaseUpdate, ReportViewModel, StructuredCase
+from app.services.case_outputs import apply_case_intake_outputs
 from app.services.report_generator import (
     DeterministicReportGenerator,
     structured_case_from_record_data,
@@ -57,7 +58,7 @@ def _new_case_id() -> str:
 
 def _record_payload(case_id: str, request: CaseCreate) -> dict[str, object]:
     now = datetime.now(timezone.utc)
-    return StructuredCase(
+    payload = StructuredCase(
         case_id=case_id,
         title=request.title,
         case_type=request.case_type,
@@ -67,6 +68,9 @@ def _record_payload(case_id: str, request: CaseCreate) -> dict[str, object]:
         created_at=now,
         updated_at=now,
     ).model_dump(mode="json")
+    if request.incident_summary.strip():
+        payload = apply_case_intake_outputs(payload, force=True)
+    return payload
 
 
 @router.post("", response_model=StructuredCase, status_code=201)
@@ -126,6 +130,8 @@ async def update_case(
     payload.update(updates)
     payload["case_id"] = case.case_id
     payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+    if "incident_summary" in updates:
+        payload = apply_case_intake_outputs(payload, force=False)
 
     validated = StructuredCase(**payload)
     case.title = validated.title
