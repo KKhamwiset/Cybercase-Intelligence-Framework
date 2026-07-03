@@ -63,7 +63,7 @@ from .evaluator import (
     ContextEvaluator,
     EvaluationResult,
 )
-from .query_merger import QueryMerger
+from .query_merger import QueryMerger, sanitize_retrieval_query
 from .router import QueryRouter
 
 
@@ -854,7 +854,9 @@ class GraphRAGAgent:
         """Execute the BROADEN_SEARCH strategy by rewriting the query and looping."""
         evaluation = state.get("evaluation")
         rewritten_queries: list = list(state.get("rewritten_queries") or [])
-        new_query = getattr(evaluation, "new_query", "")
+        # Evaluator-written rewrites carry the same markdown/ID pollution risk
+        # as merger output — same sanitizer before they hit retrieval.
+        new_query = sanitize_retrieval_query(getattr(evaluation, "new_query", "") or "")
         if new_query:
             rewritten_queries.append(new_query)
 

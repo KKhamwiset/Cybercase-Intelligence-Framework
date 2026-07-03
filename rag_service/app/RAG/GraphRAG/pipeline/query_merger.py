@@ -16,6 +16,8 @@ Used in:
 
 from __future__ import annotations
 
+import re
+
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
 
@@ -37,29 +39,53 @@ You are a query rewriting assistant in a cybersecurity RAG pipeline that retriev
 from the MITRE ATT&CK knowledge base.
 
 Your job is to merge the user's original incident query with their clarification
-answer into a single, optimised retrieval query that will be sent to a vector store.
+answer into a single, self-contained retrieval query for vector search.
 
 ## Rules
-1. **MITRE-alignment**: Map the user's answer to the most likely MITRE ATT&CK
-   technique name(s) and/or Tactic name(s). Include the technique keyword(s)
-   prominently at the START of the merged query.
-   Example: if the user says "SQL Injection", write
-   "Exploit Public-Facing Application SQL Injection T1190 ..."
+1. **Describe, don't label**: Write ONE natural-language description of the
+   incident chain — what the attacker did, to which target, in order. Use
+   well-known MITRE technique NAMES verbatim where they clearly apply (e.g.
+   "Brute Force", "Valid Accounts", "SQL Injection"), but NEVER ATT&CK ID
+   numbers (T1110, TA0006, S0002) and NEVER markdown (**bold**, bullets,
+   headers) — the query is embedded as-is, so labels and formatting match
+   corpus metadata instead of the technique descriptions we want.
 2. **Self-contained**: The merged query must not assume the retriever has memory
    of previous turns. It must stand alone.
-3. **Preserve the incident chain**: Keep the key incident actions from the original
-   query (e.g., credential theft, privilege escalation, data destruction).
-4. **Concise**: 1–4 sentences or a tight keyword list. No explanation or preamble.
-5. **English only**: Output must be in English regardless of input language.
+3. **Preserve the incident chain**: Keep every key action from the original
+   query AND add the new facts from the user's answer.
+4. **Concise**: 1–3 sentences, plain text, no explanation or preamble.
+5. **Same language as the original query** (Thai stays Thai); keep MITRE
+   technique names in English verbatim.
 
 ## Input
-Original query (may be Thai): {original_query}
+Original query: {original_query}
 Clarifying question asked: {followup_question}
 User's clarification answer: {user_answer}
 
 ## Output
-A single merged English retrieval query ready for MITRE ATT&CK vector search.\
+The single merged retrieval query, plain text only.\
 """
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Output sanitizer — shared with the BROADEN_SEARCH rewrite path
+# ──────────────────────────────────────────────────────────────────────────────
+_ATTACK_ID_RE = re.compile(r"\b(?:TA|DS|T|S|G|M|C)\d{4}(?:\.\d{3})?\b")
+_MARKDOWN_RE = re.compile(r"[*_`#>]+")
+
+
+def sanitize_retrieval_query(text: str) -> str:
+    """Strip markdown and bare ATT&CK ID tokens from a rewritten query.
+
+    Rewrites go straight into embedding + rerank; bold markers and ID tokens
+    (seen live: a resume rewrite ``**Brute Force T1110 Credential Access, …``)
+    pull in ID/metadata matches instead of technique descriptions.
+    """
+    t = _MARKDOWN_RE.sub(" ", text)
+    t = _ATTACK_ID_RE.sub(" ", t)
+    t = re.sub(r"\(\s*\)", " ", t)  # empty parens left by removed IDs
+    t = re.sub(r"\s+", " ", t)  # also collapses newlines — queries are one line
+    return t.strip(" .,;:-–—")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -127,7 +153,9 @@ class QueryMerger:
         )
 
         response = self.llm.invoke([HumanMessage(content=prompt)])
-        merged = str(response.content).strip()
+        merged = sanitize_retrieval_query(str(response.content))
+        if not merged:
+            merged = f"{original_query} {user_answer}"
 
         if verbose:
             sep("AGENT — QUERY MERGE")
