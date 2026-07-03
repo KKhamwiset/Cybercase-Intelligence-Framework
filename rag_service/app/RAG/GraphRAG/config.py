@@ -159,6 +159,10 @@ ATTACK_DOMAIN_FILTER = os.getenv("ATTACK_DOMAIN_FILTER", "enterprise").strip() o
 # (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
+# MITRE mapping table sent to the backend: vector hits below this rerank score
+# (sigmoid [0,1] × type weight) are dropped unless the answer cites them.
+MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.35"))
+
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — mmarco reranker (kept for reference / rollback)
 # ──────────────────────────────────────────────────────────────────────────────

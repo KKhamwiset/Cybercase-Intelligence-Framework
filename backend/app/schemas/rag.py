@@ -215,12 +215,34 @@ class QueryRequest(BaseModel):
     retrieval_context_id: str = ""
 
 
+class MitreTableRow(BaseModel):
+    """One entry of the MITRE mapping table produced by the RAG service.
+
+    Mirrors ``rag_service`` ``MitreTableRow``; rows are noise-filtered there
+    (answer-grounded + rerank-score threshold). ``relevance`` tells the
+    frontend whether the LLM actually used the entity in its case summary
+    (``cited_in_answer``) or it merely scored well in retrieval
+    (``retrieved_only``).
+    """
+
+    technique_id: str = ""
+    name: str
+    entity_type: str = ""
+    tactic: str | None = None
+    score: float | None = None
+    source: Literal["vector", "graph"] = "vector"
+    relevance: Literal["cited_in_answer", "retrieved_only"] = "retrieved_only"
+    description: str = ""
+    mitre_url: str | None = None
+
+
 class QueryResponse(BaseModel):
     status: Literal["completed", "followup"]
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""
     retrieval_context_id: str = ""
+    mitre_table: list[MitreTableRow] = Field(default_factory=list)
 
 
 class ResumeRequest(BaseModel):

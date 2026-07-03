@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from RAG import EvidenceReference
+from RAG import EvidenceReference, MitreTableRow
 
 
 class QueryRequest(BaseModel):
@@ -23,6 +23,9 @@ class QueryResponse(BaseModel):
     followup_question: str = ""
     session_id: str = ""
     retrieval_context_id: str = ""
+    # Noise-filtered MITRE ATT&CK mapping table derived from the raw retrieval
+    # results (answer-grounded + score-threshold filtering; see mitre_table.py).
+    mitre_table: list[MitreTableRow] = Field(default_factory=list)
 
 
 class ResumeRequest(BaseModel):
