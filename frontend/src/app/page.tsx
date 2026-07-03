@@ -1,196 +1,448 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { getHealthStatus } from "@/lib/api";
 import Link from "next/link";
 
-export default function Home() {
-  const [dbStatus, setDbStatus] = useState<"loading" | "connected" | "error">(
-    "loading",
-  );
+const pillars: Array<{
+  number: string;
+  title: string;
+  description: string;
+  label: string;
+  type: "bars" | "grid" | "line";
+}> = [
+  {
+    number: "01",
+    title: "Investigate",
+    description:
+      "Turn scattered incident details, logs, and reports into a structured case context.",
+    label: "Case intake",
+    type: "bars",
+  },
+  {
+    number: "02",
+    title: "Map",
+    description:
+      "Connect observed behaviors with MITRE ATT&CK techniques and supporting evidence.",
+    label: "Threat mapping",
+    type: "grid",
+  },
+  {
+    number: "03",
+    title: "Report",
+    description:
+      "Generate analyst-ready reports with findings, gaps, evidence, and recommendations.",
+    label: "Report generation",
+    type: "line",
+  },
+];
 
-  useEffect(() => {
-    async function checkHealth() {
-      try {
-        const status = await getHealthStatus();
-        if (status.database === "connected") {
-          setDbStatus("connected");
-        } else {
-          setDbStatus("error");
-        }
-      } catch {
-        setDbStatus("error");
-      }
-    }
-    checkHealth();
-  }, []);
+function MiniVisual({ type }: { type: "bars" | "grid" | "line" }) {
+  if (type === "bars") {
+    return (
+      <div className="space-y-3 pt-2">
+        {[100, 78, 88, 56, 70].map((width, index) => (
+          <div
+            key={index}
+            className="h-px bg-white/30"
+            style={{ width: `${width}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (type === "grid") {
+    return (
+      <div className="grid grid-cols-5 gap-2 pt-2">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div
+            key={index}
+            className={`aspect-square border ${
+              index === 2 || index === 6
+                ? "border-white bg-white"
+                : "border-white/30"
+            }`}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <main className="relative min-h-screen flex flex-col bg-background">
-      {/* Navigation */}
-      <nav className="relative z-10 flex justify-between items-center px-6 lg:px-12 py-6 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-3 text-xl font-bold tracking-tight text-primary">
-          <div className="w-8 h-8 bg-primary text-white rounded flex items-center justify-center text-sm">
-            C
-          </div>
-          CyberCase Framework
-        </div>
-        <ul className="hidden md:flex gap-8 list-none">
-          <li>
-            <Link
-              href="/report"
-              className="text-neutral text-sm font-medium transition-colors hover:text-primary"
-            >
-              Reports
-            </Link>
-          </li>
-          <li>
+    <svg
+      viewBox="0 0 260 120"
+      className="mt-2 h-28 w-full"
+      role="img"
+      aria-label="Threat trend"
+    >
+      <line x1="10" y1="102" x2="250" y2="102" stroke="rgba(255,255,255,.2)" />
+      <polyline
+        points="10,88 68,45 118,72 168,30 220,58 250,18"
+        fill="none"
+        stroke="white"
+        strokeWidth="2"
+      />
+      {[
+        ["10", "88"],
+        ["68", "45"],
+        ["118", "72"],
+        ["168", "30"],
+        ["220", "58"],
+        ["250", "18"],
+      ].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="3" fill="white" />
+      ))}
+    </svg>
+  );
+}
+
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-[#b7b7b7] text-black">
+      <div className="mx-auto overflow-hidden bg-[#f4f4f2] shadow-2xl">
+        {/* Navigation */}
+        <header className="flex items-center justify-between border-b border-black/10 px-5 py-4 md:px-8">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-semibold tracking-tight"
+          >
+            <span className="grid h-6 w-6 place-items-center bg-black text-xs font-black text-white">
+              C
+            </span>
+            <span>CyberCase Framework</span>
+          </Link>
+
+          <nav className="hidden items-center gap-7 text-[11px] font-bold uppercase tracking-[0.16em] text-black/60 md:flex">
+            <a href="#platform" className="transition hover:text-black">
+              Platform
+            </a>
+            <a href="#workflow" className="transition hover:text-black">
+              Workflow
+            </a>
+            <a href="#intelligence" className="transition hover:text-black">
+              Intelligence
+            </a>
+            <a href="#about" className="transition hover:text-black">
+              About
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-3">
             <Link
               href="/chat"
-              className="text-neutral text-sm font-medium transition-colors hover:text-primary"
+              className="hidden text-[11px] font-bold uppercase tracking-wider text-black/60 hover:text-black sm:block"
             >
-              RAG Search
+              Open workspace
             </Link>
-          </li>
-          <li>
-            <a
-              href="#"
-              className="text-neutral text-sm font-medium transition-colors hover:text-primary"
+
+            <Link
+              href="/chat"
+              className="flex items-center gap-3 bg-black px-4 py-2 text-[10px] font-bold uppercase tracking-[0.15em] text-white transition hover:bg-black/80"
             >
-              Settings
+              Start case
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+            </Link>
+          </div>
+        </header>
+
+        {/* Hero */}
+        <section className="relative min-h-[720px] overflow-hidden px-5 pb-10 pt-20 md:min-h-[820px] md:px-10 md:pt-28">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[58%] items-end justify-center gap-0 opacity-80">
+            <div className="h-[32%] w-[14%] border border-black/10" />
+            <div className="h-[48%] w-[14%] border border-black/10" />
+            <div className="h-[68%] w-[14%] border border-black/10" />
+            <div className="h-[94%] w-[14%] border border-black/10" />
+            <div className="h-[74%] w-[14%] border border-black/10" />
+            <div className="h-[90%] w-[14%] border border-black/10" />
+            <div className="h-[46%] w-[14%] border border-black/10" />
+          </div>
+
+          <div className="relative z-10 mx-auto max-w-4xl text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-black/50">
+              Cyber Threat Intelligence Framework
+            </p>
+
+            <h1 className="mt-7 text-5xl font-light leading-[0.94] tracking-[-0.06em] sm:text-6xl md:text-8xl">
+              Make every case
+              <br />
+              <span className="font-normal">clearer, faster,</span>
+              <br />
+              and defensible.
+            </h1>
+
+            <p className="mx-auto mt-8 max-w-xl text-sm leading-relaxed text-black/55 md:text-base">
+              CyberCase transforms fragmented incident data into structured
+              intelligence, MITRE ATT&CK mappings, evidence gaps, and
+              investigation-ready reports.
+            </p>
+
+            <div className="mt-9 flex flex-wrap justify-center gap-3">
+              <Link
+                href="/chat"
+                className="bg-black px-5 py-3 text-[11px] font-bold uppercase tracking-[0.15em] text-white transition hover:bg-black/80"
+              >
+                Analyze a case
+              </Link>
+
+              <a
+                href="#platform"
+                className="border border-black px-5 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition hover:bg-black hover:text-white"
+              >
+                Explore platform
+              </a>
+            </div>
+          </div>
+
+          <div className="absolute bottom-7 left-5 z-10 max-w-[210px] md:bottom-10 md:left-10">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
+              Evidence-led analysis
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-black/55">
+              Ground every output in retrieved context, verified facts, and
+              analyst-confirmed details.
+            </p>
+          </div>
+
+          <div className="absolute bottom-7 right-5 z-10 text-right md:bottom-10 md:right-10">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/45">
+              Built for analysts
+            </p>
+            <p className="mt-2 text-xs text-black/55">
+              RAG · Graph Intelligence · MITRE ATT&CK
+            </p>
+          </div>
+        </section>
+
+        {/* Dark Platform */}
+        <section
+          id="platform"
+          className="bg-[#111111] px-5 py-10 text-white md:px-10 md:py-16"
+        >
+          <div className="flex flex-col gap-6 border-b border-white/10 pb-8 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                CyberCase platform
+              </p>
+              <h2 className="mt-4 max-w-2xl text-4xl font-light leading-none tracking-[-0.05em] md:text-6xl">
+                From incident signals
+                <br />
+                to actionable intelligence.
+              </h2>
+            </div>
+
+            <p className="max-w-xs text-sm leading-relaxed text-white/45">
+              A structured workflow for threat investigation, evidence
+              validation, MITRE mapping, and report generation.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {pillars.map((pillar) => (
+              <article
+                key={pillar.number}
+                className="group min-h-[360px] border border-white/15 bg-[#151515] p-5 transition hover:-translate-y-1 hover:border-white/50"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-light text-white/50">
+                    {pillar.number}
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">
+                    {pillar.label}
+                  </span>
+                </div>
+
+                <MiniVisual type={pillar.type} />
+
+                <div className="mt-10">
+                  <h3 className="text-3xl font-light tracking-[-0.04em]">
+                    {pillar.title}
+                  </h3>
+                  <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/50">
+                    {pillar.description}
+                  </p>
+                </div>
+
+                <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-4 text-[10px] font-bold uppercase tracking-[0.13em] text-white/45">
+                  <span>Explore module</span>
+                  <span className="text-red-500">↗</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* Workflow */}
+        <section id="workflow" className="px-5 py-12 md:px-10 md:py-20">
+          <div className="border border-black bg-[#f7f7f5]">
+            <div className="flex items-center justify-between border-b border-black px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-light text-red-600">01</span>
+                <span className="text-xs font-bold uppercase tracking-[0.14em]">
+                  Guided investigation
+                </span>
+              </div>
+
+              <Link
+                href="/chat"
+                className="border border-black px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] transition hover:bg-black hover:text-white"
+              >
+                Open chat
+              </Link>
+            </div>
+
+            <div className="grid min-h-[530px] gap-10 px-6 py-16 md:grid-cols-[1.2fr_0.8fr] md:px-14">
+              <div className="flex flex-col justify-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-black/40">
+                  Context first
+                </p>
+
+                <h2 className="mt-5 text-5xl font-light leading-[0.95] tracking-[-0.06em] md:text-7xl">
+                  Improve your
+                  <br />
+                  <span className="text-black/20">case confidence.</span>
+                </h2>
+
+                <p className="mt-7 max-w-md text-sm leading-relaxed text-black/55">
+                  CyberCase identifies missing details early, asks precise
+                  follow-up questions, and keeps the investigation grounded in
+                  available evidence.
+                </p>
+
+                <Link
+                  href="/chat"
+                  className="mt-9 inline-flex w-fit items-center gap-3 bg-black px-5 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white transition hover:bg-black/80"
+                >
+                  Start investigation
+                  <span className="text-red-500">●</span>
+                </Link>
+              </div>
+
+              <div className="flex flex-col justify-end border-l border-black/10 pl-6 md:pl-10">
+                {[
+                  [
+                    "01",
+                    "Collect",
+                    "Capture incident facts, evidence, and observed indicators.",
+                  ],
+                  [
+                    "02",
+                    "Validate",
+                    "Detect ambiguity and request the missing details.",
+                  ],
+                  [
+                    "03",
+                    "Connect",
+                    "Map verified behavior to MITRE and related intelligence.",
+                  ],
+                  [
+                    "04",
+                    "Generate",
+                    "Produce structured reports ready for analyst review.",
+                  ],
+                ].map(([number, title, description]) => (
+                  <div
+                    key={number}
+                    className="border-t border-black/15 py-5 first:border-t-0 first:pt-0"
+                  >
+                    <div className="flex gap-4">
+                      <span className="text-xs font-bold text-red-600">
+                        {number}
+                      </span>
+                      <div>
+                        <h3 className="text-lg font-medium">{title}</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-black/50">
+                          {description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Intelligence */}
+        <section
+          id="intelligence"
+          className="grid border-t border-black/10 md:grid-cols-2"
+        >
+          <div className="bg-black px-6 py-14 text-white md:px-12 md:py-20">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+              Intelligence layer
+            </p>
+
+            <h2 className="mt-5 text-4xl font-light leading-none tracking-[-0.05em] md:text-6xl">
+              Grounded outputs,
+              <br />
+              not guesses.
+            </h2>
+
+            <p className="mt-7 max-w-md text-sm leading-relaxed text-white/50">
+              Retrieval-Augmented Generation, knowledge graphs, and
+              analyst-confirmed facts work together to reduce hallucination and
+              make findings traceable.
+            </p>
+          </div>
+
+          <div className="bg-[#e8e8e5] px-6 py-14 md:px-12 md:py-20">
+            <div className="space-y-6">
+              {[
+                [
+                  "RAG Retrieval",
+                  "Relevant laws, case documents, and CTI context.",
+                ],
+                [
+                  "Graph Intelligence",
+                  "Verified relationships between techniques, evidence, and standards.",
+                ],
+                [
+                  "Gap Analysis",
+                  "Targeted follow-ups when context is insufficient.",
+                ],
+                [
+                  "Report Engine",
+                  "Structured outputs for incident response and documentation.",
+                ],
+              ].map(([title, description], index) => (
+                <article
+                  key={title}
+                  className="flex gap-5 border-b border-black/15 pb-6 last:border-b-0"
+                >
+                  <span className="text-sm font-light text-red-600">
+                    0{index + 1}
+                  </span>
+                  <div>
+                    <h3 className="text-xl font-medium tracking-tight">
+                      {title}
+                    </h3>
+                    <p className="mt-2 max-w-md text-sm leading-relaxed text-black/55">
+                      {description}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer
+          id="about"
+          className="flex flex-col gap-5 border-t border-black/10 px-5 py-7 text-xs text-black/45 md:flex-row md:items-center md:justify-between md:px-10"
+        >
+          <p>CyberCase Intelligence Framework</p>
+          <div className="flex gap-5">
+            <Link href="/chat" className="hover:text-black">
+              Workspace
+            </Link>
+            <Link href="/report" className="hover:text-black">
+              Reports
+            </Link>
+            <a href="#platform" className="hover:text-black">
+              Platform
             </a>
-          </li>
-        </ul>
-        <div className="hidden md:block">
-          <Link href="/chat" className="btn-primary inline-block">
-            Get Started
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="relative z-10 flex-1 flex flex-col justify-center items-center text-center px-6 lg:px-8 py-24 gap-8">
-        <div className="bg-white border border-gray-200 shadow-sm inline-flex items-center gap-2 px-6 py-2 rounded-full text-xs font-medium text-secondary">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              dbStatus === "error"
-                ? "bg-red-500"
-                : dbStatus === "loading"
-                  ? "bg-amber-500"
-                  : "bg-emerald-500"
-            }`}
-          ></div>
-          {dbStatus === "connected"
-            ? "Systems Online & Database Connected"
-            : dbStatus === "loading"
-              ? "Connecting to Database..."
-              : "Database Connection Failed"}
-        </div>
-
-        <h1 className="text-[clamp(2.5rem,6vw,4.5rem)] font-extrabold tracking-tight leading-[1.1] text-primary">
-          Thai Law <br />
-          <span className="text-secondary">Intelligent Platform</span>
-        </h1>
-
-        <p className="max-w-150 text-lg text-neutral leading-relaxed">
-          Advanced Retrieval-Augmented Generation (RAG) platform specialized in
-          Thai Cybersecurity, PDPA, and Electronic Transactions Acts.
-        </p>
-
-        <div className="flex gap-4 mt-4">
-          <Link href="/chat" className="btn-primary inline-block">
-            Start Search
-          </Link>
-          <Link href="/report" className="btn-outlined inline-block">
-            Generate Report
-          </Link>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-225 mt-12">
-          <div className="card p-8 text-left transition-shadow hover:shadow-md">
-            <div className="w-10 h-10 bg-secondary text-white rounded-md flex items-center justify-center mb-6">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-primary">
-              Semantic Search
-            </h3>
-            <p className="text-sm text-neutral leading-relaxed">
-              Find relevant legal clauses across multiple documents using
-              advanced FAISS vector search.
-            </p>
           </div>
-
-          <div className="card p-8 text-left transition-shadow hover:shadow-md">
-            <div className="w-10 h-10 bg-secondary text-white rounded-md flex items-center justify-center mb-6">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 8V4H8" />
-                <rect width="16" height="12" x="4" y="8" rx="2" />
-                <path d="M2 14h2" />
-                <path d="M20 14h2" />
-                <path d="M15 13v2" />
-                <path d="M9 13v2" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-primary">AI Analysis</h3>
-            <p className="text-sm text-neutral leading-relaxed">
-              Get precise answers with exact page citations generated by Claude
-              3 Haiku.
-            </p>
-          </div>
-
-          <div className="card p-8 text-left transition-shadow hover:shadow-md sm:col-span-2 lg:col-span-1">
-            <div className="w-10 h-10 bg-secondary text-white rounded-md flex items-center justify-center mb-6">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m13 2-2 2.5h3L11 22l2-2.5H10l3-17.5Z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold mb-2 text-primary">
-              Hybrid Retrieval
-            </h3>
-            <p className="text-sm text-neutral leading-relaxed">
-              Combine dense vector embeddings with BM25 sparse keyword matching
-              for optimal accuracy.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="relative z-10 text-center p-8 text-neutral text-xs border-t border-gray-200 mt-auto bg-white">
-        &copy; {new Date().getFullYear()} CyberCase Framework. Built for Thai
-        Legal Intelligence.
-      </footer>
+          <p>Built for evidence-led cyber investigations.</p>
+        </footer>
+      </div>
     </main>
   );
 }

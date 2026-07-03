@@ -16,7 +16,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.app.services import reporting as report_module  # noqa: E402
-from backend.app.services.reporting import generator as report_generator_module  # noqa: E402
 
 
 COMPLETE_QUERY = (
@@ -42,9 +41,6 @@ def _fake_rag_result() -> SimpleNamespace:
     return SimpleNamespace(vector_results=[vector_result], graph_results=[])
 
 
-class _InvalidFactPackLLM:
-    def invoke(self, _messages: object) -> dict[str, object]:
-        return {"facts": [], "evidence_registry": [], "completeness_percentage": 60}
 
 
 def _load_rag_service_report_generator_shim(
@@ -90,9 +86,7 @@ def _load_rag_service_report_generator_shim(
 
 
 @pytest.fixture()
-def generator(monkeypatch: pytest.MonkeyPatch) -> report_module.ReportGenerator:
-    monkeypatch.setattr(report_generator_module, "ANTHROPIC_API_KEY", "")
-    monkeypatch.setattr(report_generator_module, "ChatAnthropic", None)
+def generator() -> report_module.ReportGenerator:
     return report_module.ReportGenerator()
 
 
@@ -141,11 +135,9 @@ def test_legal_mode_disabled_and_enabled(
     )
 
 
-def test_invalid_llm_fact_pack_falls_back_to_deterministic_pack(
+def test_report_generation_uses_predefined_mitre_template(
     generator: report_module.ReportGenerator,
 ) -> None:
-    generator.fact_pack_llm = _InvalidFactPackLLM()
-
     report = generator.generate(
         COMPLETE_QUERY,
         context="MITRE context",
@@ -154,9 +146,10 @@ def test_invalid_llm_fact_pack_falls_back_to_deterministic_pack(
     )
 
     assert report.case_fact_pack.facts
+    assert report.mitre_attack_assessment
+    assert report.mitre_attack_assessment[0].technique_id == "T1566"
     assert (
-        "Structured LLM case fact extraction failed validation; "
-        "deterministic evidence extraction was used instead."
+        "Report generated from a predefined evidence/MITRE template using RAG-provided context."
         in report.limitations_and_disclaimers
     )
 
@@ -218,3 +211,17 @@ def test_incomplete_report_is_labeled(
         "Generated at user request despite incomplete case information."
         in report.limitations_and_disclaimers
     )
+
+
+def test_report_endpoint_waits_for_cached_rag_context() -> None:
+    source = (APP_DIR / "routers" / "report.py").read_text(encoding="utf-8")
+    start = source.index('@router.post("/generate-report"')
+    end = source.index("async def _apply_thanoy_legal_advice")
+    report_path = source[start:end]
+
+    assert "_report_context_wait_response" in report_path
+    assert "retrieve_multi" not in report_path
+    assert "build_retrieval_queries" not in report_path
+    assert "build_context" not in report_path
+    assert "rag_agent.query" not in report_path
+    assert "rag_agent.resume" not in report_path
