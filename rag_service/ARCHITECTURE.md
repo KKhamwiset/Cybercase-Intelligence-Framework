@@ -40,12 +40,12 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 ```
                        ┌──────────────────────────────────────────────┐
    Thai case file ───▶ │  FastAPI (app/main.py, :8001)                 │
-                       │  /query  /resume  /generate-report  /health   │
+                       │  /query  /resume  /health                     │
                        └───────────────┬──────────────────────────────┘
                                        │ (โหลดโมเดล + เชื่อม DB ครั้งเดียวตอน startup)
           ┌────────────────────────────┼─────────────────────────────────┐
-          ▼                            ▼                                  ▼
-   GraphRAGAgent              HybridRetriever                       ReportGenerator
+          ▼                            ▼
+   GraphRAGAgent              HybridRetriever
    (LangGraph state machine)  ├─ VectorRetriever ─▶ Qdrant (BGE-M3 dense+sparse)
    route→prepare→retrieve     ├─ Reranker (bge-reranker-v2-m3)
    →evaluate→(followup|        └─ GraphRetriever ─▶ Neo4j (STIX graph, 1-hop expand)
@@ -58,18 +58,14 @@ flowchart TD
     A["Thai case file"] --> API["FastAPI :8001<br/>app/main.py"]
     API -->|"/query use_agent=True"| AG["GraphRAGAgent<br/>(LangGraph)"]
     API -->|"/query use_agent=False"| CH["GraphRAGChain<br/>(linear LCEL)"]
-    API -->|"/generate-report"| RG["ReportGenerator"]
     API -->|"/resume"| AG
     AG --> HR["HybridRetriever"]
     CH --> HR
-    RG --> HR
     HR --> VR["VectorRetriever"] --> QD[("Qdrant<br/>BGE-M3 dense+sparse")]
     HR --> RR["Reranker<br/>bge-reranker-v2-m3"]
     HR --> GR["GraphRetriever"] --> NEO[("Neo4j<br/>STIX graph")]
     AG --> LLM["Claude Haiku<br/>/ Ollama"]
     CH --> LLM
-    RG --> LLM
-    RG -.->|"legal=true"| THA["Thanoy<br/>Thai legal API"]
 ```
 
 **3 เส้นทางหลักของบริการ**
@@ -79,11 +75,12 @@ flowchart TD
 | `POST /query` (`use_agent=True`) | `GraphRAGAgent` | agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → reason → translate |
 | `POST /query` (`use_agent=False`) | `GraphRAGChain` | linear LCEL: translate → dual-query retrieve → reason → translate |
 | `POST /resume` | `GraphRAGAgent.resume` | ดำเนิน session ที่ pause เพื่อถาม follow-up ต่อ |
-| `POST /generate-report` | `HybridRetriever` + `ReportGenerator` (+`thanoy_client`) | รายงานคดี 3 ส่วน: case summary + faithful MITRE table + (optional) Thai legal |
+
+**หมายเหตุ**: Endpoint การสร้างรายงาน (`/generate-report`) และองค์ประกอบรายงานถูกย้ายไปที่ Backend Service (Phase 2A refactor)
 
 **สอง pipeline ที่ขนานกันในโค้ด**
 - `GraphRAGAgent` (`pipeline/agent_graph.py`) — เส้นทาง production agentic ใหม่ (decomposer + quota + self-reflection + follow-up)
-- `GraphRAGChain` (`pipeline/chain.py`) — เส้นทาง linear เดิม (ยังใช้ใน `/generate-report` เพื่อแปล query และใน eval generation)
+- `GraphRAGChain` (`pipeline/chain.py`) — เส้นทาง linear เดิม (ยังใช้ใน eval generation)
 
 ---
 
@@ -104,8 +101,8 @@ flowchart TD
 | **Slot-aware Follow-up** | `evaluator.py` + `agent_graph._resume_with_answer` | ถามทีละ slot (initial_access → credential_theft → priv_esc → lateral → impact) ไม่ถามซ้ำ |
 | **Query Merger** | `pipeline/query_merger.py` | รวม query เดิม + คำตอบ follow-up เป็น query เดียวที่ MITRE-aligned |
 | **3-stage cross-lingual generation** | `cross_lingual` prompts | (1) translate query → EN, (2) reasoning LLM → simplified EN, (3) translation LLM → Thai |
-| **Faithful MITRE table** | `report_generator.extract_mitre_entities` | สร้างตารางจาก entity ที่ retrieve จริง (ไม่ใช่จาก LLM) → ID ไม่ถูก hallucinate |
-| **CJK Thai-only guard** | `report_generator._sanitize_thai` | ตรวจ token จีน/ญี่ปุ่น/เกาหลีหลุดในรายงาน → re-translate field เป็นไทยล้วน |
+| **Faithful MITRE table** | `Backend ReportGenerator` | สร้างตารางจาก entity ที่ retrieve จริง (ไม่ใช่จาก LLM) → ID ไม่ถูก hallucinate |
+| **CJK Thai-only guard** | `Backend ReportGenerator` | ตรวจ token จีน/ญี่ปุ่น/เกาหลีหลุดในรายงาน → re-translate field เป็นไทยล้วน |
 | **Domain filter (mobile กันปน)** | `vector_retriever.search_entities` + `config.ATTACK_DOMAIN_FILTER` | กรอง entity ให้เหลือ domain enterprise หลัง retrieval |
 | **Agentic state machine** | `pipeline/agent_graph.py` (LangGraph) | StateGraph: node + conditional edges + in-memory session store สำหรับ pause/resume |
 | **Thai legal delegation** | `pipeline/thanoy_client.py` | ไม่สอนกฎหมายไทยให้ MITRE model (กัน hallucinate มาตรา) → เรียก Thanoy API แทน |
@@ -221,7 +218,7 @@ rag_service/
 │           ├── main.py              # CLI (--ingest/--test/--agent/--retrieve-only)
 │           ├── pipeline/            # agent_graph, chain, router, cross_lingual,
 │           │                        #   query_decomposer, evaluator, query_merger,
-│           │                        #   context_builder, report_generator, thanoy_client
+│           │                        #   context_builder
 │           ├── retrieval/           # vector_retriever, graph_retriever, reranker, hybrid_retriever
 │           ├── ingestion/           # stix_parser, graph_loader, vector_loader
 │           └── evaluation/          # ground_truth, retriever_metrics, generation_metrics,
@@ -270,31 +267,7 @@ flowchart TD
 ### 6.3 `POST /resume`
 ดึง state ที่ pause จาก `_sessions[session_id]` → `_resume_with_answer` (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่จนจบ → คืน `status="completed"`
 
-### 6.4 `POST /generate-report`
-`translator.translate_query` (TH→EN) → `build_retrieval_queries` (dual-query) → `retrieve_multi` → `build_context` → `report_gen.generate` (structured output 7 ส่วน + CJK guard) → `extract_mitre_entities` (เขียนทับตารางด้วย entity จริง) → (ถ้า `legal=true`) `get_legal_advice` (Thanoy)
 
-```mermaid
-sequenceDiagram
-    participant U as Client
-    participant API as FastAPI
-    participant CH as Chain.translator
-    participant HR as HybridRetriever
-    participant RG as ReportGenerator
-    participant TH as Thanoy
-    U->>API: POST /generate-report (Thai)
-    API->>CH: translate_query (TH->EN)
-    API->>HR: retrieve_multi (dual-query)
-    HR-->>API: GraphRAGResult
-    API->>RG: generate(query, context)
-    RG->>RG: structured output + CJK Thai-only guard
-    RG-->>API: CyberCaseReport
-    API->>API: extract_mitre_entities (faithful table from retrieval)
-    opt legal == true
-        API->>TH: get_legal_advice(case_summary)
-        TH-->>API: advice + disclaimer (or None)
-    end
-    API-->>U: CyberCaseReport
-```
 
 ---
 
@@ -306,14 +279,13 @@ sequenceDiagram
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `lifespan(app)` *(async ctx)* | โหลด BGE-M3 ครั้งเดียว, สร้าง chain/agent/retriever/report_gen ตาม `USE_LOCAL`, เก็บใน `app.state`; ตอน shutdown ปิดทุกตัว |
+| `lifespan(app)` *(async ctx)* | โหลด BGE-M3 ครั้งเดียว, สร้าง chain/agent/retriever ตาม `USE_LOCAL`, เก็บใน `app.state`; ตอน shutdown ปิดทุกตัว |
 | `QueryRequest` | request body: `query`, `use_agent=True`, `legal=False` |
 | `QueryResponse` | response: `status`, `answer`, `followup_question`, `session_id` |
 | `ResumeRequest` | request body: `session_id`, `answer` |
 | `health(request)` *(async)* | คืนสถานะบริการ + ว่า chain/agent โหลดสำเร็จไหม |
 | `query_rag(request, req)` *(async)* | endpoint `/query`: ถ้า `use_agent` เรียก `rag_agent.query` ไม่งั้น `rag_chain.query`; map error → HTTP 500/503 |
 | `resume_agent(request, req)` *(async)* | endpoint `/resume`: เรียก `rag_agent.resume(session_id, answer)`; KeyError → 404 |
-| `generate_report(request, req)` *(async)* | endpoint `/generate-report`: translate → retrieve_multi → build_context → generate → overwrite `mitre_entities` ด้วย retrieval จริง → (optional) Thanoy legal |
 | `__main__` | `uvicorn.run(app, host=0.0.0.0, port=8001)` |
 
 ### 7.2 `config.py`
@@ -453,29 +425,9 @@ sequenceDiagram
 | `build_context(result, max_context_length=10000, max_vector=None, max_graph=3)` | ประกอบ context string: semantic results (top `max_vector` หรือ `FINAL_TOP_K`) + graph subgraph (`max_graph`); ตัดความยาว |
 | `build_generation_prompt(context, original_query, english_query, respond_in_thai, incident_facts)` | ประกอบ user prompt: confirmed facts (priority สูง) + context + คำถาม + instruction (ไทย/อังกฤษ) |
 
-#### `report_generator.py`
+#### `report_generator.py` & `thanoy_client.py` (Moved)
 
-| สัญลักษณ์ | หน้าที่ |
-|---|---|
-| `_CJK_RE` | regex จับอักษรจีน/ญี่ปุ่น/เกาหลี (กัน code-switch) |
-| `MitreEntity` *(pydantic)* | 1 แถวตาราง MITRE: `id`, `name`, `type` |
-| `CyberCaseReport` *(pydantic)* | รายงาน 7 ส่วน: case_summary, detected_indicators, mitre_mapping, mitre_entities, mapping_justification, evidence_to_investigate, preliminary_recommendations, system_limitations, + legal_advice (optional) |
-| `_MAPPING_TABLE_TYPES`, `_MAPPING_TABLE_MAX=25` | type ที่อนุญาตในตาราง (Technique/Subtechnique/Tactic) + เพดานแถว |
-| `ReportGenerator.__init__(use_local)` | สร้าง LLM (Claude/Ollama) + `with_structured_output(CyberCaseReport)` + prompt (Thai-only constraint) |
-| `.generate(query, context)` | invoke structured chain → `_sanitize_thai` |
-| `._rewrite_to_thai(text)` | ถ้า field มี CJK: เรียก LLM แปลเป็นไทยล้วน; fallback strip CJK |
-| `._sanitize_thai(report)` | สแกนทุก field (str + list[str]) ถ้าเจอ CJK → repair |
-| `extract_mitre_entities(rag_result, max_rows=25)` | สร้างตารางจาก vector hits + graph **center nodes** เท่านั้น (ไม่เอา neighbors), filter เฉพาะ Technique/Subtechnique/Tactic, dedup by ID |
-
-#### `thanoy_client.py`
-
-| สัญลักษณ์ | หน้าที่ |
-|---|---|
-| `LEGAL_DISCLAIMER` | ข้อความ disclaimer ไทย (AI ไม่ผูกพันทางกฎหมาย) |
-| `_QUERY_TEMPLATE` | prompt ถาม Thanoy ว่าเข้าข่ายกฎหมายไทยฉบับ/มาตราใด + ประเมินความเสียหาย |
-| `_build_query(case_summary)` | ใส่ summary ลง template |
-| `_parse_response(data)` | ดึงข้อความ advice จาก response (รองรับหลาย shape) |
-| `get_legal_advice(case_summary, timeout)` *(async)* | เรียก Thanoy REST; คืน advice+disclaimer หรือ None (ไม่มี key/ว่าง/error) — ไม่เคย raise |
+ส่วนระบบ Report Generator และ Thanoy Client ถูกย้ายไปที่ `backend/app/services/reporting/` อย่างสมบูรณ์ใน Phase 2A เพื่อให้ RAG ทำหน้าที่จัดการ Retrieval-only
 
 ### 7.5 `retrieval/`
 
@@ -735,7 +687,6 @@ Grounded helpers: `build_entity_context(...)` (semantic block), `build_relation_
 - **Router ถูกปิดชั่วคราว**: `_edge_after_route` คืน "incident" เสมอ → ทุก query เข้า incident analysis (โค้ด GENERAL ถูก comment)
 - **`config.ATTACK_DOMAINS`** ชี้ path STIX ใต้ `rag_service/` ซึ่งไม่ตรงตำแหน่งจริง (`Mitre_ATT&CK Doc/` อยู่ที่ repo root) — `finetune/ft_config.py` resolve เองด้วย `STIX_DOMAIN_DIRS`
 - **Domain filter** กรองได้เฉพาะ entity vector hits (relationships ไม่มี payload `domain`) → mobile ยังหลุดผ่าน graph center/relationship ได้บ้าง; แก้ 100% ต้อง re-ingest enterprise-only
-- **`/generate-report`** ใช้เส้นทางเดิม (translate + dual-query + `retrieve_multi`) ต่างจาก agent path (decompose + quota)
 - **CJK guard** เป็น belt-and-suspenders เพราะ prompt Thai-only อย่างเดียวกัน code-switch ของ Haiku ไม่อยู่
 - **`_perf_probe.py`** ~~อ้าง node เดิมที่ rename แล้ว~~ → แก้แล้ว: ใช้ `_node_prepare` (เดิม `_node_translate_query`)
 - **`download_model.py`** ~~cache reranker ตัวเก่า~~ → แก้แล้ว: cache `BAAI/bge-reranker-v2-m3` ให้ตรงกับ `RERANKER_MODEL` ที่ runtime ใช้

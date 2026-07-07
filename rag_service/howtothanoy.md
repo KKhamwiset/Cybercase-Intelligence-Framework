@@ -11,11 +11,11 @@ Thanoy (ทนอย) คือ Thai legal AI ของ iApp — เราใช
 
 ## 1. เชื่อมอะไรบ้าง (architecture)
 
-```
-POST /generate-report
-   ↓ 1. translate (ไทย→อังกฤษ) + retrieve context (Qdrant + Neo4j)
-   ↓ 2. report_gen.generate()   → CyberCaseReport (ส่วน 1 case_summary + ส่วน 2 mitre_mapping)
-   ↓ 3. get_legal_advice(case_summary)  → เรียก Thanoy API  → report.legal_advice (ส่วน 3)
+```text
+POST /api/v1/rag/generate-report (Backend)
+   ↓ 1. RAG service: translate (ไทย→อังกฤษ) + retrieve context (Qdrant + Neo4j) → snapshot
+   ↓ 2. Backend ReportGenerator: generate() → CyberCaseReport (ส่วน 1 case_summary + ส่วน 2 mitre_mapping)
+   ↓ 3. Backend: get_legal_advice(case_summary) → เรียก Thanoy API  → report.legal_advice (ส่วน 3)
    ↓ return CyberCaseReport (ครบ 3 ส่วนใน JSON ก้อนเดียว → UI render)
 ```
 
@@ -30,11 +30,9 @@ Output 3 ส่วนใน `CyberCaseReport`:
 > **ตาราง MITRE ให้ render จาก `mitre_entities`** (id+name+type จาก retrieval จริง) **ไม่ใช่ `mitre_mapping`**
 > (ตัวหลังเป็น ID ที่ Claude generate → อาจมั่ว/ไม่ครบ เก็บไว้แค่ประกอบ mapping_justification)
 
-ไฟล์ที่เกี่ยวข้อง:
-- `app/RAG/GraphRAG/pipeline/thanoy_client.py` — client เรียก Thanoy + parse + disclaimer + fallback
-- `app/RAG/GraphRAG/config.py` — env config (`THANOY_*`)
-- `app/RAG/GraphRAG/pipeline/report_generator.py` — field `legal_advice` ใน `CyberCaseReport`
-- `app/main.py` — `/generate-report` เรียก `get_legal_advice()` หลัง generate
+ไฟล์ที่เกี่ยวข้อง (ปัจจุบันย้ายมาอยู่ฝั่ง Backend):
+- `backend/app/services/reporting/generator.py::ReportGenerator` — field `legal_advice` ใน `CyberCaseReport`
+- `backend/app/services/reporting/thanoy_client.py` — client เรียก Thanoy + parse + disclaimer + fallback (ย้ายจาก RAG)
 
 ---
 
@@ -76,7 +74,7 @@ Thanoy เป็น **opt-in** — ต้องส่ง `"legal": true` ใน 
 ถ้าไม่ส่ง → **ไม่เรียก Thanoy เลย** ได้รายงานแค่ 2 ส่วน (`legal_advice = null`)
 
 ```bash
-curl -X POST http://localhost:8001/generate-report \
+curl -X POST http://localhost:8000/api/v1/rag/generate-report \
   -H "Content-Type: application/json" \
   -d '{"query":"ผู้โจมตีใช้ SQL Injection เข้าระบบ แล้ว credential dumping ยกระดับเป็น root ก่อนลบฐานข้อมูล postgres ทั้งหมด", "legal": true}'
 ```

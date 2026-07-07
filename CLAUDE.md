@@ -14,7 +14,7 @@ The platform is split into three services (see `docker-compose.yml`):
 |---------|------|------|------|
 | Frontend | `frontend/` | 3000 | Next.js UI |
 | Backend API | `backend/` | 8000 | FastAPI gateway + PostgreSQL (users, health). Proxies all RAG calls to the RAG service over HTTP (`RAG_SERVICE_URL`) |
-| RAG Service | `rag_service/` | 8001 | FastAPI service hosting the GraphRAG pipeline; serves `/query`, `/resume`, `/generate-report`, `/health` |
+| RAG Service | `rag_service/` | 8001 | FastAPI service hosting the GraphRAG pipeline; serves `/query`, `/resume`, `/health` |
 
 The RAG pipeline code lives at `rag_service/app/RAG/GraphRAG/` (it was migrated out of `backend/` — backend no longer contains any RAG code). `rag_service/finetune/` holds the MITRE ATT&CK specialist fine-tune module (cloud QLoRA training + A/B compare; see its `README.md`).
 
@@ -123,14 +123,14 @@ END → AgentResponse(status, answer, followup_question?, session_id?)
 
 ### API Endpoints
 
-Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — each RAG route proxies to the RAG service:
+Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — query routes proxy to the RAG service, report routes are handled locally by the Backend `ReportWorkflowService`:
 - `GET /api/v1/health` — System health + DB status
 - `POST /api/v1/rag/query` — Query RAG (chain or agent mode via `use_agent`)
 - `POST /api/v1/rag/query-file` — Upload a document (PDF/image); Typhoon OCR extracts markdown, then queries RAG in chain mode
 - `POST /api/v1/rag/resume` — Resume a paused follow-up session (send `session_id`)
 - `POST /api/v1/rag/generate-report` — Generate a structured `CyberCaseReport`
 
-RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `POST /resume`, `POST /generate-report`.
+RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `POST /resume`.
 
 ### Key Modules (under `rag_service/app/RAG/GraphRAG/`)
 | Module | Path | Purpose |
@@ -139,13 +139,18 @@ RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `P
 | Hybrid retriever | `retrieval/hybrid_retriever.py` | Vector + graph search with RRF fusion |
 | Context builder | `pipeline/context_builder.py` | Format retrieved context for LLM |
 | Evaluator | `pipeline/evaluator.py` | Assess context sufficiency, drive self-reflection |
-| Report generator | `pipeline/report_generator.py` | Structured `CyberCaseReport` output |
+
 | Config | `config.py` | All RAG settings (models, topK, DB URLs) |
 | Ingestion | `ingestion/` | Parse STIX JSON, populate Neo4j + Qdrant |
 
 ### Follow-Up Session Flow
 When the evaluator returns `INSUFFICIENT`, the API responds with `status: "followup"` and a `session_id`. The frontend must send the user's answer back via `POST /api/v1/rag/resume` with the same `session_id`.
 
+### Report Workflow States
+The report generator endpoints return one of these three precise response states:
+1. `completed`: contains `report_id`, `report`, and optional rendered `answer`.
+2. `followup`: only for a real incomplete report; includes a valid stored `session_id`; can be resumed through the backend workflow.
+3. `context_expired`: returned when `retrieval_context_id` is missing, expired, or unavailable (includes `error_code: "retrieval_context_expired"` and a user-facing message instructing the caller to rerun RAG analysis). This state deliberately contains no `session_id` and is not resumable.
 ## Key Configuration (`rag_service/app/RAG/GraphRAG/config.py`)
 - **Embedding model**: `BAAI/bge-m3` (1024-dim, FP16)
 - **Reranker**: `BAAI/bge-reranker-v2-m3` (multilingual incl. Thai)

@@ -134,15 +134,19 @@ The system must not determine guilt or innocence, claim court admissibility, mak
 
 ### Report API Summary
 
-* `POST /api/v1/rag/generate-report`: start report analysis from text.
-* `POST /api/v1/rag/generate-report-file`: start report analysis from an uploaded PDF/image with OCR provenance.
-* `POST /api/v1/rag/resume-report`: resume report generation after a follow-up question.
+The actual report generation is managed by the backend `ReportWorkflowService` and `backend/app/services/reporting/generator.py::ReportGenerator`.
+
+* `POST /api/v1/rag/generate-report`: (Legacy compatibility adapter) start report analysis from text.
+* `POST /api/v1/rag/generate-report-file`: (Legacy compatibility adapter) start report analysis from an uploaded PDF/image with OCR provenance.
+* `POST /api/v1/rag/resume-report`: (Legacy compatibility adapter) resume report generation after a follow-up question.
 * `GET /api/v1/rag/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
 * `PATCH /api/v1/rag/reports/{report_id}/review-status`: update `draft`, `ai_generated`, `reviewed`, or `approved` status.
 
+Note: The `rag/...` report endpoints remain as compatibility adapters but delegate to the local backend `ReportWorkflowService`. They **do not** proxy requests to RAG report endpoints.
+
 ### Migrations And Tests
 
-This MVP stores generated report/review state in the RAG service in-memory store, so it does not add persisted SQLAlchemy models or an Alembic migration. If persistence is added later, create and apply a migration with:
+This MVP stores generated report/review state in the backend in-memory store, so it does not add persisted SQLAlchemy models or an Alembic migration. (Note: retrieval contexts are stored in RAG memory and expire after TTL, while report/session state is stored in backend memory. Service restart clears this state). If persistence is added later, create and apply a migration with:
 
 ```bash
 cd backend

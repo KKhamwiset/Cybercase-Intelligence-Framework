@@ -147,8 +147,7 @@ rag_service/
             │   ├── evaluator.py
             │   ├── query_merger.py
             │   ├── chain.py
-            │   ├── agent_graph.py
-            │   └── report_generator.py
+            │   └── agent_graph.py
             └── evaluation/     # ชุดประเมินผล (RAGAS / metrics) — ไม่ใช่ runtime
                 ├── eval_runner.py
                 ├── generation_metrics.py
@@ -456,7 +455,7 @@ Embed แล้วโหลดลง **Qdrant**
 - **`retrieve_multi(queries, top_k, ...)`** — รัน `retrieve()` หลาย query (คำแปลอังกฤษ + ไทยต้นฉบับ [dual-query] + rewrites) แล้ว **merge + dedupe**:
   - vector: key ด้วย `stix_id` เก็บตัว score สูงสุด
   - graph: key ด้วย center `stix_id` เก็บตัวแรก
-  - เรียง vector ใหม่ตาม score → คืน `GraphRAGResult` เดียว *(ปัจจุบันเป็นทางเข้าหลักของทุกโหมด — agent, chain, `/generate-report`)*
+  - เรียง vector ใหม่ตาม score → คืน `GraphRAGResult` เดียว *(ปัจจุบันเป็นทางเข้าหลักของทุกโหมด — agent, chain)*
 
 ---
 
@@ -618,14 +617,9 @@ stateDiagram-v2
     translate_output --> [*]
 ```
 
-### 10.8 `report_generator.py`
+### 10.8 `report_generator.py` (Moved to Backend in Phase 2A)
 
-สร้างรายงานโครงสร้าง 7 หัวข้อ (สำหรับ endpoint `/generate-report`)
-
-- **class `CyberCaseReport`** (Pydantic) — schema รายงาน 7 ส่วน: `case_summary`, `detected_indicators`, `mitre_mapping`, `mapping_justification`, `evidence_to_investigate`, `preliminary_recommendations`, `system_limitations`
-- **class `ReportGenerator`:**
-  - **`__init__`** — สร้าง Claude LLM + `with_structured_output(CyberCaseReport)` (รับประกัน schema) + prompt template (CTI analyst, ตอบไทย, อิง context เท่านั้น)
-  - **`generate(query, context)`** — รัน chain คืน `CyberCaseReport`
+ถูกย้ายไปที่ `backend/app/services/reporting/generator.py::ReportGenerator` เพื่อแยกความรับผิดชอบ (RAG ทำแค่ค้นหาข้อมูล Backend เป็นผู้ orchestrate และสร้างรายงาน)
 
 ---
 
@@ -649,9 +643,8 @@ FastAPI service จุดเข้าออกของ RAG (port `8001`)
 | GET | `/health` | `health` | เช็กว่า chain/agent โหลดสำเร็จไหม |
 | POST | `/query` | `query_rag` | ค้นถาม — `use_agent=True`→Agent, `False`→Chain |
 | POST | `/resume` | `resume_agent` | ส่งคำตอบ follow-up กลับด้วย `session_id` |
-| POST | `/generate-report` | `generate_report` | แปลคำถาม → dual-query `retrieve_multi` → สร้าง `CyberCaseReport` 7 หัวข้อ |
 
-> Path เหล่านี้คือของ `rag_service` เอง ส่วน `/api/v1/rag/...` ใน CLAUDE.md คือ path ฝั่ง Backend ที่ proxy มา
+> Path เหล่านี้คือของ `rag_service` เอง ส่วน report endpoints (`/api/v1/rag/generate-report`, `/resume-report`) อยู่ฝั่ง Backend แล้วและไม่ได้ proxy มาที่ RAG Service
 
 **ไฟล์ประกอบอื่น:**
 - **`download_model.py`** — สคริปต์ดาวน์โหลด/แคช BGE-M3 ล่วงหน้า (รันตอน build Docker เพื่อไม่ต้องโหลดตอน runtime)
@@ -842,7 +835,7 @@ sequenceDiagram
 | 4 | **RAGAS LLM** | CLAUDE.md/Architecture.md: `llama-3.3-70b` | `config.py` จริง: `qwen/qwen-2.5-72b-instruct` |
 | 5 | **Verdict ของ evaluator** | บางที่พูดถึง `NEED_CLARIFICATION` | คงเหลือ 2 ค่า: `SUFFICIENT` / `INSUFFICIENT` (NEED_CLARIFICATION เป็น legacy ไม่ถูกคืนแล้ว) |
 | 6 | **CHROMA / E5** | — | config ยังมีโค้ด ChromaDB + E5 (legacy) ไว้ rollback แต่ไม่ถูกใช้ (ใช้ Qdrant + BGE-M3) |
-| 7 | **API paths** | CLAUDE.md: `/api/v1/rag/query` | `rag_service` จริงเปิด `/query`, `/resume`, `/generate-report`, `/health` (prefix `/api/v1` เป็นของ Backend) |
+| 7 | **API paths** | CLAUDE.md: `/api/v1/rag/query` | `rag_service` จริงเปิด `/query`, `/resume`, `/health` (prefix `/api/v1` เป็นของ Backend) |
 
 ---
 
