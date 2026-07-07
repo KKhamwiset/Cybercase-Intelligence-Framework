@@ -3,8 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from RAG import AgentResponse, ChainResponse, build_mitre_table
-from routers.context_store import store_retrieval_context
-from schemas.rag import QueryRequest, QueryResponse, ResumeRequest
+from routers.context_store import (
+    export_retrieval_context,
+    load_retrieval_context,
+    store_retrieval_context,
+)
+from schemas.rag import QueryRequest, QueryResponse, RetrievalContextSnapshot, ResumeRequest
 
 router = APIRouter(tags=["rag"])
 
@@ -29,11 +33,14 @@ async def query_rag(request: QueryRequest, req: Request):
             raise HTTPException(status_code=503, detail="RAG Agent not available")
         try:
             response: AgentResponse = rag_agent.query(request.query)
+            mitre_table = build_mitre_table(response.graphrag_result, response.answer)
             retrieval_context_id = store_retrieval_context(
                 req,
                 query=request.query,
                 context=response.context,
                 rag_result=response.graphrag_result,
+                answer=response.answer,
+                mitre_table=mitre_table,
             )
             return QueryResponse(
                 status=response.status,
@@ -41,9 +48,7 @@ async def query_rag(request: QueryRequest, req: Request):
                 followup_question=response.followup_question,
                 session_id=response.session_id,
                 retrieval_context_id=retrieval_context_id,
-                mitre_table=build_mitre_table(
-                    response.graphrag_result, response.answer
-                ),
+                mitre_table=mitre_table,
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -52,12 +57,22 @@ async def query_rag(request: QueryRequest, req: Request):
         raise HTTPException(status_code=503, detail="RAG Chain not available")
     try:
         chain_response: ChainResponse = rag_chain.query_with_details(request.query)
+        mitre_table = build_mitre_table(
+            chain_response.graphrag_result, chain_response.answer
+        )
+        retrieval_context_id = store_retrieval_context(
+            req,
+            query=request.query,
+            context=chain_response.context,
+            rag_result=chain_response.graphrag_result,
+            answer=chain_response.answer,
+            mitre_table=mitre_table,
+        )
         return QueryResponse(
             status="completed",
             answer=chain_response.answer,
-            mitre_table=build_mitre_table(
-                chain_response.graphrag_result, chain_response.answer
-            ),
+            retrieval_context_id=retrieval_context_id,
+            mitre_table=mitre_table,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -70,11 +85,14 @@ async def resume_agent(request: ResumeRequest, req: Request):
         raise HTTPException(status_code=503, detail="RAG Agent not available")
     try:
         response: AgentResponse = rag_agent.resume(request.session_id, request.answer)
+        mitre_table = build_mitre_table(response.graphrag_result, response.answer)
         retrieval_context_id = store_retrieval_context(
             req,
             query=request.answer,
             context=response.context,
             rag_result=response.graphrag_result,
+            answer=response.answer,
+            mitre_table=mitre_table,
         )
         return QueryResponse(
             status=response.status,
@@ -82,9 +100,24 @@ async def resume_agent(request: ResumeRequest, req: Request):
             followup_question=response.followup_question,
             session_id=response.session_id,
             retrieval_context_id=retrieval_context_id,
-            mitre_table=build_mitre_table(response.graphrag_result, response.answer),
+            mitre_table=mitre_table,
         )
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
+    "/retrieval-contexts/{context_id}",
+    response_model=RetrievalContextSnapshot,
+)
+async def get_retrieval_context(context_id: str, req: Request):
+    cached = load_retrieval_context(req, context_id)
+    if not cached:
+        raise HTTPException(status_code=404, detail="Retrieval context not found")
+
+    snapshot = export_retrieval_context(req, context_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="Retrieval context not found")
+    return RetrievalContextSnapshot.model_validate(snapshot)

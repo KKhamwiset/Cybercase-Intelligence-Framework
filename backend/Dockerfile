@@ -1,5 +1,5 @@
 # Production-ready Dockerfile for CyberCase Framework FastAPI Backend
-# Using root context for build
+# Using ./backend context for build
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -12,13 +12,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install
-COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt ./requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Copy backend application code
-COPY backend/app ./app
-COPY backend/alembic ./alembic
-COPY backend/alembic.ini .
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
 
 # Expose FastAPI port
 EXPOSE 8000

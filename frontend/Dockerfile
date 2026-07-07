@@ -8,7 +8,8 @@ RUN apk add --no-cache libc6-compat
 FROM base AS deps
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 
 # Development image — used by docker-compose local dev
@@ -32,7 +33,8 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 
 # Production image

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.routers import report as legacy_report_router
 from app.routers import reports as reports_router
-from app.routers.report import hash_bytes_sha256
+from app.services.report_request_helpers import hash_bytes_sha256
 from app.schemas.legacy import legacy_report_response_from_payload
 from app.schemas.rag import QueryRequest
 from app.schemas.report import (
@@ -23,7 +23,6 @@ from app.schemas.report import (
     ReportRequest,
     ReportResumeRequest,
 )
-from app.services.report_workflow import canonicalize_report_workflow_response
 
 
 def _completeness() -> CaseInformationCompleteness:
@@ -162,24 +161,18 @@ def test_canonical_completed_response_excludes_duplicated_top_level_fields() -> 
     assert dumped["report"]["case_fact_pack"]["missing_information"] == [
         "incident date/time"
     ]
+from app.schemas.report import ReportErrorResponse
 
-
-def test_completed_canonicalizer_drops_retrieval_context_id() -> None:
-    response = canonicalize_report_workflow_response(
-        {
-            "status": "completed",
-            "answer": "report complete",
-            "report_id": "report-1",
-            "retrieval_context_id": "ctx-legacy",
-            "report": _report().model_dump(mode="json"),
-        }
+def test_expired_context_returns_error_without_session_id() -> None:
+    response = ReportErrorResponse(
+        status="context_expired",
+        error_code="retrieval_context_expired",
+        message="some message"
     )
-
     dumped = response.model_dump(mode="json")
-
-    assert response.status == "completed"
-    assert "retrieval_context_id" not in dumped
-
+    assert dumped["status"] == "context_expired"
+    assert dumped["error_code"] == "retrieval_context_expired"
+    assert "session_id" not in dumped
 
 def test_followup_response_keeps_required_ui_fields() -> None:
     response = ReportFollowUpResponse(
@@ -221,13 +214,13 @@ def test_legacy_response_adapter_preserves_old_top_level_fields() -> None:
 
 
 class _FakeReportWorkflowService:
-    def __init__(self, response: ReportCompletedResponse | ReportFollowUpResponse):
+    def __init__(self, response: ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse):
         self.response = response
         self.requests: list[GenerateReportRequest] = []
 
     async def generate_report(
         self, request: GenerateReportRequest
-    ) -> ReportCompletedResponse | ReportFollowUpResponse:
+    ) -> ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse:
         self.requests.append(request)
         return self.response
 
@@ -255,53 +248,58 @@ def test_new_reports_route_uses_canonical_service_response() -> None:
     assert "retrieval_context_id" not in result.model_dump(mode="json")
 
 
-class _FakeRagClient:
-    payloads: list[dict[str, object]] = []
-
-    async def post_json(
-        self, path: str, payload: dict[str, object]
-    ) -> dict[str, object]:
-        return self.payloads.pop(0)
-
-
-def test_legacy_report_route_still_returns_compatible_adapter_shape(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    _FakeRagClient.payloads = [
-        {
-            "status": "followup",
-            "answer": "",
-            "followup_question": "Please provide the incident date/time.",
-            "session_id": "session-1",
-            "case_fact_pack": _case_fact_pack().model_dump(mode="json"),
-            "completeness": _completeness().model_dump(mode="json"),
-            "missing_information": ["incident date/time"],
-        },
-        {
-            "status": "completed",
-            "answer": "report complete",
-            "report_id": "report-1",
-            "report": _report().model_dump(mode="json"),
-        },
-    ]
-    monkeypatch.setattr(legacy_report_router, "RagServiceClient", _FakeRagClient)
-
-    started = asyncio.run(
-        legacy_report_router.generate_report(ReportRequest(query="short case"))
-    )
-    assert started.status == "followup"
-    assert started.session_id == "session-1"
-    assert started.case_fact_pack is not None
-
-    resumed = asyncio.run(
-        legacy_report_router.resume_report(
-            ReportResumeRequest(session_id="session-1", answer="2026-02-14")
+def test_legacy_report_route_still_returns_compatible_adapter_shape() -> None:
+    service = _FakeReportWorkflowService(
+        ReportCompletedResponse(
+            status="completed",
+            answer="report complete",
+            report_id="report-1",
+            report=_report(),
         )
     )
-    assert resumed.status == "completed"
-    assert resumed.report_id == "report-1"
-    assert resumed.case_fact_pack is not None
-    assert resumed.completeness is not None
+
+    started = asyncio.run(
+        legacy_report_router.generate_report(ReportRequest(query="short case"), service=service) # type: ignore[arg-type]
+    )
+    assert started.status == "completed"
+    assert started.report_id == "report-1"
+    assert started.case_fact_pack is not None
+
+
+def test_new_reports_route_returns_error_response_for_missing_context() -> None:
+    service = _FakeReportWorkflowService(
+        ReportErrorResponse(
+            status="context_expired",
+            error_code="retrieval_context_expired",
+            message="Context missing"
+        )
+    )
+    result = asyncio.run(
+        reports_router.generate_report(
+            GenerateReportRequest(query="short case"),
+            service=service,  # type: ignore[arg-type]
+        )
+    )
+    dumped = result.model_dump(mode="json")
+    assert dumped["status"] == "context_expired"
+    assert dumped["error_code"] == "retrieval_context_expired"
+    assert "session_id" not in dumped
+
+
+def test_legacy_report_route_adapts_error_response_without_session_id() -> None:
+    service = _FakeReportWorkflowService(
+        ReportErrorResponse(
+            status="context_expired",
+            error_code="retrieval_context_expired",
+            message="Context missing"
+        )
+    )
+    result = asyncio.run(
+        legacy_report_router.generate_report(ReportRequest(query="short case"), service=service) # type: ignore[arg-type]
+    )
+    assert result.status == "context_expired"
+    assert result.error_code == "retrieval_context_expired"
+    assert result.session_id == ""
 
 
 def test_schema_imports_do_not_create_circular_imports() -> None:

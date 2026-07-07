@@ -9,6 +9,7 @@ from app.schemas.report import (
     CaseInformationCompleteness,
     CyberCaseReport,
     ReportCompletedResponse,
+    ReportErrorResponse,
     ReportFollowUpResponse,
     WorkflowStatus,
 )
@@ -19,6 +20,8 @@ class LegacyReportWorkflowResponse(BaseModel):
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""
+    error_code: str = ""
+    message: str = ""
     retrieval_context_id: str = ""
     report_id: str | None = None
     report: CyberCaseReport | None = None
@@ -32,7 +35,7 @@ def legacy_report_response_from_payload(
 ) -> LegacyReportWorkflowResponse:
     if isinstance(payload, LegacyReportWorkflowResponse):
         return payload
-    if isinstance(payload, (ReportCompletedResponse, ReportFollowUpResponse)):
+    if isinstance(payload, (ReportCompletedResponse, ReportFollowUpResponse, ReportErrorResponse)):
         data = payload.model_dump(mode="json")
     else:
         data = dict(payload)
@@ -68,6 +71,8 @@ def legacy_report_response_from_payload(
         answer=data.get("answer", ""),
         followup_question=data.get("followup_question", ""),
         session_id=data.get("session_id", ""),
+        error_code=data.get("error_code", ""),
+        message=data.get("message", ""),
         retrieval_context_id=data.get("retrieval_context_id", ""),
         report_id=report_id,
         report=report,

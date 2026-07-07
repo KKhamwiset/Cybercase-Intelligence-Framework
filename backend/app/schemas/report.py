@@ -11,10 +11,11 @@ from app.schemas.common import (
     EvidenceStatus,
     ReviewStatus,
 )
+from app.schemas.rag import MitreTableRow
 
 IndicatorType = Literal["ip", "domain", "url", "email", "hash", "cve", "file", "other"]
 ReportType = Literal["overview", "subject", "timeline", "vulnerability"]
-WorkflowStatus = Literal["completed", "followup"]
+WorkflowStatus = Literal["completed", "followup", "error", "context_expired"]
 ReportSectionStatus = Literal["complete", "partial", "missing"]
 DeterministicReportStatus = Literal["draft", "incomplete", "ready_for_review"]
 GapPriority = Literal["high", "medium", "low"]
@@ -197,6 +198,15 @@ class GenerateReportRequest(BaseModel):
 ReportRequest = GenerateReportRequest
 
 
+class ReportInputSnapshot(BaseModel):
+    retrieval_context_id: str
+    query: str = ""
+    context: str
+    rag_result: dict[str, Any] = Field(default_factory=dict)
+    answer: str = ""
+    mitre_table: list[MitreTableRow] = Field(default_factory=list)
+
+
 class ReportResumeRequest(BaseModel):
     session_id: str
     answer: str
@@ -222,8 +232,14 @@ class ReportFollowUpResponse(BaseModel):
     missing_information: list[str] = Field(default_factory=list)
 
 
+class ReportErrorResponse(BaseModel):
+    status: Literal["error", "context_expired"]
+    error_code: str
+    message: str
+
+
 ReportWorkflowResponse = Annotated[
-    ReportCompletedResponse | ReportFollowUpResponse,
+    ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse,
     Field(discriminator="status"),
 ]
 
@@ -282,8 +298,10 @@ __all__ = [
     "LegalRelevanceAssessment",
     "MitreAssessment",
     "ReportCompletedResponse",
+    "ReportErrorResponse",
     "ReportFollowUpResponse",
     "ReportGap",
+    "ReportInputSnapshot",
     "ReportMetadata",
     "ReportRequest",
     "ReportResumeRequest",

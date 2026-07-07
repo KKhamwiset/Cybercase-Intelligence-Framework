@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from RAG import EvidenceReference, MitreTableRow
+from RAG import MitreTableRow
 
 
 class QueryRequest(BaseModel):
     query: str
     use_agent: bool = True
-    report_type: str = "overview"
-    legal: bool = False
-    force_generate: bool = False
-    evidence_registry: list[EvidenceReference] = Field(default_factory=list)
-    retrieval_context_id: str = ""
 
 
 class QueryResponse(BaseModel):
@@ -31,6 +26,15 @@ class QueryResponse(BaseModel):
 class ResumeRequest(BaseModel):
     session_id: str
     answer: str
+
+
+class RetrievalContextSnapshot(BaseModel):
+    retrieval_context_id: str
+    query: str = ""
+    context: str
+    rag_result: dict[str, Any] = Field(default_factory=dict)
+    answer: str = ""
+    mitre_table: list[MitreTableRow] = Field(default_factory=list)
 
 
 class ReviewStatusRequest(BaseModel):

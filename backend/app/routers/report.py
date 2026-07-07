@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 
 from app.schemas.legacy import (
     LegacyReportWorkflowResponse,
@@ -15,82 +15,25 @@ from app.schemas.report import (
 )
 from app.services.rag_client import RagServiceClient
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
+from app.dependencies import get_report_workflow_service
+from app.services.report_request_helpers import (
+    build_document_query,
+    build_upload_evidence_registry,
+    hash_upload_and_rewind,
+)
+from app.services.report_workflow import ReportWorkflowService
 
 router = APIRouter(prefix="/rag", tags=["reports"])
 
 
-def build_document_query(extracted_markdown: str, query: str | None) -> str:
-    user_query = (query or "").strip()
-    if not user_query:
-        user_query = "Analyze this document and identify the most relevant cyber threat, legal, or MITRE ATT&CK context."
-
-    return (
-        f"{user_query}\n\n"
-        "Document extracted by Typhoon OCR:\n"
-        "```markdown\n"
-        f"{extracted_markdown}\n"
-        "```"
-    )
-
-
-def hash_bytes_sha256(content: bytes) -> str:
-    return hashlib.sha256(content).hexdigest()
-
-
-async def hash_upload_and_rewind(file: UploadFile) -> str:
-    content = await file.read()
-    await file.seek(0)
-    return hash_bytes_sha256(content)
-
-
-def build_upload_evidence_registry(
-    *,
-    query: str,
-    file: UploadFile,
-    extracted_markdown: str,
-    file_hash_sha256: str,
-    page_num: str | None,
-) -> list[EvidenceReference]:
-    registry: list[EvidenceReference] = []
-    next_id = 1
-    if query.strip():
-        registry.append(
-            EvidenceReference(
-                evidence_id=f"E-{next_id:03d}",
-                source_type="user_input",
-                source_name="Submitted case text",
-                excerpt=query.strip()[:1200],
-            )
-        )
-        next_id += 1
-
-    page_number: int | None = None
-    if page_num and page_num.isdigit():
-        page_number = int(page_num)
-
-    registry.append(
-        EvidenceReference(
-            evidence_id=f"E-{next_id:03d}",
-            source_type="uploaded_file",
-            source_name=file.filename or "uploaded file",
-            excerpt=extracted_markdown[:1200],
-            page_number=page_number,
-            file_hash_sha256=file_hash_sha256,
-            content_type=file.content_type,
-            uploaded_at=datetime.now(timezone.utc).isoformat(),
-            extraction_method="typhoon_ocr",
-        )
-    )
-    return registry
-
 
 @router.post("/generate-report", response_model=LegacyReportWorkflowResponse)
-async def generate_report(request: ReportRequest):
-    payload = await RagServiceClient().post_json(
-        "/generate-report",
-        request.model_dump(mode="json"),
-    )
-    return legacy_report_response_from_payload(payload)
+async def generate_report(
+    request: ReportRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service)
+):
+    result = await service.generate_report(request)
+    return legacy_report_response_from_payload(result.model_dump(mode="json"))
 
 
 @router.post("/generate-report-file", response_model=LegacyReportWorkflowResponse)
@@ -101,6 +44,7 @@ async def generate_report_file(
     legal: bool = Form(False),
     force_generate: bool = Form(False),
     page_num: str | None = Form(None),
+    service: ReportWorkflowService = Depends(get_report_workflow_service)
 ):
     try:
         file_hash_sha256 = await hash_upload_and_rewind(file)
@@ -120,11 +64,8 @@ async def generate_report_file(
             force_generate=force_generate,
             evidence_registry=evidence_registry,
         )
-        response_payload = await RagServiceClient().post_json(
-            "/generate-report",
-            payload.model_dump(mode="json"),
-        )
-        return legacy_report_response_from_payload(response_payload)
+        result = await service.generate_report(payload)
+        return legacy_report_response_from_payload(result.model_dump(mode="json"))
     except HTTPException:
         raise
     except Exception as e:
@@ -133,27 +74,31 @@ async def generate_report_file(
 
 
 @router.post("/resume-report", response_model=LegacyReportWorkflowResponse)
-async def resume_report(request: ReportResumeRequest):
-    payload = await RagServiceClient().post_json(
-        "/resume-report",
-        request.model_dump(mode="json"),
-    )
-    return legacy_report_response_from_payload(payload)
+async def resume_report(
+    request: ReportResumeRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service)
+):
+    result = await service.resume_report(request)
+    return legacy_report_response_from_payload(result.model_dump(mode="json"))
 
 
 @router.get("/reports/{report_id}", response_model=LegacyReportWorkflowResponse)
-async def get_report(report_id: str):
-    payload = await RagServiceClient().get_json(f"/reports/{report_id}")
-    return legacy_report_response_from_payload(payload)
+async def get_report(
+    report_id: str,
+    service: ReportWorkflowService = Depends(get_report_workflow_service)
+):
+    result = await service.get_report(report_id)
+    return legacy_report_response_from_payload(result.model_dump(mode="json"))
 
 
 @router.patch(
     "/reports/{report_id}/review-status",
     response_model=LegacyReportWorkflowResponse,
 )
-async def update_report_review_status(report_id: str, request: ReviewStatusUpdate):
-    payload = await RagServiceClient().patch_json(
-        f"/reports/{report_id}/review-status",
-        request.model_dump(mode="json"),
-    )
-    return legacy_report_response_from_payload(payload)
+async def update_report_review_status(
+    report_id: str,
+    request: ReviewStatusUpdate,
+    service: ReportWorkflowService = Depends(get_report_workflow_service)
+):
+    result = await service.update_review_status(report_id, request)
+    return legacy_report_response_from_payload(result.model_dump(mode="json"))

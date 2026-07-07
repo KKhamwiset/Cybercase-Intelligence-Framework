@@ -5,6 +5,7 @@ import uuid
 from typing import Any
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 
 RETRIEVAL_CONTEXT_TTL_SECONDS = 60 * 60
 
@@ -35,6 +36,8 @@ def store_retrieval_context(
     query: str,
     context: str,
     rag_result: Any,
+    answer: str = "",
+    mitre_table: list[Any] | None = None,
 ) -> str:
     if not context or rag_result is None:
         return ""
@@ -46,6 +49,8 @@ def store_retrieval_context(
         "query": query,
         "context": context,
         "rag_result": rag_result,
+        "answer": answer,
+        "mitre_table": list(mitre_table or []),
         "created_at": now,
         "expires_at": now + RETRIEVAL_CONTEXT_TTL_SECONDS,
     }
@@ -61,3 +66,18 @@ def load_retrieval_context(req: Request, context_id: str) -> dict[str, Any] | No
     if cached:
         cached["expires_at"] = time.time() + RETRIEVAL_CONTEXT_TTL_SECONDS
     return cached
+
+
+def export_retrieval_context(req: Request, context_id: str) -> dict[str, Any] | None:
+    cached = load_retrieval_context(req, context_id)
+    if not cached:
+        return None
+
+    return {
+        "retrieval_context_id": context_id,
+        "query": cached.get("query", ""),
+        "context": cached.get("context", ""),
+        "rag_result": jsonable_encoder(cached.get("rag_result") or {}),
+        "answer": cached.get("answer", ""),
+        "mitre_table": jsonable_encoder(cached.get("mitre_table") or []),
+    }

@@ -82,5 +82,11 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
 
+    # ── Thanoy Legal AI ──────────────────────────────────────────────────
+    thanoy_enabled: bool = bool(os.getenv("THANOY_ENABLED", "false").lower() in ("true", "1", "yes"))
+    thanoy_api_key: str = os.getenv("THANOY_API_KEY", "")
+    thanoy_api_url: str = os.getenv("THANOY_API_URL", "https://api.iapp.co.th/v1/thanoy")
+    thanoy_timeout: float = 25.0
+
 
 settings = Settings()

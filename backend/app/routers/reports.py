@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from app.routers.report import (
+from app.services.report_request_helpers import (
     build_document_query,
     build_upload_evidence_registry,
     hash_upload_and_rewind,
@@ -14,14 +14,10 @@ from app.schemas.report import (
     ReviewStatusUpdate,
 )
 from app.services.report_workflow import ReportWorkflowResult, ReportWorkflowService
+from app.dependencies import get_report_workflow_service
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/reports", tags=["reports"])
-
-
-def get_report_workflow_service() -> ReportWorkflowService:
-    return ReportWorkflowService()
-
 
 @router.post("/generate", response_model=ReportWorkflowResponse)
 async def generate_report(
@@ -29,7 +25,6 @@ async def generate_report(
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResult:
     return await service.generate_report(request)
-
 
 @router.post("/generate-file", response_model=ReportWorkflowResponse)
 async def generate_report_file(

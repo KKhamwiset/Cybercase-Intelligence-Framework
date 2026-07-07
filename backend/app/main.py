@@ -26,11 +26,15 @@ async def lifespan(app: FastAPI):
         print(f"[STARTUP] Database connection failed: {e}")
         print("[STARTUP] Backend will start, but database endpoints will fail.")
 
+
+
     yield
     # Shutdown: dispose engine pool
     await engine.dispose()
     print("[SHUTDOWN] Database engine disposed.")
 
+
+from app.services.reporting.generator import ReportGenerator
 
 app = FastAPI(
     title="TSR Mitre API",
@@ -38,6 +42,10 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.state.report_store = {}
+app.state.report_sessions = {}
+app.state.report_gen = ReportGenerator()
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 # ── Routers ──────────────────────────────────────────────────────────────────

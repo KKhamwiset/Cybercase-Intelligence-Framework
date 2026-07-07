@@ -25,8 +25,12 @@ class ReportEvidenceMixin:
         )
 
         if rag_result:
-            self._add_vector_results(packet, getattr(rag_result, "vector_results", []))
-            self._add_graph_results(packet, getattr(rag_result, "graph_results", []))
+            self._add_vector_results(
+                packet, self._read_field(rag_result, "vector_results", [])
+            )
+            self._add_graph_results(
+                packet, self._read_field(rag_result, "graph_results", [])
+            )
 
         candidate_entities = self._dedupe_entities(
             packet.semantic_matches
@@ -138,33 +142,36 @@ class ReportEvidenceMixin:
     def _add_graph_results(self, packet: ReportEvidencePacket, graph_results: Any) -> None:
         for subgraph in list(graph_results)[:6]:
             center_entity = self._entity_from_graph_node(
-                getattr(subgraph, "center_node", None), "graph_center"
+                self._read_field(subgraph, "center_node", None), "graph_center"
             )
             if center_entity:
                 self._append_entity(packet.graph_entities, center_entity)
 
-            for neighbor in getattr(subgraph, "neighbors", [])[:20]:
+            for neighbor in self._read_field(subgraph, "neighbors", [])[:20]:
                 neighbor_entity = self._entity_from_graph_node(neighbor, "graph_neighbor")
                 if neighbor_entity:
                     self._append_entity(packet.graph_entities, neighbor_entity)
 
-            for edge in getattr(subgraph, "edges", [])[:30]:
+            for edge in self._read_field(subgraph, "edges", [])[:30]:
                 relationship = ReportRelationship(
-                    source=getattr(edge, "source_name", "") or "Unknown",
-                    relationship=getattr(edge, "edge_label", "") or "RELATED_TO",
-                    target=getattr(edge, "target_name", "") or "Unknown",
-                    description=self._shorten(getattr(edge, "description", ""), 240),
+                    source=self._read_field(edge, "source_name", "") or "Unknown",
+                    relationship=self._read_field(edge, "edge_label", "")
+                    or "RELATED_TO",
+                    target=self._read_field(edge, "target_name", "") or "Unknown",
+                    description=self._shorten(
+                        self._read_field(edge, "description", ""), 240
+                    ),
                 )
                 self._append_relationship(packet.relationships, relationship)
 
     def _entity_from_vector_result(self, vector_result: Any) -> ReportEntity | None:
-        metadata = getattr(vector_result, "metadata", {}) or {}
+        metadata = self._read_field(vector_result, "metadata", {}) or {}
         if metadata.get("entity_type") == "Relationship":
             return None
         name = metadata.get("name") or metadata.get("node_label") or ""
         if not name:
             return None
-        relevance = getattr(vector_result, "score", None)
+        relevance = self._read_field(vector_result, "score", None)
         try:
             relevance = float(relevance) if relevance is not None else None
         except (TypeError, ValueError):
@@ -173,8 +180,11 @@ class ReportEvidenceMixin:
             name=name,
             kind=metadata.get("node_label") or metadata.get("entity_type") or "Unknown",
             attack_id=metadata.get("attack_id") or "",
-            stix_id=getattr(vector_result, "stix_id", "") or metadata.get("stix_id", ""),
-            description=self._shorten(getattr(vector_result, "document", ""), 500),
+            stix_id=self._read_field(vector_result, "stix_id", "")
+            or metadata.get("stix_id", ""),
+            description=self._shorten(
+                self._read_field(vector_result, "document", ""), 500
+            ),
             relevance=relevance,
             source="semantic_search",
         )
@@ -182,7 +192,7 @@ class ReportEvidenceMixin:
     def _relationship_from_vector_result(
         self, vector_result: Any
     ) -> ReportRelationship | None:
-        metadata = getattr(vector_result, "metadata", {}) or {}
+        metadata = self._read_field(vector_result, "metadata", {}) or {}
         if metadata.get("entity_type") != "Relationship":
             return None
         source = metadata.get("source_name") or ""
@@ -195,7 +205,9 @@ class ReportEvidenceMixin:
             or metadata.get("relationship_type")
             or "RELATED_TO",
             target=target,
-            description=self._shorten(getattr(vector_result, "document", ""), 240),
+            description=self._shorten(
+                self._read_field(vector_result, "document", ""), 240
+            ),
         )
 
     def _entity_from_graph_node(
@@ -203,15 +215,17 @@ class ReportEvidenceMixin:
     ) -> ReportEntity | None:
         if not graph_node:
             return None
-        name = getattr(graph_node, "name", "") or ""
+        name = self._read_field(graph_node, "name", "") or ""
         if not name:
             return None
         return ReportEntity(
             name=name,
-            kind=getattr(graph_node, "label", "") or "Unknown",
-            attack_id=getattr(graph_node, "attack_id", "") or "",
-            stix_id=getattr(graph_node, "stix_id", "") or "",
-            description=self._shorten(getattr(graph_node, "description", ""), 500),
+            kind=self._read_field(graph_node, "label", "") or "Unknown",
+            attack_id=self._read_field(graph_node, "attack_id", "") or "",
+            stix_id=self._read_field(graph_node, "stix_id", "") or "",
+            description=self._shorten(
+                self._read_field(graph_node, "description", ""), 500
+            ),
             source=source,
         )
 
@@ -246,3 +260,9 @@ class ReportEvidenceMixin:
         for entity in entities:
             self._append_entity(deduped, entity)
         return deduped
+
+    @staticmethod
+    def _read_field(value: Any, field: str, default: Any = None) -> Any:
+        if isinstance(value, dict):
+            return value.get(field, default)
+        return getattr(value, field, default)

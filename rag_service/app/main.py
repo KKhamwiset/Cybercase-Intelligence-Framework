@@ -8,17 +8,14 @@ from fastapi import FastAPI
 # Add the current directory to sys.path so we can import RAG.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from RAG import GraphRAGAgent, GraphRAGChain, ReportGenerator  # noqa: E402
+from RAG import GraphRAGAgent, GraphRAGChain  # noqa: E402
 from routers.rag import router as rag_router  # noqa: E402
-from routers.report import router as report_router  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
     print("[RAG Service] Initializing RAG modules...")
-    app.state.report_store = {}
-    app.state.report_sessions = {}
     app.state.retrieval_contexts = {}
     use_local = False
 
@@ -35,7 +32,6 @@ async def lifespan(app: FastAPI):
         )
         app.state.rag_chain = GraphRAGChain(embed_model=embed_model, use_local=use_local)
         app.state.rag_agent = GraphRAGAgent(embed_model=embed_model, use_local=use_local)
-        app.state.report_gen = ReportGenerator(use_local=use_local)
         print("[RAG Service] RAG modules initialized successfully.")
     except Exception as e:
         print(f"[RAG Service] Error initializing RAG modules: {e}")
@@ -44,7 +40,6 @@ async def lifespan(app: FastAPI):
         traceback.print_exc()
         app.state.rag_chain = None
         app.state.rag_agent = None
-        app.state.report_gen = ReportGenerator(use_local=use_local)
 
     yield
 
@@ -57,7 +52,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Cybercase RAG Service", lifespan=lifespan)
 app.include_router(rag_router)
-app.include_router(report_router)
 
 
 if __name__ == "__main__":
