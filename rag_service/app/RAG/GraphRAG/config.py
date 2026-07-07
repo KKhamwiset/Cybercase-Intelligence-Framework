@@ -159,6 +159,14 @@ ATTACK_DOMAIN_FILTER = os.getenv("ATTACK_DOMAIN_FILTER", "enterprise").strip() o
 # (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
+# MITRE mapping table sent to the backend: vector hits below this rerank score
+# (sigmoid [0,1] × type weight) are dropped unless the answer cites them.
+# Calibrated against live Qdrant data (2026-07-03): the cross-encoder saturates
+# at sigmoid≈0.500 for no-signal pairs, so after the ×1.2 Technique weight the
+# noise floor sits at 0.600 — irrelevant techniques score 0.600-0.607, genuinely
+# relevant ones 0.65-0.87. 0.62 cuts the floor while keeping real signal.
+MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.62"))
+
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — mmarco reranker (kept for reference / rollback)
 # ──────────────────────────────────────────────────────────────────────────────

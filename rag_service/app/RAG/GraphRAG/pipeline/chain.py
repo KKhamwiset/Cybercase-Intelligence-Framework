@@ -14,6 +14,7 @@ Each stage is a distinct LLM call with its own system prompt, ensuring clear
 separation of concerns between jargon simplification and language translation.
 """
 
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from FlagEmbedding import BGEM3FlagModel
@@ -48,6 +49,15 @@ def _print_sources(graphrag_result: GraphRAGResult, top_n: int = 5) -> None:
         print(
             f"  [{i}] {entity_type}: {name} {f'({attack_id})' if attack_id else ''} — score: {vr.score:.3f}"
         )
+
+
+@dataclass
+class ChainResponse:
+    """Answer plus the retrieval artifacts behind it (for the MITRE table)."""
+
+    answer: str
+    context: str = ""
+    graphrag_result: Optional[GraphRAGResult] = None
 
 
 class GraphRAGChain:
@@ -126,6 +136,21 @@ class GraphRAGChain:
         verbose: bool = True,
         followup_callback: Any = None,  # For interface compatibility
     ) -> str:
+        """Execute the full GraphRAG pipeline and return the answer text.
+
+        Thin wrapper over ``query_with_details`` for callers (CLI, eval) that
+        only need the answer string.
+        """
+        return self.query_with_details(
+            user_query, verbose=verbose, followup_callback=followup_callback
+        ).answer
+
+    def query_with_details(
+        self,
+        user_query: str,
+        verbose: bool = True,
+        followup_callback: Any = None,  # For interface compatibility
+    ) -> ChainResponse:
         """Execute the full GraphRAG pipeline.
 
         Pipeline:
@@ -139,7 +164,9 @@ class GraphRAGChain:
             verbose: Print intermediate steps.
 
         Returns:
-            Simplified English answer (English queries) or Thai answer (Thai queries).
+            ``ChainResponse`` with the answer (simplified English for English
+            queries, Thai otherwise) plus the retrieval context/result behind
+            it (empty for the general-explanation route, which skips retrieval).
         """
         if verbose:
             sep("QUERY")
@@ -152,7 +179,9 @@ class GraphRAGChain:
 
         if route == "GENERAL_EXPLANATION":
             if not self.reasoning_llm:
-                return "Cannot answer general explanation without an LLM."
+                return ChainResponse(
+                    answer="Cannot answer general explanation without an LLM."
+                )
 
             system_prompt = "You are a cybersecurity expert. Provide a clear, concise, and accurate explanation for the user's query."
             if CrossLingualLayer.should_respond_in_thai(user_query):
@@ -174,7 +203,7 @@ class GraphRAGChain:
                 print(answer)
                 sep()
 
-            return answer
+            return ChainResponse(answer=answer)
 
         # ── Step 1: Detect language & translate query ──────────────────────
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
@@ -200,7 +229,9 @@ class GraphRAGChain:
             # No LLM configured → return raw context
             if verbose:
                 sep("RAW CONTEXT (No LLM)")
-            return context
+            return ChainResponse(
+                answer=context, context=context, graphrag_result=graphrag_result
+            )
 
         reasoning_user_prompt = build_generation_prompt(
             context=context,
@@ -232,10 +263,18 @@ class GraphRAGChain:
                 print(simplified_english)
                 _print_sources(graphrag_result)
                 sep()
-            return simplified_english
+            return ChainResponse(
+                answer=simplified_english,
+                context=context,
+                graphrag_result=graphrag_result,
+            )
 
         if not self.translation_llm:
-            return simplified_english
+            return ChainResponse(
+                answer=simplified_english,
+                context=context,
+                graphrag_result=graphrag_result,
+            )
 
         if verbose:
             sep("STAGE 3 — TRANSLATION LLM (English → Thai)")
@@ -256,7 +295,9 @@ class GraphRAGChain:
             _print_sources(graphrag_result)
             sep()
 
-        return thai_answer
+        return ChainResponse(
+            answer=thai_answer, context=context, graphrag_result=graphrag_result
+        )
 
     def retrieve_only(self, user_query: str) -> str:
         """Run retrieval without LLM generation (for testing/debugging).

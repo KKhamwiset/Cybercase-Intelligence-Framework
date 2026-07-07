@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-from RAG import AgentResponse
+from RAG import AgentResponse, ChainResponse, build_mitre_table
 from routers.context_store import store_retrieval_context
 from schemas.rag import QueryRequest, QueryResponse, ResumeRequest
 
@@ -41,6 +41,9 @@ async def query_rag(request: QueryRequest, req: Request):
                 followup_question=response.followup_question,
                 session_id=response.session_id,
                 retrieval_context_id=retrieval_context_id,
+                mitre_table=build_mitre_table(
+                    response.graphrag_result, response.answer
+                ),
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
@@ -48,8 +51,14 @@ async def query_rag(request: QueryRequest, req: Request):
     if not rag_chain:
         raise HTTPException(status_code=503, detail="RAG Chain not available")
     try:
-        answer = rag_chain.query(request.query)
-        return QueryResponse(status="completed", answer=answer)
+        chain_response: ChainResponse = rag_chain.query_with_details(request.query)
+        return QueryResponse(
+            status="completed",
+            answer=chain_response.answer,
+            mitre_table=build_mitre_table(
+                chain_response.graphrag_result, chain_response.answer
+            ),
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -73,6 +82,7 @@ async def resume_agent(request: ResumeRequest, req: Request):
             followup_question=response.followup_question,
             session_id=response.session_id,
             retrieval_context_id=retrieval_context_id,
+            mitre_table=build_mitre_table(response.graphrag_result, response.answer),
         )
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))

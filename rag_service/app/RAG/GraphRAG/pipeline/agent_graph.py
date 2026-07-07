@@ -321,7 +321,12 @@ class GraphRAGAgent:
             print(answer)
             sep()
 
-        return AgentResponse(status="completed", answer=answer)
+        return AgentResponse(
+            status="completed",
+            answer=answer,
+            context=context,
+            graphrag_result=graphrag_result,
+        )
 
     def _get_ultrafast_llm(self):
         """Lazily build (and cache) a low-output-token LLM for ultrafast mode."""
@@ -392,7 +397,12 @@ class GraphRAGAgent:
             print(answer)
             sep()
 
-        return AgentResponse(status="completed", answer=answer)
+        return AgentResponse(
+            status="completed",
+            answer=answer,
+            context=context,
+            graphrag_result=rag_result,
+        )
 
     def query(
         self,
