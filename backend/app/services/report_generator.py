@@ -3,13 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from app.schemas.cases import StructuredCase
 from app.schemas.report import (
     ReportGap,
     ReportMetadata,
     ReportSection,
     ReportSectionStatus,
     ReportViewModel,
-    StructuredCase,
 )
 from app.services.report_rules import (
     count_statuses,

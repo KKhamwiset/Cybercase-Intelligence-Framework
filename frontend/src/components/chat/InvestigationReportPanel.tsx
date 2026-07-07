@@ -19,10 +19,22 @@ export const REPORT_TYPES: { value: ReportType; label: string }[] = [
 export function reportCompleteness(
   reportWorkflow: ReportWorkflowResponse | null,
 ): CaseInformationCompleteness | null {
+  const report =
+    reportWorkflow?.status === "completed" ? (reportWorkflow.report ?? null) : null;
+  if (report) {
+    return (
+      report.case_information_completeness ??
+      report.case_fact_pack?.completeness ??
+      null
+    );
+  }
+
+  if (!reportWorkflow || reportWorkflow.status !== "followup") {
+    return null;
+  }
+
   return (
-    reportWorkflow?.completeness ??
-    reportWorkflow?.report?.case_information_completeness ??
-    null
+    reportWorkflow.completeness
   );
 }
 
@@ -255,7 +267,8 @@ export default function InvestigationReportPanel({
   onReportFollowupAnswerChange,
   onResumeReport,
 }: InvestigationReportPanelProps) {
-  const report = reportWorkflow?.report ?? null;
+  const report =
+    reportWorkflow?.status === "completed" ? (reportWorkflow.report ?? null) : null;
   const completeness = reportCompleteness(reportWorkflow);
 
   if (!isOpen) {

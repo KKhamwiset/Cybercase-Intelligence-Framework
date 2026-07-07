@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.routers.cases import get_case_report
-from app.schemas.report import StructuredCase
+from app.schemas.cases import StructuredCase
 from app.services.report_generator import DeterministicReportGenerator
 
 

@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Iterable
 
-from app.schemas.report import (
+from app.schemas.cases import (
     CaseAttackMapping,
     CaseMetadata,
     FindingStatus,
-    ReportGap,
     StructuredCase,
 )
+from app.schemas.report import ReportGap
 
 
 def normalize_case_for_reporting(case: StructuredCase) -> StructuredCase:

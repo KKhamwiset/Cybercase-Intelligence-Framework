@@ -1,15 +1,29 @@
+import asyncio
+import importlib
+
 import pytest
 from pydantic import ValidationError
 
+from app.routers import report as legacy_report_router
+from app.routers import reports as reports_router
 from app.routers.report import hash_bytes_sha256
-from app.schemas.rag import (
+from app.schemas.legacy import legacy_report_response_from_payload
+from app.schemas.rag import QueryRequest
+from app.schemas.report import (
     CaseFact,
     CaseFactPack,
     CaseInformationCompleteness,
     CompletenessField,
+    CyberCaseReport,
     EvidenceReference,
+    GenerateReportRequest,
     LegalRelevanceAssessment,
+    ReportCompletedResponse,
+    ReportFollowUpResponse,
+    ReportRequest,
+    ReportResumeRequest,
 )
+from app.services.report_workflow import canonicalize_report_workflow_response
 
 
 def _completeness() -> CaseInformationCompleteness:
@@ -28,11 +42,62 @@ def _completeness() -> CaseInformationCompleteness:
     )
 
 
+def _case_fact_pack() -> CaseFactPack:
+    return CaseFactPack(
+        facts=[],
+        evidence_registry=[
+            EvidenceReference(
+                evidence_id="E-001",
+                source_type="user_input",
+                source_name="Case text",
+            )
+        ],
+        indicators=[],
+        timeline=[],
+        mitre_assessments=[],
+        legal_assessments=[],
+        missing_information=["incident date/time"],
+        limitations=[],
+        completeness_percentage=20,
+        completeness=_completeness(),
+        review_status="draft",
+    )
+
+
+def _report() -> CyberCaseReport:
+    case_fact_pack = _case_fact_pack()
+    return CyberCaseReport(
+        report_id="report-1",
+        title="Preliminary report",
+        report_type="overview",
+        executive_case_summary="Preliminary case summary.",
+        case_information_completeness=case_fact_pack.completeness,
+        evidence_and_indicators_table=[],
+        incident_timeline=[],
+        mitre_attack_assessment=[],
+        evidence_still_required=case_fact_pack.missing_information,
+        investigation_next_steps=["Collect incident date/time."],
+        legal_assessments=[],
+        limitations_and_disclaimers=[],
+        review_status="draft",
+        case_fact_pack=case_fact_pack,
+        created_at="2026-07-08T00:00:00Z",
+    )
+
+
 def test_sha256_evidence_hashing() -> None:
     assert (
         hash_bytes_sha256(b"cybercase")
         == "e14b05e9e196e050aa4e32c66228bd91b2d9e9983550b2b0466fcc98228e6615"
     )
+
+
+def test_rag_query_request_has_no_report_only_fields() -> None:
+    request = QueryRequest(query="short case")
+
+    assert request.model_dump() == {"query": "short case", "use_agent": True}
+    with pytest.raises(ValidationError):
+        QueryRequest(query="short case", report_type="overview")
 
 
 def test_case_fact_pack_rejects_unknown_evidence_ids() -> None:
@@ -79,63 +144,175 @@ def test_legal_assessment_requires_disclaimer() -> None:
         )
 
 
-import asyncio
+def test_canonical_completed_response_excludes_duplicated_top_level_fields() -> None:
+    response = ReportCompletedResponse(
+        status="completed",
+        answer="report complete",
+        report_id="report-1",
+        report=_report(),
+    )
 
-from app.routers import report as report_router
-from app.schemas.rag import QueryRequest, ResumeRequest
+    dumped = response.model_dump(mode="json")
+
+    assert dumped["status"] == "completed"
+    assert "case_fact_pack" not in dumped
+    assert "completeness" not in dumped
+    assert "missing_information" not in dumped
+    assert "retrieval_context_id" not in dumped
+    assert dumped["report"]["case_fact_pack"]["missing_information"] == [
+        "incident date/time"
+    ]
 
 
-class _FakeResponse:
-    def __init__(self, payload: dict[str, object]) -> None:
-        self._payload = payload
+def test_completed_canonicalizer_drops_retrieval_context_id() -> None:
+    response = canonicalize_report_workflow_response(
+        {
+            "status": "completed",
+            "answer": "report complete",
+            "report_id": "report-1",
+            "retrieval_context_id": "ctx-legacy",
+            "report": _report().model_dump(mode="json"),
+        }
+    )
 
-    def raise_for_status(self) -> None:
-        return None
+    dumped = response.model_dump(mode="json")
 
-    def json(self) -> dict[str, object]:
-        return self._payload
+    assert response.status == "completed"
+    assert "retrieval_context_id" not in dumped
 
 
-class _FakeAsyncClient:
+def test_followup_response_keeps_required_ui_fields() -> None:
+    response = ReportFollowUpResponse(
+        status="followup",
+        followup_question="Please provide the incident date/time.",
+        session_id="session-1",
+        retrieval_context_id="ctx-1",
+        completeness=_completeness(),
+        missing_information=["incident date/time"],
+    )
+
+    dumped = response.model_dump(mode="json")
+
+    assert dumped["status"] == "followup"
+    assert dumped["followup_question"] == "Please provide the incident date/time."
+    assert dumped["session_id"] == "session-1"
+    assert dumped["completeness"]["percentage"] == 20
+    assert dumped["missing_information"] == ["incident date/time"]
+    assert "case_fact_pack" not in dumped
+    assert "answer" not in dumped
+
+
+def test_legacy_response_adapter_preserves_old_top_level_fields() -> None:
+    legacy = legacy_report_response_from_payload(
+        ReportCompletedResponse(
+            status="completed",
+            answer="report complete",
+            report_id="report-1",
+            report=_report(),
+        )
+    )
+
+    assert legacy.status == "completed"
+    assert legacy.report_id == "report-1"
+    assert legacy.report is not None
+    assert legacy.case_fact_pack is not None
+    assert legacy.completeness is not None
+    assert legacy.missing_information == ["incident date/time"]
+
+
+class _FakeReportWorkflowService:
+    def __init__(self, response: ReportCompletedResponse | ReportFollowUpResponse):
+        self.response = response
+        self.requests: list[GenerateReportRequest] = []
+
+    async def generate_report(
+        self, request: GenerateReportRequest
+    ) -> ReportCompletedResponse | ReportFollowUpResponse:
+        self.requests.append(request)
+        return self.response
+
+
+def test_new_reports_route_uses_canonical_service_response() -> None:
+    service = _FakeReportWorkflowService(
+        ReportCompletedResponse(
+            status="completed",
+            answer="report complete",
+            report_id="report-1",
+            report=_report(),
+        )
+    )
+
+    result = asyncio.run(
+        reports_router.generate_report(
+            GenerateReportRequest(query="short case"),
+            service=service,  # type: ignore[arg-type]
+        )
+    )
+
+    assert result.status == "completed"
+    assert service.requests[0].query == "short case"
+    assert "case_fact_pack" not in result.model_dump(mode="json")
+    assert "retrieval_context_id" not in result.model_dump(mode="json")
+
+
+class _FakeRagClient:
     payloads: list[dict[str, object]] = []
 
-    def __init__(self, timeout: float) -> None:
-        self.timeout = timeout
-
-    async def __aenter__(self) -> "_FakeAsyncClient":
-        return self
-
-    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
-        return None
-
-    async def post(self, url: str, json: dict[str, object]) -> _FakeResponse:
-        return _FakeResponse(self.payloads.pop(0))
+    async def post_json(
+        self, path: str, payload: dict[str, object]
+    ) -> dict[str, object]:
+        return self.payloads.pop(0)
 
 
-def test_report_followup_and_resume_flow_use_typed_responses(monkeypatch: pytest.MonkeyPatch) -> None:
-    _FakeAsyncClient.payloads = [
+def test_legacy_report_route_still_returns_compatible_adapter_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _FakeRagClient.payloads = [
         {
             "status": "followup",
             "answer": "",
             "followup_question": "Please provide the incident date/time.",
             "session_id": "session-1",
+            "case_fact_pack": _case_fact_pack().model_dump(mode="json"),
+            "completeness": _completeness().model_dump(mode="json"),
             "missing_information": ["incident date/time"],
         },
         {
             "status": "completed",
             "answer": "report complete",
             "report_id": "report-1",
-            "missing_information": [],
+            "report": _report().model_dump(mode="json"),
         },
     ]
-    monkeypatch.setattr(report_router.httpx, "AsyncClient", _FakeAsyncClient)
+    monkeypatch.setattr(legacy_report_router, "RagServiceClient", _FakeRagClient)
 
-    started = asyncio.run(report_router.generate_report(QueryRequest(query="short case")))
+    started = asyncio.run(
+        legacy_report_router.generate_report(ReportRequest(query="short case"))
+    )
     assert started.status == "followup"
     assert started.session_id == "session-1"
+    assert started.case_fact_pack is not None
 
     resumed = asyncio.run(
-        report_router.resume_report(ResumeRequest(session_id="session-1", answer="2026-02-14"))
+        legacy_report_router.resume_report(
+            ReportResumeRequest(session_id="session-1", answer="2026-02-14")
+        )
     )
     assert resumed.status == "completed"
     assert resumed.report_id == "report-1"
+    assert resumed.case_fact_pack is not None
+    assert resumed.completeness is not None
+
+
+def test_schema_imports_do_not_create_circular_imports() -> None:
+    for module_name in [
+        "app.schemas.common",
+        "app.schemas.cases",
+        "app.schemas.rag",
+        "app.schemas.report",
+        "app.schemas.legacy",
+        "app.routers.rag",
+        "app.routers.report",
+        "app.routers.reports",
+    ]:
+        assert importlib.import_module(module_name)

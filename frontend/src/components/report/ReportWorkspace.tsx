@@ -332,13 +332,16 @@ export default function ReportWorkspace() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState("");
 
-  const report = workflow?.report ?? null;
+  const report =
+    workflow?.status === "completed" ? (workflow.report ?? null) : null;
 
-  const completeness =
-    workflow?.completeness ??
-    report?.case_information_completeness ??
-    report?.case_fact_pack?.completeness ??
-    null;
+  const completeness = report
+    ? (report.case_information_completeness ??
+      report.case_fact_pack?.completeness ??
+      null)
+    : workflow?.status === "followup"
+      ? workflow.completeness
+      : null;
 
   const canSubmit = useMemo(
     () => (query.trim().length > 0 || file !== null) && !isGenerating,
@@ -381,7 +384,11 @@ export default function ReportWorkspace() {
   }
 
   async function handleResume() {
-    if (!workflow?.session_id || !followupAnswer.trim()) {
+    if (
+      workflow?.status !== "followup" ||
+      !workflow.session_id ||
+      !followupAnswer.trim()
+    ) {
       return;
     }
 

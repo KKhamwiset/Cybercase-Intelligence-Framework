@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.routers.cases import create_case, get_case, update_case
-from app.schemas.report import CaseCreate, CaseUpdate
+from app.schemas.cases import CaseCreate, CaseUpdate
 
 
 class _FakeDb:

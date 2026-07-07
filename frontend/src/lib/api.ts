@@ -174,27 +174,27 @@ export interface CyberCaseReport {
   review_status: ReviewStatus;
   case_fact_pack: CaseFactPack;
   created_at: string;
-  case_summary?: string;
-  detected_indicators?: string[];
-  mitre_mapping?: string[];
-  mapping_justification?: string;
-  evidence_to_investigate?: string[];
-  preliminary_recommendations?: string[];
-  system_limitations?: string;
 }
 
-export interface ReportWorkflowResponse {
-  status: "completed" | "followup";
+export interface ReportCompletedResponse {
+  status: "completed";
+  report_id: string;
+  report: CyberCaseReport;
   answer: string;
-  followup_question?: string;
-  session_id?: string;
+}
+
+export interface ReportFollowUpResponse {
+  status: "followup";
+  session_id: string;
+  followup_question: string;
   retrieval_context_id?: string;
-  report_id?: string | null;
-  report?: CyberCaseReport | null;
-  case_fact_pack?: CaseFactPack | null;
-  completeness?: CaseInformationCompleteness | null;
+  completeness: CaseInformationCompleteness;
   missing_information: string[];
 }
+
+export type ReportWorkflowResponse =
+  | ReportCompletedResponse
+  | ReportFollowUpResponse;
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -237,10 +237,9 @@ export const generateReport = async (
   const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/rag/generate-report",
+      baseUrl + "/reports/generate",
       {
         query,
-        use_agent: true,
         report_type: reportType,
         legal,
         force_generate: forceGenerate,
@@ -277,7 +276,7 @@ export const generateReportFile = async (
 
   try {
     const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/rag/generate-report-file",
+      baseUrl + "/reports/generate-file",
       formData,
     );
 
@@ -295,7 +294,7 @@ export const resumeReport = async (
   const baseUrl = getApiBaseUrl();
   try {
     const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/rag/resume-report",
+      baseUrl + "/reports/resume",
       {
         session_id: sessionId,
         answer,
@@ -317,7 +316,7 @@ export const resumeReport = async (
 export const getReport = async (reportId: string): Promise<ReportWorkflowResponse> => {
   const baseUrl = getApiBaseUrl();
   const response = await axios.get<ReportWorkflowResponse>(
-    baseUrl + "/rag/reports/" + reportId,
+    baseUrl + "/reports/" + reportId,
   );
   return response.data;
 };
@@ -328,7 +327,7 @@ export const updateReportReviewStatus = async (
 ): Promise<ReportWorkflowResponse> => {
   const baseUrl = getApiBaseUrl();
   const response = await axios.patch<ReportWorkflowResponse>(
-    baseUrl + "/rag/reports/" + reportId + "/review-status",
+    baseUrl + "/reports/" + reportId + "/review-status",
     {
       review_status: reviewStatus,
     },

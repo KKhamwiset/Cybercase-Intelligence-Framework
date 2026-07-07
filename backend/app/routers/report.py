@@ -1,17 +1,19 @@
 import hashlib
 from datetime import datetime, timezone
 
-import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.config import settings
+from app.schemas.legacy import (
+    LegacyReportWorkflowResponse,
+    legacy_report_response_from_payload,
+)
 from app.schemas.report import (
     EvidenceReference,
     ReportRequest,
     ReportResumeRequest,
-    ReportWorkflowResponse,
     ReviewStatusUpdate,
 )
+from app.services.rag_client import RagServiceClient
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/rag", tags=["reports"])
@@ -82,27 +84,16 @@ def build_upload_evidence_registry(
     return registry
 
 
-@router.post("/generate-report", response_model=ReportWorkflowResponse)
+@router.post("/generate-report", response_model=LegacyReportWorkflowResponse)
 async def generate_report(request: ReportRequest):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.post(
-                f"{settings.rag_service_url}/generate-report",
-                json=request.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return ReportWorkflowResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error generating report: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().post_json(
+        "/generate-report",
+        request.model_dump(mode="json"),
+    )
+    return legacy_report_response_from_payload(payload)
 
 
-@router.post("/generate-report-file", response_model=ReportWorkflowResponse)
+@router.post("/generate-report-file", response_model=LegacyReportWorkflowResponse)
 async def generate_report_file(
     file: UploadFile = File(...),
     query: str = Form(""),
@@ -124,82 +115,45 @@ async def generate_report_file(
         )
         payload = ReportRequest(
             query=document_query,
-            use_agent=True,
             report_type=report_type,  # type: ignore[arg-type]
             legal=legal,
             force_generate=force_generate,
             evidence_registry=evidence_registry,
         )
-
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{settings.rag_service_url}/generate-report",
-                json=payload.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return ReportWorkflowResponse(**response.json())
+        response_payload = await RagServiceClient().post_json(
+            "/generate-report",
+            payload.model_dump(mode="json"),
+        )
+        return legacy_report_response_from_payload(response_payload)
     except HTTPException:
         raise
-    except httpx.HTTPStatusError as e:
-        print(f"[RAG] Service error: {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
     except Exception as e:
         print(f"[RAG] Error generating OCR report: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/resume-report", response_model=ReportWorkflowResponse)
+@router.post("/resume-report", response_model=LegacyReportWorkflowResponse)
 async def resume_report(request: ReportResumeRequest):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.post(
-                f"{settings.rag_service_url}/resume-report",
-                json=request.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return ReportWorkflowResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error resuming report: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().post_json(
+        "/resume-report",
+        request.model_dump(mode="json"),
+    )
+    return legacy_report_response_from_payload(payload)
 
 
-@router.get("/reports/{report_id}", response_model=ReportWorkflowResponse)
+@router.get("/reports/{report_id}", response_model=LegacyReportWorkflowResponse)
 async def get_report(report_id: str):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.get(f"{settings.rag_service_url}/reports/{report_id}")
-            response.raise_for_status()
-            return ReportWorkflowResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error retrieving report: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().get_json(f"/reports/{report_id}")
+    return legacy_report_response_from_payload(payload)
 
 
-@router.patch("/reports/{report_id}/review-status", response_model=ReportWorkflowResponse)
+@router.patch(
+    "/reports/{report_id}/review-status",
+    response_model=LegacyReportWorkflowResponse,
+)
 async def update_report_review_status(report_id: str, request: ReviewStatusUpdate):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.patch(
-                f"{settings.rag_service_url}/reports/{report_id}/review-status",
-                json=request.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return ReportWorkflowResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error updating report review status: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().patch_json(
+        f"/reports/{report_id}/review-status",
+        request.model_dump(mode="json"),
+    )
+    return legacy_report_response_from_payload(payload)

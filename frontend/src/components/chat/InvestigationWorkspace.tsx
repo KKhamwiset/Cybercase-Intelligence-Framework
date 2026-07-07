@@ -438,7 +438,8 @@ export default function InvestigationWorkspace({
 
   const handleResumeReport = async () => {
     if (
-      !reportWorkflow?.session_id ||
+      reportWorkflow?.status !== "followup" ||
+      !reportWorkflow.session_id ||
       !reportFollowupAnswer.trim() ||
       isReportLoading
     ) {

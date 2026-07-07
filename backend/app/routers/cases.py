@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.case import CaseRecord
-from app.schemas.report import CaseCreate, CaseListItem, CaseUpdate, ReportViewModel, StructuredCase
+from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
+from app.schemas.report import ReportViewModel
 from app.services.case_outputs import apply_case_intake_outputs
 from app.services.report_generator import (
     DeterministicReportGenerator,

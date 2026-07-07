@@ -67,25 +67,6 @@ class ReportBuilderMixin:
             review_status=review_status,
             case_fact_pack=case_fact_pack,
             created_at=datetime.now(timezone.utc).isoformat(),
-            case_summary=executive_summary,
-            detected_indicators=[
-                f"{indicator.indicator_type.upper()}: {indicator.value} "
-                f"{self._format_evidence_citations(indicator.evidence_ids)}"
-                for indicator in case_fact_pack.indicators
-            ],
-            mitre_mapping=[
-                f"{assessment.technique_id} {assessment.technique_name} "
-                f"{self._format_evidence_citations(assessment.evidence_ids)}"
-                for assessment in case_fact_pack.mitre_assessments
-            ],
-            mapping_justification="; ".join(
-                assessment.justification
-                for assessment in case_fact_pack.mitre_assessments
-            )
-            or "No MITRE ATT&CK technique is sufficiently supported by retrieved MITRE data.",
-            evidence_to_investigate=required,
-            preliminary_recommendations=next_steps,
-            system_limitations=" ".join(limitations),
         )
         return report
 

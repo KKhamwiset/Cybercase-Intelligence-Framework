@@ -9,6 +9,7 @@ import {
   resumeRag,
   resumeReport,
 } from "@/lib/api";
+import type { CyberCaseReport } from "@/lib/api";
 
 vi.mock("@/lib/api", () => ({
   chatContinue: vi.fn(),
@@ -24,6 +25,45 @@ function submitChatInput(value: string) {
   );
   fireEvent.change(input, { target: { value } });
   fireEvent.submit(input.closest("form") as HTMLFormElement);
+}
+
+function makeReport(): CyberCaseReport {
+  const completeness = {
+    percentage: 100,
+    status: "Sufficient for preliminary report" as const,
+    missing_fields: [],
+    fields: [],
+  };
+
+  return {
+    report_id: "report-1",
+    title: "Preliminary report",
+    report_type: "overview",
+    executive_case_summary: "Report generated",
+    case_information_completeness: completeness,
+    evidence_and_indicators_table: [],
+    incident_timeline: [],
+    mitre_attack_assessment: [],
+    evidence_still_required: [],
+    investigation_next_steps: [],
+    legal_assessments: [],
+    limitations_and_disclaimers: [],
+    review_status: "draft",
+    case_fact_pack: {
+      facts: [],
+      evidence_registry: [],
+      indicators: [],
+      timeline: [],
+      mitre_assessments: [],
+      legal_assessments: [],
+      missing_information: [],
+      limitations: [],
+      completeness_percentage: 100,
+      completeness,
+      review_status: "draft",
+    },
+    created_at: "2026-07-08T00:00:00Z",
+  };
 }
 
 describe("InvestigationWorkspace follow-up progression", () => {
@@ -63,8 +103,9 @@ describe("InvestigationWorkspace follow-up progression", () => {
       });
     vi.mocked(generateReport).mockResolvedValue({
       status: "completed",
+      report_id: "report-1",
+      report: makeReport(),
       answer: "Report generated",
-      missing_information: [],
     });
 
     render(<InvestigationWorkspace showCaseList={false} />);

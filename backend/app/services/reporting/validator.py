@@ -92,13 +92,6 @@ class ReportValidationMixin:
             *report.evidence_still_required,
             *report.investigation_next_steps,
             *report.limitations_and_disclaimers,
-            report.case_summary,
-            report.mapping_justification,
-            report.system_limitations,
-            *report.detected_indicators,
-            *report.mitre_mapping,
-            *report.evidence_to_investigate,
-            *report.preliminary_recommendations,
         ]
         for text in text_fields:
             ids.update(EVIDENCE_ID_PATTERN.findall(text or ""))
