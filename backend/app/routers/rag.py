@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.routers.report import build_document_query
+from app.services.report_request_helpers import build_document_query
 from app.schemas.rag import QueryRequest, QueryResponse, RagQueryRequest, ResumeRequest
 from app.services.rag_client import RagServiceClient
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload

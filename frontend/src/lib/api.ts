@@ -390,3 +390,91 @@ export const queryRagFile = async (
     throw error;
   }
 };
+
+export interface ReportRegistryItem {
+  report_id: string;
+  case_id: string;
+  case_title: string;
+  case_status: string;
+  severity: string;
+  report_type: string;
+  workflow_status: string;
+  review_status: string;
+  created_at: string;
+  updated_at: string;
+  executive_summary_preview: string;
+}
+
+export const listReports = async (): Promise<ReportRegistryItem[]> => {
+  const baseUrl = getApiBaseUrl();
+  const response = await axios.get<ReportRegistryItem[]>(
+    baseUrl + "/reports",
+  );
+  return response.data;
+};
+
+export const generateCaseReport = async (
+  caseId: string,
+  reportType: ReportType = "overview",
+  legal: boolean = false,
+  forceGenerate: boolean = false,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<ReportWorkflowResponse>(
+      baseUrl + "/cases/" + caseId + "/report",
+      {
+        report_type: reportType,
+        legal,
+        force_generate: forceGenerate,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Case report generation failed:", error);
+    throw error;
+  }
+};
+
+export const resumeCaseReport = async (
+  caseId: string,
+  sessionId: string,
+  answer: string,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<ReportWorkflowResponse>(
+      baseUrl + "/cases/" + caseId + "/report/resume",
+      {
+        session_id: sessionId,
+        answer,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Case report resume failed:", error);
+    throw error;
+  }
+};
+
+export const getLatestCaseReport = async (
+  caseId: string,
+): Promise<ReportWorkflowResponse> => {
+  const baseUrl = getApiBaseUrl();
+  const response = await axios.get<ReportWorkflowResponse>(
+    baseUrl + "/cases/" + caseId + "/report",
+  );
+  return response.data;
+};

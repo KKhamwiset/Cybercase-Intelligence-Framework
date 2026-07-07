@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, init_db_schema
-from app.routers import cases, health, rag, report, reports, user
+from app.routers import cases, health, rag, reports, user
 
 
 @asynccontextmanager
@@ -20,8 +20,6 @@ async def lifespan(app: FastAPI):
         async with engine.connect() as conn:
             await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
         print("[STARTUP] Database connection verified.")
-        await init_db_schema()
-        print("[STARTUP] Database schema verified.")
     except Exception as e:
         print(f"[STARTUP] Database connection failed: {e}")
         print("[STARTUP] Backend will start, but database endpoints will fail.")
@@ -52,7 +50,6 @@ app.state.report_gen = ReportGenerator()
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(user.router, prefix="/api/v1")
 app.include_router(rag.router, prefix="/api/v1")
-app.include_router(report.router, prefix="/api/v1")
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(cases.router, prefix="/api/v1")
 

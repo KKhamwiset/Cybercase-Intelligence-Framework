@@ -10,12 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
-from app.schemas.report import ReportViewModel
+from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateReportRequest, ReportResumeRequest
 from app.services.case_outputs import apply_case_intake_outputs
 from app.services.report_generator import (
     DeterministicReportGenerator,
     structured_case_from_record_data,
 )
+from app.services.report_workflow import ReportWorkflowService
+from app.dependencies import get_report_workflow_service
 
 router = APIRouter(prefix="/cases", tags=["cases"])
 
@@ -144,19 +146,27 @@ async def update_case(
     return _structured_case_from_record(case)
 
 
-@router.get("/{case_id}/report", response_model=ReportViewModel)
+@router.post("/{case_id}/report", response_model=ReportWorkflowResponse)
+async def generate_case_report(
+    case_id: str,
+    request: GenerateReportRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> ReportWorkflowResponse:
+    return await service.generate_report(case_id, request)
+
+
+@router.post("/{case_id}/report/resume", response_model=ReportWorkflowResponse)
+async def resume_case_report(
+    case_id: str,
+    request: ReportResumeRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> ReportWorkflowResponse:
+    return await service.resume_report(case_id, request)
+
+
+@router.get("/{case_id}/report", response_model=ReportWorkflowResponse)
 async def get_case_report(
     case_id: str,
-    db: AsyncSession = Depends(get_db),
-) -> ReportViewModel:
-    case = await _load_case_record(case_id, db)
-    return _report_from_record(case)
-
-
-@router.post("/{case_id}/report/refresh", response_model=ReportViewModel)
-async def refresh_case_report(
-    case_id: str,
-    db: AsyncSession = Depends(get_db),
-) -> ReportViewModel:
-    case = await _load_case_record(case_id, db)
-    return _report_from_record(case)
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> ReportWorkflowResponse:
+    return await service.get_latest_case_report(case_id)

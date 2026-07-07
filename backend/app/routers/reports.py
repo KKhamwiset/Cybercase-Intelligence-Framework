@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import select
 
+from app.models.case import CaseRecord
 from app.services.report_request_helpers import (
     build_document_query,
     build_upload_evidence_registry,
@@ -12,6 +14,7 @@ from app.schemas.report import (
     ReportResumeRequest,
     ReportWorkflowResponse,
     ReviewStatusUpdate,
+    ReportRegistryItem,
 )
 from app.services.report_workflow import ReportWorkflowResult, ReportWorkflowService
 from app.dependencies import get_report_workflow_service
@@ -19,14 +22,43 @@ from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
-@router.post("/generate", response_model=ReportWorkflowResponse)
+
+async def _ensure_legacy_case_exists(service: ReportWorkflowService, query: str) -> str:
+    db = getattr(service, "db", None)
+    if not db:
+        return "CASE-LEGACY"
+    res = await db.execute(select(CaseRecord).where(CaseRecord.case_id == "CASE-LEGACY"))
+    case = res.scalars().first()
+    if not case:
+        case = CaseRecord(
+            case_id="CASE-LEGACY",
+            title="Legacy Compatibility Case",
+            status="unknown",
+            severity="unknown",
+            data={"incident_summary": query},
+        )
+        db.add(case)
+        await db.commit()
+    return "CASE-LEGACY"
+
+
+@router.get("", response_model=list[ReportRegistryItem])
+async def list_reports(
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> list[ReportRegistryItem]:
+    return await service.list_reports()
+
+
+@router.post("/generate", response_model=ReportWorkflowResponse, deprecated=True)
 async def generate_report(
     request: GenerateReportRequest,
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResult:
-    return await service.generate_report(request)
+    case_id = await _ensure_legacy_case_exists(service, request.query)
+    return await service.generate_report(case_id, request)
 
-@router.post("/generate-file", response_model=ReportWorkflowResponse)
+
+@router.post("/generate-file", response_model=ReportWorkflowResponse, deprecated=True)
 async def generate_report_file(
     file: UploadFile = File(...),
     query: str = Form(""),
@@ -54,7 +86,8 @@ async def generate_report_file(
             force_generate=force_generate,
             evidence_registry=evidence_registry,
         )
-        return await service.generate_report(payload)
+        case_id = await _ensure_legacy_case_exists(service, document_query)
+        return await service.generate_report(case_id, payload)
     except HTTPException:
         raise
     except Exception as exc:
@@ -62,12 +95,20 @@ async def generate_report_file(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.post("/resume", response_model=ReportWorkflowResponse)
+@router.post("/resume", response_model=ReportWorkflowResponse, deprecated=True)
 async def resume_report(
     request: ReportResumeRequest,
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResult:
-    return await service.resume_report(request)
+    # Resume requires checking session ownership, we will use the case_id connected to the session
+    db = service.db
+    from app.models.report import ReportSessionRecord
+    stmt = select(ReportSessionRecord).where(ReportSessionRecord.session_id == request.session_id)
+    res = await db.execute(stmt)
+    session_record = res.scalars().first()
+    if not session_record:
+        raise HTTPException(status_code=404, detail="Report session not found")
+    return await service.resume_report(session_record.case_id, request)
 
 
 @router.get("/{report_id}", response_model=ReportWorkflowResponse)
