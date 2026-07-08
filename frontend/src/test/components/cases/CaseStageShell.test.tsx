@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import CaseStageShell from "./CaseStageShell";
+import CaseStageShell from "@/components/cases/CaseStageShell";
 import type { StructuredCase } from "@/lib/cases";
 
 function makeCase(): StructuredCase {

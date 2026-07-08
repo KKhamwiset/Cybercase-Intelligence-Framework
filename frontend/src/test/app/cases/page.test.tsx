@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import CasesPage from "./page";
+import CasesPage from "@/app/cases/page";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";
 
 const push = vi.fn();

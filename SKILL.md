@@ -19,6 +19,7 @@ The CyberCase Intelligence Framework is a full-stack web application designed fo
 *   `/rag_service/app/RAG/GraphRAG/` - Core GraphRAG pipeline and evaluation.
 *   `/rag_service/` - Standalone RAG service.
 *   `/frontend/` - Next.js application. All UI work happens here.
+    *   `src/test/` - Contains all unit and integration test files, organized in subfolders mirroring the components, hooks, and app directories.
 *   `/backend/` - FastAPI application. All API and database logic happens here.
 
 ## 3. Coding Conventions & Constraints
@@ -45,6 +46,7 @@ The CyberCase Intelligence Framework is a full-stack web application designed fo
 ## 4. Common Commands
 
 *   **Run Frontend:** `cd frontend && npm run dev`
+*   **Run Frontend Tests:** `cd frontend && npm run test`
 *   **Run Backend:** `cd backend && uvicorn app.main:app --reload`
 *   **Run RAG Service:** `cd rag_service/app && uvicorn main:app --port 8001`
 *   **Apply Migrations:** `cd backend && alembic upgrade head`

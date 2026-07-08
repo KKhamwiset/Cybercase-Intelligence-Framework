@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import InvestigationWorkspace from "./InvestigationWorkspace";
+import InvestigationWorkspace from "@/components/chat/InvestigationWorkspace";
 import {
   chatContinue,
   generateCaseReport,

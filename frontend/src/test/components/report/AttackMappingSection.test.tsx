@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import AttackMappingSection from "./AttackMappingSection";
+import AttackMappingSection from "@/components/report/AttackMappingSection";
 import type { ReportSection } from "@/lib/reports";
 
 const section: ReportSection = {

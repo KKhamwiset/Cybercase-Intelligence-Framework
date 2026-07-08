@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import CaseRouteState from "./CaseRouteState";
+import CaseRouteState from "@/components/cases/CaseRouteState";
 
 describe("CaseRouteState", () => {
   it("renders an invalid case not-found state", () => {
