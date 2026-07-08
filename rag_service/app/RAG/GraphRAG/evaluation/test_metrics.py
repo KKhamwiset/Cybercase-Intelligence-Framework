@@ -29,6 +29,10 @@ from evaluation.retriever_metrics import (
     precision_at_k,
     recall_at_k,
     reciprocal_rank,
+    step_best_rank,
+    step_coverage_at_k,
+    step_coverage_by_cue_type,
+    strict_step_coverage_at_k,
 )
 
 
@@ -48,11 +52,50 @@ def test_recall_at_k():
     retrieved = ["a", "b", "c", "d", "e"]
     relevant = {"a", "c", "f"}
 
-    assert recall_at_k(retrieved, relevant, k=1) == 1 / 3
-    assert recall_at_k(retrieved, relevant, k=3) == 2 / 3
-    assert recall_at_k(retrieved, relevant, k=5) == 2 / 3
+    # Capped recall: denominator is min(|relevant|, k)
+    assert recall_at_k(retrieved, relevant, k=1) == 1.0  # 1 hit / min(3,1)
+    assert recall_at_k(retrieved, relevant, k=3) == 2 / 3  # 2 hits / min(3,3)
+    assert recall_at_k(retrieved, relevant, k=5) == 2 / 3  # 2 hits / min(3,5)
     assert recall_at_k(retrieved, set(), k=5) == 0.0
-    print("  [PASS] recall_at_k")
+
+    # Enumeration case: gold far larger than k must not cap the score.
+    big_gold = {f"g{i}" for i in range(100)}
+    perfect_top10 = [f"g{i}" for i in range(10)]
+    assert recall_at_k(perfect_top10, big_gold, k=10) == 1.0
+    half_top10 = [f"g{i}" for i in range(5)] + ["x1", "x2", "x3", "x4", "x5"]
+    assert recall_at_k(half_top10, big_gold, k=10) == 0.5
+    print("  [PASS] recall_at_k (capped)")
+
+
+def test_step_coverage_at_k():
+    steps = [
+        {"gold_ids": ["t1190"], "cue_type": "named"},
+        {"gold_ids": ["t1068", "t1003"], "cue_type": "named"},
+        {"gold_ids": ["t1485"], "cue_type": "described"},
+    ]
+
+    # top-5 evidences step 1 (t1190) and step 2 (t1003 suffices), misses step 3
+    retrieved = ["t1190", "x", "t1003", "y", "z", "t1485"]
+    assert step_coverage_at_k(retrieved, steps, k=5) == 2 / 3
+    assert step_coverage_at_k(retrieved, steps, k=6) == 1.0  # t1485 at rank 6
+    assert step_coverage_at_k(retrieved, [], k=5) == 0.0
+    assert step_coverage_at_k([], steps, k=5) == 0.0
+
+    # Strict: step 2 needs BOTH t1068 and t1003 in top-K
+    assert strict_step_coverage_at_k(retrieved, steps, k=5) == 1 / 3  # only step 1
+    all_ids = ["t1190", "t1068", "t1003", "t1485"]
+    assert strict_step_coverage_at_k(all_ids, steps, k=4) == 1.0
+
+    # Best rank per step
+    assert step_best_rank(retrieved, steps[0]) == 1
+    assert step_best_rank(retrieved, steps[1]) == 3
+    assert step_best_rank(["x", "y"], steps[2]) is None
+
+    # Cue-type breakdown: named steps covered, described step missed at k=5
+    by_type = step_coverage_by_cue_type(retrieved, steps, k=5)
+    assert by_type["named"] == 1.0
+    assert by_type["described"] == 0.0
+    print("  [PASS] step_coverage (S-recall@K, strict, best_rank, cue_type)")
 
 
 def test_precision_at_k():
@@ -161,6 +204,7 @@ def run_all_tests():
     tests = [
         test_hit_at_k,
         test_recall_at_k,
+        test_step_coverage_at_k,
         test_precision_at_k,
         test_reciprocal_rank,
         test_ndcg_at_k,
