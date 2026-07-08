@@ -7,6 +7,7 @@ import {
   listReports,
   getReport,
   updateReportReviewStatus,
+  downloadReportExport,
 } from "@/lib/api";
 import type {
   CyberCaseReport,
@@ -15,6 +16,7 @@ import type {
   ReviewStatus,
   ReportRegistryItem,
 } from "@/lib/api";
+import ReportMarkdownView from "@/components/report/ReportMarkdownView";
 
 function statusClass(value: EvidenceStatus | ReviewStatus | string) {
   if (value === "confirmed" || value === "approved") {
@@ -52,9 +54,7 @@ function StatusBadge({
   );
 }
 
-function stripLeadingH1(markdown: string): string {
-  return markdown.replace(/^\s*#\s+[^\n]*\n?/, "").trim();
-}
+
 
 function ReportPreview({
   report,
@@ -95,9 +95,9 @@ function ReportPreview({
         <StatusBadge value={report.review_status || "draft"} />
       </div>
 
-      <pre className="mt-7 whitespace-pre-wrap text-sm leading-7 text-neutral-800 font-sans">
-        {answer ? stripLeadingH1(answer) : "No rendered report content is available."}
-      </pre>
+      <div className="mt-7">
+        <ReportMarkdownView content={answer || ""} />
+      </div>
     </article>
   );
 }
@@ -110,7 +110,30 @@ export default function ReportWorkspace() {
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isExporting, setIsExporting] = useState<"md" | "pdf" | null>(null);
   const [error, setError] = useState("");
+
+  async function handleDownloadReport(format: "md" | "pdf") {
+    if (!selectedReportId || !detailedWorkflow || detailedWorkflow.status !== "completed") return;
+    setIsExporting(format);
+    setError("");
+    try {
+      const blob = await downloadReportExport(selectedReportId, format);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cybercase-report-${selectedReportId}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      console.error(`Failed to export report in format ${format}:`, err);
+      setError(`Failed to export report as ${format.toUpperCase()}.`);
+    } finally {
+      setIsExporting(null);
+    }
+  }
 
   useEffect(() => {
     async function loadList() {
@@ -302,22 +325,40 @@ export default function ReportWorkspace() {
                   </code>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <label htmlFor="review-status" className="text-xs font-bold text-neutral-700">
-                    Review Status:
-                  </label>
-                  <select
-                    id="review-status"
-                    value={activeReport.review_status}
-                    disabled={isUpdatingStatus}
-                    onChange={(e) => handleReviewStatusChange(e.target.value as ReviewStatus)}
-                    className="border border-black/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-black focus:outline-none focus:border-black"
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => handleDownloadReport("md")}
+                    disabled={isExporting !== null}
+                    className="border border-black bg-white px-4 py-1.5 text-xs font-black text-black hover:bg-neutral-50 disabled:opacity-40 transition"
                   >
-                    <option value="draft">Draft</option>
-                    <option value="ai_generated">AI Generated</option>
-                    <option value="reviewed">Reviewed</option>
-                    <option value="approved">Approved</option>
-                  </select>
+                    {isExporting === "md" ? "Exporting..." : "Download Markdown"}
+                  </button>
+
+                  <button
+                    onClick={() => handleDownloadReport("pdf")}
+                    disabled={isExporting !== null}
+                    className="border border-black bg-white px-4 py-1.5 text-xs font-black text-black hover:bg-neutral-50 disabled:opacity-40 transition"
+                  >
+                    {isExporting === "pdf" ? "Exporting..." : "Download PDF"}
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="review-status" className="text-xs font-bold text-neutral-700">
+                      Review Status:
+                    </label>
+                    <select
+                      id="review-status"
+                      value={activeReport.review_status}
+                      disabled={isUpdatingStatus}
+                      onChange={(e) => handleReviewStatusChange(e.target.value as ReviewStatus)}
+                      className="border border-black/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-black focus:outline-none focus:border-black"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="ai_generated">AI Generated</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="approved">Approved</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

@@ -399,3 +399,19 @@ export const getLatestCaseReport = async (
   );
   return response.data;
 };
+
+export const downloadReportExport = async (
+  reportId: string,
+  format: "md" | "pdf" | "docx",
+): Promise<Blob> => {
+  const baseUrl = getApiBaseUrl();
+  const response = await axios.get(
+    `${baseUrl}/reports/${reportId}/export`,
+    {
+      params: { format },
+      responseType: "blob",
+    },
+  );
+  return response.data;
+};
+

@@ -11,6 +11,7 @@ import {
   resumeCaseReport,
   getLatestCaseReport,
   updateReportReviewStatus,
+  downloadReportExport,
 } from "@/lib/api";
 import type {
   CyberCaseReport,
@@ -19,6 +20,7 @@ import type {
   ReviewStatus,
   ReportType,
 } from "@/lib/api";
+import ReportMarkdownView from "@/components/report/ReportMarkdownView";
 
 function statusClass(value: EvidenceStatus | ReviewStatus | string) {
   if (value === "confirmed" || value === "approved") {
@@ -65,9 +67,7 @@ function getHttpStatus(error: unknown): number | undefined {
   return response?.status;
 }
 
-function stripLeadingH1(markdown: string): string {
-  return markdown.replace(/^\s*#\s+[^\n]*\n?/, "").trim();
-}
+
 
 function ReportPreview({
   report,
@@ -108,9 +108,9 @@ function ReportPreview({
         <StatusBadge value={report.review_status || "draft"} />
       </div>
 
-      <pre className="mt-7 whitespace-pre-wrap text-sm leading-7 text-neutral-800 font-sans">
-        {answer ? stripLeadingH1(answer) : "No rendered report content is available."}
-      </pre>
+      <div className="mt-7">
+        <ReportMarkdownView content={answer || ""} />
+      </div>
     </article>
   );
 }
@@ -124,10 +124,33 @@ export default function CaseReportWorkspace() {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isExporting, setIsExporting] = useState<"md" | "pdf" | null>(null);
   const [followupAnswer, setFollowupAnswer] = useState("");
   const [reportType, setReportType] = useState<ReportType>("overview");
   const [legal, setLegal] = useState(false);
   const [error, setError] = useState("");
+
+  async function handleDownloadReport(format: "md" | "pdf") {
+    if (!workflow || workflow.status !== "completed" || !workflow.report_id) return;
+    setIsExporting(format);
+    setError("");
+    try {
+      const blob = await downloadReportExport(workflow.report_id, format);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `cybercase-report-${workflow.report_id}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      console.error(`Failed to export report in format ${format}:`, err);
+      setError(`Failed to export report as ${format.toUpperCase()}.`);
+    } finally {
+      setIsExporting(null);
+    }
+  }
 
   useEffect(() => {
     if (!caseId) return;
@@ -283,6 +306,22 @@ export default function CaseReportWorkspace() {
                     <option value="approved">Approved</option>
                   </select>
                 </div>
+
+                <button
+                  onClick={() => handleDownloadReport("md")}
+                  disabled={isExporting !== null}
+                  className="border border-black bg-white px-4 py-1.5 text-xs font-black text-black hover:bg-neutral-50 disabled:opacity-40 transition"
+                >
+                  {isExporting === "md" ? "Exporting..." : "Download Markdown"}
+                </button>
+
+                <button
+                  onClick={() => handleDownloadReport("pdf")}
+                  disabled={isExporting !== null}
+                  className="border border-black bg-white px-4 py-1.5 text-xs font-black text-black hover:bg-neutral-50 disabled:opacity-40 transition"
+                >
+                  {isExporting === "pdf" ? "Exporting..." : "Download PDF"}
+                </button>
 
                 <button
                   onClick={() => handleGenerate(true)}

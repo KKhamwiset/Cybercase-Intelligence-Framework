@@ -341,3 +341,35 @@ def test_followup_answer_persists_and_regenerate_does_not_repeat_question(
     assert regenerated.json()["status"] == "completed"
     assert "Previously provided follow-up answers" in report_generator.preview_queries[-1]
     assert "10:00 UTC" in report_generator.preview_queries[-1]
+
+
+def test_export_report_endpoints(client: TestClient) -> None:
+    case_id = _create_case(client)
+    generated = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert generated.status_code == 200
+    report_id = generated.json()["report_id"]
+
+    # Test markdown export
+    response = client.get(f"/api/v1/reports/{report_id}/export?format=md")
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == f'attachment; filename="cybercase-report-{report_id}.md"'
+    assert response.text == "# HTTP Incident Report\nRendered markdown preview."
+
+    # Test PDF export
+    response_pdf = client.get(f"/api/v1/reports/{report_id}/export?format=pdf")
+    assert response_pdf.status_code == 200
+    assert response_pdf.headers["Content-Disposition"] == f'attachment; filename="cybercase-report-{report_id}.pdf"'
+    assert response_pdf.content.startswith(b"%PDF")
+
+    # Test DOCX unsupported
+    response_docx = client.get(f"/api/v1/reports/{report_id}/export?format=docx")
+    assert response_docx.status_code == 501
+    assert "DOCX export is not implemented yet" in response_docx.json()["detail"]
+
+    # Test invalid format
+    response_invalid = client.get(f"/api/v1/reports/{report_id}/export?format=invalid")
+    assert response_invalid.status_code == 400
+
