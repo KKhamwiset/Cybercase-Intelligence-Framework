@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import engine, init_db_schema
+from app.database import engine
 from app.routers import cases, health, rag, reports, user
 
 
@@ -41,8 +41,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.state.report_store = {}
-app.state.report_sessions = {}
 app.state.report_gen = ReportGenerator()
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
