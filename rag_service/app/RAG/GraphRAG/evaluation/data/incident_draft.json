@@ -1,0 +1,463 @@
+[
+  {
+    "id": "inc_auto_001",
+    "query": "ผู้เสียหายรายงานว่าระบบเครือข่ายของสำนักงานราชการแห่งหนึ่งถูกเข้าถึงโดยไม่ได้รับอนุญาตในวันที่ 15 พฤศจิกายน เมื่อผู้โจมตีใช้ Valid Accounts ของพนักงานที่ลาออกแล้วเพื่อเข้าสู่ระบบ VPN จากนั้นผู้โจมตีได้ดำเนินการสคริปต์อัตโนมัติ (PowerShell script) บนเครื่องสถานีงานเพื่อสร้างบัญชีผู้ใช้ที่ซ่อนอยู่และรวบรวมข้อมูลประจำตัว ต่อมาจากการตรวจสอบพบว่ามีการคัดลอกไฟล์ลับไปยัง USB drive ที่เชื่อมต่อกับระบบ และไฟล์เหล่านั้นถูกแพร่กระจายไปยังเครื่องอื่นๆ ผ่าน shared folders จากนั้นผู้โจมตีได้ใช้ Exploitation of Remote Services เพื่อเข้าถึงเซิร์ฟเวอร์ฐานข้อมูลหลัก (database server) โดยผ่านช่องโหว่ใน RDP protocol สุดท้ายผู้โจมตีได้ทำการ Ingress Tool Transfer โดยดาวน์โหลดเครื่องมือ reconnaissance และ persistence tools จากเซิร์ฟเวอร์ภายนอกมายังระบบภายใน",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--7fd87010-3a00-4da3-b905-410525e8ec44",
+      "attack-pattern--3b744087-9945-4a6f-91e8-9dbceda417a4",
+      "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim organization, a government office, reported that their network system was accessed without authorization on November 15. The attacker used Valid Accounts belonging to a former employee to gain access to the VPN. Subsequently, the attacker executed an automated PowerShell script on workstations to create hidden user accounts and harvest credentials. Investigation revealed that confidential files were copied to a USB drive connected to the system, and those files were propagated to other machines via shared folders. The attacker then used Exploitation of Remote Services to compromise the primary database server by leveraging a vulnerability in the RDP protocol. Finally, the attacker performed Ingress Tool Transfer by downloading reconnaissance and persistence tools from external servers into the internal network.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1064",
+      "T1091",
+      "T1210",
+      "T1105"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีใช้ Valid Accounts ของพนักงานที่ลาออกแล้วเพื่อเข้าสู่ระบบ VPN",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ดำเนินการสคริปต์อัตโนมัติ (PowerShell script) บนเครื่องสถานีงานเพื่อสร้างบัญชีผู้ใช้ที่ซ่อนอยู่และรวบรวมข้อมูลประจำตัว",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1064"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--7fd87010-3a00-4da3-b905-410525e8ec44"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "มีการคัดลอกไฟล์ลับไปยัง USB drive ที่เชื่อมต่อกับระบบ และไฟล์เหล่านั้นถูกแพร่กระจายไปยังเครื่องอื่นๆ ผ่าน shared folders",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1091"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3b744087-9945-4a6f-91e8-9dbceda417a4"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ใช้ Exploitation of Remote Services เพื่อเข้าถึงเซิร์ฟเวอร์ฐานข้อมูลหลัก โดยผ่านช่องโหว่ใน RDP protocol",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1210"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ผู้โจมตีได้ทำการ Ingress Tool Transfer โดยดาวน์โหลดเครื่องมือ reconnaissance และ persistence tools จากเซิร์ฟเวอร์ภายนอก",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_002",
+    "query": "ผู้เสียหายรายงานว่าระบบ Windows Server ของหน่วยงานบริหารสินทรัพย์ได้รับการบุกรุกในวันที่ 15 มีนาคม 2567 โดยเริ่มจากการติดต่อทางอีเมลที่ปลอมแปลงจากเจ้าหน้าที่ IT ของบริษัทจัดหาบริการ cloud ที่มีความสัมพันธ์ในการทำงานกับหน่วยงานมาเป็นเวลานาน ซึ่งเป็น Trusted Relationship ที่ผู้โจมตีนำมาใช้เพื่อเข้าถึงระบบ จากการตรวจสอบ Event Log พบว่ามีกระบวนการ wmic.exe ถูกเรียกใช้ด้วยพารามิเตอร์ที่ผิดปกติเพื่อทำการ Windows Management Instrumentation ในการรันสคริปต์ VBScript ที่ซ่อนอยู่ในระบบไฟล์ชั่วคราว ต่อมาผู้โจมตีได้ใช้บัญชีผู้ใช้งานที่ถูกต้องตามชื่อ svc-backup ซึ่งเป็นบัญชีบริการที่มีสิทธิ์เข้าถึงข้อมูลสำคัญ และกิจกรรมการเข้าถึงดังกล่าวไม่ได้ทำให้เกิดการแจ้งเตือนความผิดปกติในระบบตรวจสอบ จากนั้นผู้โจมตีได้ทำการ Exploitation for Privilege Escalation ผ่านช่องโหว่ CVE-2021-1732 ในไดรเวอร์ Win32k เพื่อยกระดับสิทธิ์จาก user ไปเป็น system จากนั้นทำการ Data from Local System โดยการคัดลอกไฟล์ฐานข้อมูล SQL Server ที่มีข้อมูลบัญชีเงินฝากของลูกค้ามากกว่า 50,000 รายไปยังไดเรกทอรี่ที่ซ่อนอยู่บนเซิร์ฟเวอร์ภายในเครือข่าย",
+    "relevant_stix_ids": [
+      "attack-pattern--9fa07bef-9c81-421e-a8e5-ad4366c5a925",
+      "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055",
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839",
+      "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim reported that a Windows Server system of an asset management agency was breached on 15 March 2567, beginning with a spoofed email from an IT officer of a cloud service provider that had an established working relationship with the agency, which was a Trusted Relationship exploited by the attacker to gain initial system access. Upon investigation of Event Logs, abnormal wmic.exe processes were discovered being invoked with unusual parameters to perform Windows Management Instrumentation by executing a VBScript hidden in the system temporary directory. Subsequently, the attacker utilized a valid account named svc-backup, which is a service account with privileged access to sensitive data, and the access activity did not trigger anomaly alerts in the monitoring system. The attacker then performed Exploitation for Privilege Escalation via CVE-2021-1732 vulnerability in the Win32k driver to elevate privileges from user to system level. Finally, Data from Local System was extracted by copying SQL Server database files containing customer deposit account information for more than 50,000 customers to a hidden directory on an internal network server.",
+    "gold_attack_ids": [
+      "T1199",
+      "T1047",
+      "T1078",
+      "T1068",
+      "T1005"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "Trusted Relationship ที่ผู้โจมตีนำมาใช้เพื่อเข้าถึงระบบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1199"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9fa07bef-9c81-421e-a8e5-ad4366c5a925"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "มีกระบวนการ wmic.exe ถูกเรียกใช้ด้วยพารามิเตอร์ที่ผิดปกติเพื่อทำการ Windows Management Instrumentation ในการรันสคริปต์ VBScript",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1047"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ใช้บัญชีผู้ใช้งานที่ถูกต้องตามชื่อ svc-backup ซึ่งเป็นบัญชีบริการที่มีสิทธิ์เข้าถึงข้อมูลสำคัญ และกิจกรรมการเข้าถึงดังกล่าวไม่ได้ทำให้เกิดการแจ้งเตือนความผิดปกติ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ทำการ Exploitation for Privilege Escalation ผ่านช่องโหว่ CVE-2021-1732 ในไดรเวอร์ Win32k เพื่อยกระดับสิทธิ์จาก user ไปเป็น system",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1068"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ทำการ Data from Local System โดยการคัดลอกไฟล์ฐานข้อมูล SQL Server ที่มีข้อมูลบัญชีเงินฝากของลูกค้า",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1005"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_003",
+    "query": "ผู้เสียหายรายงานว่าระบบเซิร์ฟเวอร์ Windows ของส่วนราชการแห่งหนึ่งถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ Event Viewer และไฟล์ Task Scheduler พบว่ามีการสร้างงานประจำที่ (scheduled task) ชื่อ \"SystemUpdate\" ที่ตั้งเวลาให้ทำงานทุกชั่วโมง โดยเรียกไฟล์ executable ที่ซ่อนอยู่ในโฟลเดอร์ System32 ต่อมาจากการตรวจสอบ log ของ netstat และ DNS query history พบหลักฐานว่าเครื่องดำเนินการสอบถามการกำหนดค่าเครือข่าย (ipconfig, route print, arp -a) และเก็บรวบรวมข้อมูลเกี่ยวกับโทโพโลยีเครือข่ายภายในส่วนราชการ จากนั้นจากการวิเคราะห์ proxy logs และ firewall rules พบว่าการสื่อสารแบบ proxy ถูกใช้เพื่อเชื่อมต่อไปยังเซิร์ฟเวอร์ภายนอก ผ่านพอร์ต 8080 และ 3128 ซึ่งบ่งชี้ว่ามีการใช้ proxy เป็นชองทางสำหรับการควบคุมและสั่งการระยะไกล",
+    "relevant_stix_ids": [
+      "attack-pattern--35dd844a-b219-4e2b-a6bb-efa9a75995a9",
+      "attack-pattern--707399d6-ab3e-4963-9315-d9d3818cd6a0",
+      "attack-pattern--731f4f55-b6d0-41d1-a7a9-072a66389aea"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim organization, a government agency, reported unauthorized access to its Windows server infrastructure. Upon investigation of Event Viewer and Task Scheduler files, a scheduled task named \"SystemUpdate\" was discovered, configured to execute hourly and invoke a hidden executable in the System32 folder. Subsequent analysis of netstat logs and DNS query history revealed evidence of network configuration discovery activities (ipconfig, route print, arp -a commands) and collection of internal network topology data. Further examination of proxy logs and firewall rules identified proxy-based communication channels used to establish command-and-control connections to external servers via ports 8080 and 3128, indicating the use of proxy infrastructure for remote command and control.",
+    "gold_attack_ids": [
+      "T1053",
+      "T1016",
+      "T1090"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "มีการสร้างงานประจำที่ (scheduled task) ชื่อ \"SystemUpdate\" ที่ตั้งเวลาให้ทำงานทุกชั่วโมง โดยเรียกไฟล์ executable ที่ซ่อนอยู่ในโฟลเดอร์ System32",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1053"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--35dd844a-b219-4e2b-a6bb-efa9a75995a9"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "เครื่องดำเนินการสอบถามการกำหนดค่าเครือข่าย (ipconfig, route print, arp -a) และเก็บรวบรวมข้อมูลเกี่ยวกับโทโพโลยีเครือข่ายภายในส่วนราชการ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1016"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--707399d6-ab3e-4963-9315-d9d3818cd6a0"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "มีการใช้ proxy เป็นชองทางสำหรับการควบคุมและสั่งการระยะไกล",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1090"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--731f4f55-b6d0-41d1-a7a9-072a66389aea"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_004",
+    "query": "ผู้เสียหายรายงานว่า ระบบ Active Directory ของบริษัทได้รับการเข้าถึงโดยใช้ Valid Accounts ของพนักงานแผนกไอทีที่ลาออกไปแล้ว ต่อมาจากการตรวจสอบ Windows Event Log พบว่ามีการสร้างและรันงาน Scheduled Task ที่ทำให้เกิดการเรียกใช้งาน PowerShell script ทุกชั่วโมง จากนั้นผู้สอบสวนตรวจพบการแก้ไข Registry ในส่วน HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run เพื่อให้มัลแวร์โหลดตัวเองขึ้นมาทุกครั้งที่ระบบเปิด ภายหลังพบว่าผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service ของเซิร์ฟเวอร์อีกเครื่องหนึ่งในเครือข่าย เพื่อขยายการเข้าถึง สุดท้ายจากการสอบสวน Disk forensics พบไฟล์ที่ถูกบีบอัดด้วย Archive Collected Data ที่มีขนาด 2.3 GB ซึ่งเก็บรวบรวมเอกสารสำคัญและฐานข้อมูลลูกค้า",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--35dd844a-b219-4e2b-a6bb-efa9a75995a9",
+      "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4",
+      "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82",
+      "attack-pattern--53ac20cd-aca3-406e-9aa0-9fc7fdc60a5a"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim reported that the company's Active Directory system was accessed using Valid Accounts belonging to a former IT department employee. Upon examination of Windows Event Logs, investigators found the creation and execution of a Scheduled Task that invoked PowerShell scripts hourly. Subsequently, examiners discovered modifications to the Registry in HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run to load malware at every system startup. Later, it was determined that the attacker exploited a vulnerability in the RDP service of another server within the network to expand access. Finally, disk forensics revealed compressed archive files containing 2.3 GB of collected corporate documents and customer database records.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1053",
+      "T1112",
+      "T1210",
+      "T1560"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ใช้ Valid Accounts ของพนักงานแผนกไอทีที่ลาออกไปแล้ว",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "มีการสร้างและรันงาน Scheduled Task ที่ทำให้เกิดการเรียกใช้งาน PowerShell script ทุกชั่วโมง",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1053"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--35dd844a-b219-4e2b-a6bb-efa9a75995a9"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "การแก้ไข Registry ในส่วน HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1112"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service ของเซิร์ฟเวอร์อีกเครื่องหนึ่งในเครือข่าย",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1210"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ไฟล์ที่ถูกบีบอัดด้วย Archive Collected Data ที่มีขนาด 2.3 GB ซึ่งเก็บรวบรวมเอกสารสำคัญและฐานข้อมูลลูกค้า",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1560"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--53ac20cd-aca3-406e-9aa0-9fc7fdc60a5a"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_005",
+    "query": "ผู้เสียหายรายงานว่าระบบ Active Directory ของบริษัทประกันภัยแห่งหนึ่งถูกเข้าถึงโดยใช้บัญชีพนักงานที่ถูกต้องตามปกติในวันที่ 15 มีนาคม เวลา 02:47 น. จากการตรวจสอบ event log พบว่าผู้โจมตีใช้ Microsoft SCCM (Systems Center Configuration Manager) ซึ่งเป็นเครื่องมือ deployment ที่ติดตั้งอยู่แล้ว เพื่อดำเนินการ script execution บนเครื่องคอมพิวเตอร์จำนวน 47 เครื่องในเครือข่าย ต่อมาผู้โจมตีทำการ Ingress tool transfer โดยโหลด Mimikatz และเครื่องมือ reconnaissance อื่นๆ จากเซิร์ฟเวอร์ภายนอกมายังเครื่องที่ติดตั้ง SCCM agent จากนั้นใช้เครื่องมือดังกล่าวเพื่อทำ Screen capture ของหน้าจอ 23 เครื่องที่มีสิทธิ์สูง เก็บรูปภาพไว้ที่โฟลเดอร์ temp ในหน่วยความจำ สุดท้ายจากการวิเคราะห์ network traffic พบว่าข้อมูลที่ถูกเก็บรวบรวมถูกส่งออกไปยังเซิร์ฟเวอร์ C2 ผ่าน Non-standard port 8843 ในช่วงเวลา 03:15 น. ถึง 04:22 น.",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--92a78814-b191-47ca-909c-1ccfe3777414",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add",
+      "attack-pattern--0259baeb-9f63-4c69-bf10-eb038c390688",
+      "attack-pattern--b18eae87-b469-4e14-b454-b171b416bc18"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim, an insurance company, reported that their Active Directory system was accessed using valid employee credentials on 15 March at 02:47. Log analysis revealed that the attacker used Microsoft SCCM (Systems Center Configuration Manager), an already-installed deployment tool, to execute scripts on 47 computers across the network. Subsequently, the attacker performed Ingress tool transfer by loading Mimikatz and other reconnaissance tools from an external server onto the SCCM agent machine. The tools were then used to perform Screen capture of 23 high-privilege workstations, with images stored in temporary memory folders. Finally, network traffic analysis showed that collected data was exfiltrated to a C2 server via Non-standard port 8843 between 03:15 and 04:22.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1072",
+      "T1105",
+      "T1113",
+      "T1571"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ระบบ Active Directory ของบริษัทประกันภัยแห่งหนึ่งถูกเข้าถึงโดยใช้บัญชีพนักงานที่ถูกต้องตามปกติ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีใช้ Microsoft SCCM (Systems Center Configuration Manager) ซึ่งเป็นเครื่องมือ deployment ที่ติดตั้งอยู่แล้ว เพื่อดำเนินการ script execution",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1072"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--92a78814-b191-47ca-909c-1ccfe3777414"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีทำการ Ingress tool transfer โดยโหลด Mimikatz และเครื่องมือ reconnaissance อื่นๆ จากเซิร์ฟเวอร์ภายนอก",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ใช้เครื่องมือดังกล่าวเพื่อทำ Screen capture ของหน้าจอ 23 เครื่องที่มีสิทธิ์สูง",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1113"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--0259baeb-9f63-4c69-bf10-eb038c390688"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ข้อมูลที่ถูกเก็บรวบรวมถูกส่งออกไปยังเซิร์ฟเวอร์ C2 ผ่าน Non-standard port 8843",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1571"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b18eae87-b469-4e14-b454-b171b416bc18"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_006",
+    "query": "ผู้เสียหายรายงานว่าระบบ Windows Server ของหน่วยงานราชการแห่งหนึ่งถูกจ้างหนุน โดยผู้โจมตีได้เรียกใช้ Windows API โดยตรงเพื่อเรียกใช้ payload ที่ซ่อนอยู่ในหน่วยความจำ จากนั้นผู้โจมตีได้ทำการแก้ไขค่า registry หลายรายการเพื่อให้โปรแกรมที่ติดตั้งนั้นทำงานอัตโนมัติทุกครั้งที่ระบบเริ่มต้น ต่อมาจากการตรวจสอบไฟล์ log พบว่าผู้โจมตีได้ทำการ deobfuscate/decode files ที่เก็บไว้ในโฟลเดอร์ temp เพื่อเข้าถึงคำสั่งที่ซ่อนอยู่ จากนั้นผู้โจมตีได้ทำการค้นหาเวลาระบบปัจจุบันโดยการเรียกใช้ API เพื่อตรวจสอบว่าระบบได้ถูกกำหนดเวลาไว้อย่างไร ต่อมาผู้โจมตีได้ทำการโอนย้ายเครื่องมือ exploitation ไปยังเครื่องคอมพิวเตอร์อื่นในเครือข่ายภายในผ่านการแชร์ไฟล์เครือข่าย สุดท้ายผู้โจมตีได้ทำการเก็บรวบรวมข้อมูลจำเพาะจากระบบท้องถิ่น เช่น ไฟล์ config ฐานข้อมูล และข้อมูลประจำตัวผู้ใช้ที่เก็บไว้ในเครื่องเซิร์ฟเวอร์ต้นทาง",
+    "relevant_stix_ids": [
+      "attack-pattern--391d824f-0ef1-47a0-b0ee-c59a75e27670",
+      "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4",
+      "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c",
+      "attack-pattern--f3c544dc-673c-4ef3-accb-53229f1ae077",
+      "attack-pattern--bf90d72c-c00b-45e3-b3aa-68560560d4c5",
+      "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "The victim reported that a Windows Server system at a government agency was compromised when the attacker invoked Windows API directly to execute a payload residing in memory. The attacker then modified multiple registry values to ensure the installed program ran automatically on every system startup. Upon log file examination, it was discovered that the attacker had deobfuscated/decoded files stored in the temp folder to access hidden commands. Subsequently, the attacker queried system time by invoking API calls to determine how the system clock was configured. The attacker then transferred exploitation tools to other computers on the internal network via network file sharing. Finally, the attacker collected specific data from the local system, including configuration files, databases, and user credentials stored on the source server.",
+    "gold_attack_ids": [
+      "T1106",
+      "T1112",
+      "T1140",
+      "T1124",
+      "T1570",
+      "T1005"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีได้เรียกใช้ Windows API โดยตรงเพื่อเรียกใช้ payload ที่ซ่อนอยู่ในหน่วยความจำ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1106"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--391d824f-0ef1-47a0-b0ee-c59a75e27670"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ทำการแก้ไขค่า registry หลายรายการเพื่อให้โปรแกรมที่ติดตั้งนั้นทำงานอัตโนมัติทุกครั้งที่ระบบเริ่มต้น",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1112"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ทำการ deobfuscate/decode files ที่เก็บไว้ในโฟลเดอร์ temp เพื่อเข้าถึงคำสั่งที่ซ่อนอยู่",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1140"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ทำการค้นหาเวลาระบบปัจจุบันโดยการเรียกใช้ API เพื่อตรวจสอบว่าระบบได้ถูกกำหนดเวลาไว้อย่างไร",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1124"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--f3c544dc-673c-4ef3-accb-53229f1ae077"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ผู้โจมตีได้ทำการโอนย้ายเครื่องมือ exploitation ไปยังเครื่องคอมพิวเตอร์อื่นในเครือข่ายภายในผ่านการแชร์ไฟล์เครือข่าย",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1570"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--bf90d72c-c00b-45e3-b3aa-68560560d4c5"
+        ]
+      },
+      {
+        "order": 6,
+        "cue": "ผู้โจมตีได้ทำการเก็บรวบรวมข้อมูลจำเพาะจากระบบท้องถิ่น เช่น ไฟล์ config ฐานข้อมูล และข้อมูลประจำตัวผู้ใช้ที่เก็บไว้ในเครื่องเซิร์ฟเวอร์ต้นทาง",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1005"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+        ]
+      }
+    ]
+  }
+]
