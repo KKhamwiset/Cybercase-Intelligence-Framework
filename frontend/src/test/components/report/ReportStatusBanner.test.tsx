@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import ReportStatusBanner from "./ReportStatusBanner";
+import ReportStatusBanner from "@/components/report/ReportStatusBanner";
 import type { ReportViewModel } from "@/lib/reports";
 
 function report(status: ReportViewModel["report_status"]): ReportViewModel {

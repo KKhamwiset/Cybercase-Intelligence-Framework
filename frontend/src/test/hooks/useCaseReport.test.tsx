@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useCaseReport } from "./useCaseReport";
+import { useCaseReport } from "@/hooks/useCaseReport";
 import { getCaseReport } from "@/lib/reports";
 import type { ReportViewModel } from "@/lib/reports";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";

@@ -35,15 +35,14 @@ async def lifespan(app: FastAPI):
 from app.services.reporting.generator import ReportGenerator
 
 app = FastAPI(
-    title="TSR Mitre API",
-    description="Backend API for the TSR Mitre Thai-law RAG platform",
-    version="0.1.0",
+    title="Cybercase Framework API",
+    description="APIs for the Cybercase Framework project",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
 app.state.report_gen = ReportGenerator()
 
-# ── CORS ─────────────────────────────────────────────────────────────────────
 # ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(user.router, prefix="/api/v1")

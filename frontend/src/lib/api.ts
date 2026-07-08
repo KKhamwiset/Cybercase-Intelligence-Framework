@@ -418,3 +418,89 @@ export const downloadReportExport = async (
   return response.data;
 };
 
+export interface CaseAnalysisResponse {
+  case_id: string;
+  session_id: string | null;
+  workflow_status:
+  | "case_saved"
+  | "analyzing"
+  | "needs_followup"
+  | "ready_for_report"
+  | "report_generated"
+  | "context_expired"
+  | "error";
+  retrieval_context_id: string | null;
+  completeness: CaseInformationCompleteness | null;
+  missing_information: string[];
+  followup_question: string | null;
+  mitre_preview: MitreAssessment[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export const startCaseAnalysis = async (
+  caseId: string,
+  reportType: ReportType = "overview",
+  legal: boolean = false,
+): Promise<CaseAnalysisResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<CaseAnalysisResponse>(
+      baseUrl + "/cases/" + caseId + "/analysis/start",
+      {
+        report_type: reportType,
+        legal,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Start case analysis failed:", error);
+    throw error;
+  }
+};
+
+export const getCaseAnalysis = async (
+  caseId: string,
+): Promise<CaseAnalysisResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.get<CaseAnalysisResponse>(
+      baseUrl + "/cases/" + caseId + "/analysis",
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Get case analysis failed:", error);
+    throw error;
+  }
+};
+
+export const submitCaseAnalysisFollowUp = async (
+  caseId: string,
+  sessionId: string,
+  answer: string,
+): Promise<CaseAnalysisResponse> => {
+  const baseUrl = getApiBaseUrl();
+  try {
+    const response = await axios.post<CaseAnalysisResponse>(
+      baseUrl + "/cases/" + caseId + "/analysis/followup",
+      {
+        session_id: sessionId,
+        answer,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Submit case analysis followup failed:", error);
+    throw error;
+  }
+};

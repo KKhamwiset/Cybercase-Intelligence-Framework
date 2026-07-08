@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import CaseIntakeWorkspace from "./CaseIntakeWorkspace";
+import CaseIntakeWorkspace from "@/components/cases/CaseIntakeWorkspace";
 import { getCase, updateCase } from "@/lib/cases";
 import type { StructuredCase } from "@/lib/cases";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";

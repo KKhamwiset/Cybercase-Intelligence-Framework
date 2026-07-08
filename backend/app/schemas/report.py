@@ -253,6 +253,37 @@ ReportWorkflowResponse = Annotated[
 ]
 
 
+class CaseAnalysisStartRequest(BaseModel):
+    report_type: ReportType = "overview"
+    legal: bool = False
+
+
+class CaseAnalysisFollowUpRequest(BaseModel):
+    session_id: str
+    answer: str
+
+
+class CaseAnalysisResponse(BaseModel):
+    case_id: str
+    session_id: str | None = None
+    workflow_status: Literal[
+        "case_saved",
+        "analyzing",
+        "needs_followup",
+        "ready_for_report",
+        "report_generated",
+        "context_expired",
+        "error"
+    ]
+    retrieval_context_id: str | None = None
+    completeness: CaseInformationCompleteness | None = None
+    missing_information: list[str] = Field(default_factory=list)
+    followup_question: str | None = None
+    mitre_preview: list[dict] = Field(default_factory=list)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class ReportGap(BaseModel):
     gap_id: str
     section_id: str

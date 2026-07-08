@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import CaseEvidenceWorkspace from "./CaseEvidenceWorkspace";
+import CaseEvidenceWorkspace from "@/components/cases/CaseEvidenceWorkspace";
 import { getCase } from "@/lib/cases";
 import type { StructuredCase } from "@/lib/cases";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";
