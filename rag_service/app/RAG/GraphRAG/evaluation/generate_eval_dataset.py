@@ -185,10 +185,15 @@ class Neo4jGroundTruthBuilder:
         """, {"limit": limit})
 
     def get_techniques_by_attack_ids(self, attack_ids: list[str]) -> dict[str, str]:
-        """Return {attack_id: stix_id} for the given ATT&CK IDs (techniques + subtechniques)."""
+        """Return {attack_id: stix_id} for the given ATT&CK IDs (techniques + subtechniques).
+
+        Label-constrained: legacy ATT&CK mitigations reuse technique IDs
+        (e.g. a Mitigation node also carries attack_id T1064), so an
+        unconstrained match can silently return the wrong entity's STIX ID.
+        """
         results = self.run_query("""
             MATCH (n)
-            WHERE n.attack_id IN $ids
+            WHERE (n:Technique OR n:Subtechnique) AND n.attack_id IN $ids
             RETURN n.attack_id AS attack_id, n.stix_id AS stix_id
         """, {"ids": attack_ids})
         return {

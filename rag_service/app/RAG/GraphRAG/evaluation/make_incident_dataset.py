@@ -46,6 +46,25 @@ from .generate_eval_dataset import GeneratedSample, Neo4jGroundTruthBuilder
 from ..config import ANTHROPIC_API_KEY, LLM_MODEL
 
 OUT_DIR = Path(__file__).resolve().parent / "data"
+BLOCKLIST_PATH = OUT_DIR / "deprecated_attack_ids.json"
+
+
+def load_deprecated_blocklist() -> set[str]:
+    """Deprecated/revoked ATT&CK IDs to exclude from chains.
+
+    The graph stores no revoked/x_mitre_deprecated flags (ingestion drops
+    them), so deprecated techniques like T1064 look live in Neo4j; the
+    blocklist is derived from local STIX bundles by
+    build_deprecated_blocklist.py.
+    """
+    try:
+        with open(BLOCKLIST_PATH, "r", encoding="utf-8") as f:
+            return set(json.load(f)["deprecated_ids"])
+    except FileNotFoundError:
+        print("[CHAIN] WARNING: no deprecated blocklist — "
+              "run build_deprecated_blocklist first; chains may include "
+              "deprecated techniques")
+        return set()
 
 # Observable phases only: reconnaissance / resource-development happen
 # outside the victim's visibility, so they cannot appear as evidence in a
@@ -90,8 +109,10 @@ def sample_kill_chains(
     rng: random.Random,
     min_steps: int = 3,
     max_steps: int = 6,
+    blocked_ids: set[str] | None = None,
 ) -> list[dict]:
     """Sample up to num_chains kill-chains, cycling through groups."""
+    blocked_ids = blocked_ids or set()
     rows = neo4j.run_query(CHAIN_CYPHER, {"min_tactics": min_steps, "limit_groups": 60})
     print(f"[CHAIN] {len(rows)} groups with >= {min_steps} tactics")
 
@@ -106,10 +127,14 @@ def sample_kill_chains(
             if len(chains) >= num_chains:
                 break
             by_tactic = {
-                bt["tactic"]: bt["techniques"]
+                bt["tactic"]: [
+                    t for t in bt["techniques"]
+                    if t["attack_id"] not in blocked_ids
+                ]
                 for bt in row["by_tactic"]
                 if bt["tactic"] in KILL_CHAIN_ORDER
             }
+            by_tactic = {k: v for k, v in by_tactic.items() if v}
             if len(by_tactic) < min_steps:
                 continue
 
@@ -167,6 +192,17 @@ def sample_kill_chains(
 # 2. NARRATIVE DRAFTING (Claude)
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Style references — real Thai cybercrime case reporting used to calibrate
+# the narrative voice (investigator officialese, chronological, victim
+# report -> forensic findings):
+#   - บช.สอท. hotel-database hack case (Pattaya), Bangkok Biz News:
+#     https://www.bangkokbiznews.com/news/news-update/1231874
+#   - insider "CIO Get Out" retail hack, Daily News:
+#     https://www.dailynews.co.th/news/5765921/
+#   - ThaiCERT / NCSA threat write-ups (Thai technical register):
+#     https://www.thaicert.or.th
+#   - Chronological TTP narrative structure (English exemplar):
+#     https://thedfirreport.com
 SYSTEM_PROMPT = """\
 You draft realistic Thai cybercrime case-file summaries (สำนวนคดีไซเบอร์) \
 for building an evaluation dataset. You write exactly like a Thai \
@@ -197,6 +233,15 @@ investigator would see in logs or on the machine instead.
 Style example (for voice only):
 "ผู้โจมตีใช้ SQL injection เข้าสู่ระบบ และทำการ Privilege escalation ผ่าน \
 Credential dumping จากนั้นทำการลบข้อมูลทิ้งทั้งหมด"
+
+Openers/connectors drawn from real Thai police case reporting — vary them \
+naturally, do not use all in one narrative:
+- "ผู้เสียหายแจ้งความว่า..." / "ได้รับแจ้งเบาะแสจากผู้เสียหายว่า..."
+- "ถูกเข้าถึงข้อมูลโดยไม่ได้รับอนุญาต"
+- "จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่า..." / "จากการตรวจสอบ log พบว่า..."
+- "ต่อมา..." / "จากนั้น..." / "สุดท้าย..."
+- State date/organization type formally (e.g. "เมื่อวันที่ 15 มีนาคม 2569 \
+บริษัทเอกชนแห่งหนึ่งในจังหวัดชลบุรี...")
 
 Return STRICT JSON only (no markdown fences):
 {{
@@ -259,6 +304,35 @@ def draft_narrative(llm, chain: dict) -> dict | None:
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. SAMPLE ASSEMBLY + REVIEW OUTPUT
 # ══════════════════════════════════════════════════════════════════════════════
+
+
+def _entry_from_stored(sid: str, stored: dict, id_to_name: dict[str, str]) -> dict:
+    """Rebuild a review entry from a previously drafted sample (--resume).
+
+    Deliberately independent of chain re-sampling: everything is derived
+    from the stored sample itself, so resume never re-spends LLM credits
+    on chains that already have drafts.
+    """
+    narrative = stored.get("query", "")
+    flags: list[str] = []
+    chain_steps: list[dict] = []
+    for step in stored.get("attack_steps", []):
+        aid = (step.get("gold_attack_ids") or [""])[0]
+        name = id_to_name.get(aid, "?")
+        cue = step.get("cue", "")
+        if not cue or cue not in narrative:
+            flags.append(f"step {step.get('order')}: cue not found verbatim in narrative")
+        if step.get("cue_type") == "described" and name != "?" and name.lower() in cue.lower():
+            flags.append(f"step {step.get('order')}: described cue names the technique ({name})")
+        chain_steps.append({"attack_id": aid, "name": name})
+    return {
+        "id": sid,
+        "group_name": stored.get("source_group", "(previous run)"),
+        "group_id": "",
+        "chain_steps": chain_steps,
+        "flags": flags,
+        "sample": {k: v for k, v in stored.items() if k not in ("id", "source_group")},
+    }
 
 
 def build_sample(idx: int, chain: dict, draft: dict) -> tuple[GeneratedSample, list[str]]:
@@ -344,13 +418,18 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", action="store_true",
                         help="Sample chains only, no LLM drafting")
+    parser.add_argument("--resume", action="store_true",
+                        help="Keep existing drafts in incident_draft.json; "
+                             "only draft chain indices that have none")
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
+    blocked = load_deprecated_blocklist()
+    print(f"[CHAIN] Blocklist: {len(blocked)} deprecated/revoked IDs excluded")
     neo4j = Neo4jGroundTruthBuilder()
 
     try:
-        chains = sample_kill_chains(neo4j, args.num, rng)
+        chains = sample_kill_chains(neo4j, args.num, rng, blocked_ids=blocked)
     finally:
         neo4j.close()
     print(f"[CHAIN] Sampled {len(chains)} chains")
@@ -363,6 +442,22 @@ def main() -> None:
             print(f"  {c['group_name']:<20} {steps}")
         return
 
+    draft_path = OUT_DIR / "incident_draft.json"
+
+    existing: dict[str, dict] = {}
+    id_to_name: dict[str, str] = {}
+    if args.resume and draft_path.exists():
+        with open(draft_path, "r", encoding="utf-8") as f:
+            existing = {e["id"]: e for e in json.load(f)}
+        try:
+            with open(OUT_DIR / "attack_lookup.json", "r", encoding="utf-8") as f:
+                id_to_name = {
+                    aid: name for name, aid in json.load(f)["alias_map"].items()
+                }
+        except FileNotFoundError:
+            pass
+        print(f"[DRAFT] Resume: keeping {len(existing)} existing drafts")
+
     from langchain_anthropic import ChatAnthropic
     llm = ChatAnthropic(  # type: ignore[call-arg]
         model=LLM_MODEL, api_key=ANTHROPIC_API_KEY,
@@ -373,6 +468,10 @@ def main() -> None:
     entries: list[dict] = []
     failed = 0
     for i, chain in enumerate(chains):
+        sid = f"inc_auto_{i+1:03d}"
+        if sid in existing:
+            entries.append(_entry_from_stored(sid, existing[sid], id_to_name))
+            continue
         draft = draft_narrative(llm, chain)
         if draft is None:
             failed += 1
@@ -380,7 +479,7 @@ def main() -> None:
             continue
         sample, flags = build_sample(i, chain, draft)
         entries.append({
-            "id": f"inc_auto_{i+1:03d}",
+            "id": sid,
             "group_name": chain["group_name"],
             "group_id": chain["group_id"],
             "chain_steps": chain["steps"],
@@ -392,10 +491,12 @@ def main() -> None:
               f"{len(chain['steps'])} steps{flag_note}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    draft_path = OUT_DIR / "incident_draft.json"
     with open(draft_path, "w", encoding="utf-8") as f:
         json.dump(
-            [{"id": e["id"], **e["sample"]} for e in entries],
+            [
+                {"id": e["id"], "source_group": e["group_name"], **e["sample"]}
+                for e in entries
+            ],
             f, indent=2, ensure_ascii=False,
         )
     review_path = OUT_DIR / "incident_draft_review.md"
