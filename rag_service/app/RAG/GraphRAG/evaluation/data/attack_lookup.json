@@ -1,0 +1,4566 @@
+{
+  "alias_map": {
+    "insecure third-party libraries": "MOB-T1028",
+    "app delivered via web download": "MOB-T1034",
+    "app delivered via email attachment": "MOB-T1037",
+    "detect app analysis environment": "MOB-T1043",
+    "stolen developer credentials or signing keys": "MOB-T1044",
+    "fake developer accounts": "MOB-T1045",
+    "remotely install application": "MOB-T1046",
+    "abuse of ios enterprise app signing key": "MOB-T1048",
+    "malicious sms message": "MOB-T1057",
+    "exploit baseband vulnerability": "MOB-T1058",
+    "malicious media content": "MOB-T1060",
+    "device unlock code guessing or brute force": "MOB-T1062",
+    "biometric spoofing": "MOB-T1063",
+    "malicious software development tools": "MOB-T1065",
+    "malicious or vulnerable built-in device functionality": "MOB-T1076",
+    "data obfuscation": "T1001",
+    "data compressed": "T1002",
+    "os credential dumping": "T1003",
+    "winlogon helper dll": "T1547.004",
+    "data from local system": "T1533",
+    "direct volume access": "T1006",
+    "system service discovery": "T1007",
+    "fallback channels": "T1008",
+    "binary padding": "T1027.001",
+    "application window discovery": "T1010",
+    "exfiltration over other network medium": "T1011",
+    "query registry": "T1012",
+    "port monitors": "T1547.010",
+    "accessibility features": "T1546.008",
+    "system network configuration discovery": "T1422",
+    "application deployment software": "T1017",
+    "remote system discovery": "T1018",
+    "system firmware": "T1542.001",
+    "automated exfiltration": "T1020",
+    "remote services": "T1021",
+    "data encrypted": "T1022",
+    "shortcut modification": "T1547.009",
+    "custom cryptographic protocol": "T1024",
+    "data from removable media": "T1025",
+    "multiband communication": "T1026",
+    "obfuscated files or information": "T1406",
+    "windows remote management": "T1021.006",
+    "scheduled transfer": "T1029",
+    "data transfer size limits": "T1030",
+    "modify existing service": "T1031",
+    "standard cryptographic protocol": "T1032",
+    "system owner/user discovery": "T1033",
+    "path interception": "T1034",
+    "service execution": "T1569.002",
+    "boot or logon initialization scripts": "T1398",
+    "dll search order hijacking": "T1038",
+    "data from network shared drive": "T1039",
+    "network sniffing": "T1040",
+    "exfiltration over c2 channel": "T1646",
+    "change default file association": "T1546.001",
+    "commonly used port": "T1436",
+    "file system permissions weakness": "T1044",
+    "software packing": "T1406.002",
+    "network service discovery": "T1046",
+    "windows management instrumentation": "T1047",
+    "exfiltration over alternative protocol": "T1639",
+    "system network connections discovery": "T1421",
+    "new service": "T1050",
+    "shared webroot": "T1051",
+    "exfiltration over physical medium": "T1052",
+    "scheduled task/job": "T1603",
+    "indicator blocking": "T1562.006",
+    "process injection": "T1631",
+    "input capture": "T1417",
+    "process discovery": "T1424",
+    "service registry permissions weakness": "T1058",
+    "command and scripting interpreter": "T1623",
+    "registry run keys / startup folder": "T1547.001",
+    "graphical user interface": "T1061",
+    "hypervisor": "T1062",
+    "security software discovery": "T1518.001",
+    "scripting": "T1064",
+    "uncommonly used port": "T1065",
+    "indicator removal from tools": "T1027.005",
+    "bootkit": "T1542.003",
+    "exploitation for privilege escalation": "T1404",
+    "permission groups discovery": "T1069",
+    "indicator removal": "T1070",
+    "application layer protocol": "T1437",
+    "software deployment tools": "T1072",
+    "dll side-loading": "T1574.002",
+    "data staged": "T1074",
+    "pass the hash": "T1550.002",
+    "remote desktop protocol": "T1021.001",
+    "windows admin shares": "T1077",
+    "valid accounts": "T1078",
+    "multilayer encryption": "T1079",
+    "taint shared content": "T1080",
+    "credentials in files": "T1552.001",
+    "system information discovery": "T1426",
+    "file and directory discovery": "T1420",
+    "windows management instrumentation event subscription": "T1546.003",
+    "rundll32": "T1218.011",
+    "powershell": "T1059.001",
+    "account discovery": "T1087",
+    "bypass user account control": "T1548.002",
+    "disabling security tools": "T1089",
+    "replication through removable media": "T1458",
+    "communication through removable media": "T1092",
+    "process hollowing": "T1055.012",
+    "custom command and control protocol": "T1094",
+    "non-application layer protocol": "T1095",
+    "ntfs file attributes": "T1564.004",
+    "pass the ticket": "T1550.003",
+    "account manipulation": "T1098",
+    "timestomp": "T1070.006",
+    "web shell": "T1505.003",
+    "security support provider": "T1547.005",
+    "web service": "T1481",
+    "appinit dlls": "T1546.010",
+    "multi-stage channels": "T1104",
+    "ingress tool transfer": "T1544",
+    "native api": "T1575",
+    "file deletion": "T1630.002",
+    "redundant access": "T1108",
+    "component firmware": "T1542.002",
+    "brute force": "T1110",
+    "multi-factor authentication interception": "T1111",
+    "modify registry": "T1112",
+    "screen capture": "T1513",
+    "email collection": "T1114",
+    "clipboard data": "T1414",
+    "code signing": "T1553.002",
+    "regsvr32": "T1218.010",
+    "installutil": "T1218.004",
+    "automated collection": "T1119",
+    "peripheral device discovery": "T1120",
+    "regsvcs/regasm": "T1218.009",
+    "component object model hijacking": "T1546.015",
+    "audio capture": "T1429",
+    "system time discovery": "T1124",
+    "video capture": "T1512",
+    "network share connection removal": "T1070.005",
+    "trusted developer utilities proxy execution": "T1127",
+    "netsh helper dll": "T1546.007",
+    "shared modules": "T1129",
+    "install root certificate": "T1553.004",
+    "authentication package": "T1547.002",
+    "data encoding": "T1132",
+    "external remote services": "T1133",
+    "access token manipulation": "T1134",
+    "network share discovery": "T1135",
+    "create account": "T1136",
+    "office application startup": "T1137",
+    "application shimming": "T1546.011",
+    "bash history": "T1139",
+    "deobfuscate/decode files or information": "T1140",
+    "input prompt": "T1411",
+    "keychain": "T1634.001",
+    "hidden window": "T1564.003",
+    "gatekeeper bypass": "T1553.001",
+    "private keys": "T1552.004",
+    "clear command history": "T1070.003",
+    "hidden users": "T1564.002",
+    "histcontrol": "T1148",
+    "lc_main hijacking": "T1149",
+    "plist modification": "T1547.011",
+    "space after filename": "T1036.006",
+    "launchctl": "T1569.001",
+    "source": "T1153",
+    "trap": "T1546.005",
+    "applescript": "T1059.002",
+    ".bash_profile and .bashrc": "T1156",
+    "dylib hijacking": "T1574.004",
+    "hidden files and directories": "T1564.001",
+    "launch agent": "T1543.001",
+    "launch daemon": "T1543.004",
+    "lc_load_dylib addition": "T1546.006",
+    "login item": "T1162",
+    "rc.common": "T1163",
+    "re-opened applications": "T1547.007",
+    "startup items": "T1037.005",
+    "setuid and setgid": "T1548.001",
+    "securityd memory": "T1555.002",
+    "local job scheduling": "T1168",
+    "sudo": "T1169",
+    "mshta": "T1218.005",
+    "llmnr/nbt-ns poisoning and relay": "T1171",
+    "domain fronting": "T1090.004",
+    "dynamic data exchange": "T1559.002",
+    "password filter dll": "T1556.002",
+    "component object model and distributed com": "T1175",
+    "software extensions": "T1176",
+    "lsass driver": "T1547.008",
+    "sid-history injection": "T1134.005",
+    "hooking": "T1617",
+    "screensaver": "T1546.002",
+    "extra window memory injection": "T1055.011",
+    "appcert dlls": "T1546.009",
+    "image file execution options injection": "T1546.012",
+    "ssh hijacking": "T1563.001",
+    "browser session hijacking": "T1185",
+    "process doppelgänging": "T1055.013",
+    "forced authentication": "T1187",
+    "multi-hop proxy": "T1090.003",
+    "drive-by compromise": "T1456",
+    "exploit public-facing application": "T1190",
+    "cmstp": "T1218.003",
+    "spearphishing link": "T1598.003",
+    "spearphishing attachment": "T1598.002",
+    "spearphishing via service": "T1566.003",
+    "supply chain compromise": "T1474",
+    "control panel items": "T1196",
+    "bits jobs": "T1197",
+    "sip and trust provider hijacking": "T1553.003",
+    "trusted relationship": "T1199",
+    "hardware additions": "T1200",
+    "password policy discovery": "T1201",
+    "indirect command execution": "T1202",
+    "exploitation for client execution": "T1658",
+    "user execution": "T1204",
+    "traffic signaling": "T1205",
+    "sudo caching": "T1206",
+    "rogue domain controller": "T1207",
+    "kerberoasting": "T1558.003",
+    "time providers": "T1547.003",
+    "exploitation of remote services": "T1428",
+    "exploitation for stealth": "T1211",
+    "exploitation for credential access": "T1212",
+    "data from information repositories": "T1213",
+    "credentials in registry": "T1552.002",
+    "kernel modules and extensions": "T1547.006",
+    "system script proxy execution": "T1216",
+    "browser information discovery": "T1217",
+    "system binary proxy execution": "T1218",
+    "remote access tools": "T1219",
+    "xsl script processing": "T1220",
+    "template injection": "T1221",
+    "file and directory permissions modification": "T1222",
+    "compiled html file": "T1218.001",
+    "modify trusted execution environment": "T1399",
+    "modify system partition": "T1400",
+    "device administrator permissions": "T1626.001",
+    "broadcast receivers": "T1624.001",
+    "modify cached executable code": "T1403",
+    "exploit tee vulnerability": "T1405",
+    "download new code at runtime": "T1407",
+    "disguise root/jailbreak indicators": "T1630.003",
+    "stored application data": "T1409",
+    "network traffic capture or redirection": "T1410",
+    "capture sms messages": "T1412",
+    "access sensitive data in device logs": "T1413",
+    "url scheme hijacking": "T1415",
+    "uri hijacking": "T1635.001",
+    "software discovery": "T1518",
+    "device type discovery": "T1419",
+    "network service scanning": "T1423",
+    "attack pc via usb connection": "T1427",
+    "location tracking": "T1430",
+    "access contact list": "T1432",
+    "access call log": "T1433",
+    "access calendar entries": "T1435",
+    "alternate network mediums": "T1438",
+    "eavesdrop on insecure network communication": "T1439",
+    "masquerade as legitimate application": "T1444",
+    "device lockout": "T1629.002",
+    "delete device data": "T1447",
+    "carrier billing fraud": "T1448",
+    "exploit ss7 to redirect phone calls/sms": "T1449",
+    "exploit ss7 to track device location": "T1450",
+    "sim card swap": "T1451",
+    "manipulate app store rankings or ratings": "T1452",
+    "abuse accessibility features": "T1453",
+    "lockscreen bypass": "T1461",
+    "manipulate device communication": "T1463",
+    "network denial of service": "T1498",
+    "rogue wi-fi access points": "T1465",
+    "downgrade to insecure protocols": "T1466",
+    "rogue cellular base station": "T1467",
+    "remotely track device without authorization": "T1468",
+    "remotely wipe data without authorization": "T1469",
+    "obtain device cloud backups": "T1470",
+    "data encrypted for impact": "T1486",
+    "generate fraudulent advertising revenue": "T1472",
+    "deliver malicious app via authorized app store": "T1475",
+    "deliver malicious app via other means": "T1476",
+    "exploit via radio interfaces": "T1477",
+    "install insecure or malicious configuration": "T1478",
+    "execution guardrails": "T1627",
+    "domain trust discovery": "T1482",
+    "domain generation algorithms": "T1637.001",
+    "domain or tenant policy modification": "T1484",
+    "data destruction": "T1662",
+    "disk structure wipe": "T1561.002",
+    "disk content wipe": "T1561.001",
+    "service stop": "T1489",
+    "inhibit system recovery": "T1490",
+    "defacement": "T1491",
+    "stored data manipulation": "T1565.001",
+    "transmitted data manipulation": "T1641.001",
+    "runtime data manipulation": "T1565.003",
+    "firmware corruption": "T1495",
+    "resource hijacking": "T1496",
+    "virtualization/sandbox evasion": "T1633",
+    "endpoint denial of service": "T1642",
+    "compile after delivery": "T1027.004",
+    "systemd service": "T1543.002",
+    "parent pid spoofing": "T1134.004",
+    "credentials from web browsers": "T1555.003",
+    "powershell profile": "T1546.013",
+    "server software component": "T1505",
+    "web session cookie": "T1550.004",
+    "network information discovery": "T1507",
+    "suppress application icon": "T1628.001",
+    "non-standard port": "T1571",
+    "clipboard modification": "T1510",
+    "elevated execution with prompt": "T1548.004",
+    "input injection": "T1674",
+    "access notifications": "T1517",
+    "emond": "T1546.014",
+    "encrypted channel": "T1573",
+    "cloud instance metadata api": "T1552.005",
+    "evade analysis environment": "T1523",
+    "implant internal image": "T1525",
+    "cloud service discovery": "T1526",
+    "application access token": "T1550.001",
+    "steal application access token": "T1635",
+    "system shutdown/reboot": "T1529",
+    "data from cloud storage": "T1530",
+    "account access removal": "T1640",
+    "archive collected data": "T1560",
+    "internal spearphishing": "T1534",
+    "unused/unsupported cloud regions": "T1535",
+    "revert cloud instance": "T1578.004",
+    "transfer data to cloud account": "T1537",
+    "cloud service dashboard": "T1538",
+    "steal web session cookie": "T1539",
+    "code injection": "T1540",
+    "foreground persistence": "T1541",
+    "pre-os boot": "T1542",
+    "create or modify system process": "T1543",
+    "event triggered execution": "T1624",
+    "boot or logon autostart execution": "T1547",
+    "abuse elevation control mechanism": "T1626",
+    "use alternate authentication material": "T1550",
+    "unsecured credentials": "T1552",
+    "subvert trust controls": "T1632",
+    "compromise host software binary": "T1554",
+    "credentials from password stores": "T1555",
+    "modify authentication process": "T1556",
+    "adversary-in-the-middle": "T1638",
+    "steal or forge kerberos tickets": "T1558",
+    "inter-process communication": "T1559",
+    "disk wipe": "T1561",
+    "impair defenses": "T1629",
+    "remote service session hijacking": "T1563",
+    "hide artifacts": "T1628",
+    "data manipulation": "T1641",
+    "exfiltration over web service": "T1567",
+    "dynamic resolution": "T1637",
+    "system services": "T1569",
+    "lateral tool transfer": "T1570",
+    "protocol tunneling": "T1572",
+    "hijack execution flow": "T1625",
+    "uninstall malicious application": "T1630.001",
+    "compromise application executable": "T1577",
+    "modify cloud compute infrastructure": "T1578",
+    "cloud infrastructure discovery": "T1580",
+    "geofencing": "T1627.001",
+    "sms control": "T1582",
+    "acquire infrastructure": "T1583",
+    "compromise infrastructure": "T1584",
+    "establish accounts": "T1585",
+    "compromise accounts": "T1586",
+    "develop capabilities": "T1587",
+    "obtain capabilities": "T1588",
+    "gather victim identity information": "T1589",
+    "gather victim network information": "T1590",
+    "gather victim org information": "T1591",
+    "gather victim host information": "T1592",
+    "search open websites/domains": "T1593",
+    "search victim-owned websites": "T1594",
+    "active scanning": "T1595",
+    "search open technical databases": "T1596",
+    "search closed sources": "T1597",
+    "phishing for information": "T1598",
+    "network boundary bridging": "T1599",
+    "weaken encryption": "T1600",
+    "modify system image": "T1601",
+    "data from configuration repository": "T1602",
+    "proxy through victim": "T1604",
+    "command-line interface": "T1605",
+    "forge web credentials": "T1606",
+    "stage capabilities": "T1608",
+    "container administration command": "T1609",
+    "deploy container": "T1610",
+    "escape to host": "T1611",
+    "build image on host": "T1612",
+    "container and resource discovery": "T1613",
+    "system location discovery": "T1614",
+    "group policy discovery": "T1615",
+    "call control": "T1616",
+    "user evasion": "T1628.002",
+    "cloud storage object discovery": "T1619",
+    "reflective code loading": "T1620",
+    "multi-factor authentication request generation": "T1621",
+    "debugger evasion": "T1622",
+    "indicator removal on host": "T1630",
+    "credentials from password store": "T1634",
+    "protected user data": "T1636",
+    "generate traffic from victim": "T1643",
+    "out of band data": "T1644",
+    "compromise client software binary": "T1645",
+    "plist file modification": "T1647",
+    "serverless execution": "T1648",
+    "steal or forge authentication certificates": "T1649",
+    "acquire access": "T1650",
+    "cloud administration command": "T1651",
+    "device driver discovery": "T1652",
+    "power settings": "T1653",
+    "log enumeration": "T1654",
+    "impersonation": "T1684.001",
+    "financial theft": "T1657",
+    "content injection": "T1659",
+    "application versioning": "T1661",
+    "remote access software": "T1663",
+    "exploitation for initial access": "T1664",
+    "hide infrastructure": "T1665",
+    "modify cloud resource hierarchy": "T1666",
+    "email bombing": "T1667",
+    "exclusive control": "T1668",
+    "wi-fi networks": "T1669",
+    "virtualization solution": "T1670",
+    "cloud application integration": "T1671",
+    "email spoofing": "T1684.002",
+    "virtual machine discovery": "T1673",
+    "esxi administration command": "T1675",
+    "linked devices": "T1676",
+    "poisoned pipeline execution": "T1677",
+    "delay execution": "T1678",
+    "selective exclusion": "T1679",
+    "local storage discovery": "T1680",
+    "search threat vendor data": "T1681",
+    "query public ai services": "T1682",
+    "generate content": "T1683",
+    "social engineering": "T1684",
+    "disable or modify tools": "T1629.003",
+    "disable or modify system firewall": "T1562.004",
+    "exploitation for defense impairment": "T1687",
+    "safe mode boot": "T1562.009",
+    "downgrade attack": "T1562.010",
+    "prevent command history logging": "T1690",
+    "junk data": "T1001.001",
+    "steganography": "T1406.001",
+    "protocol or service impersonation": "T1001.003",
+    "lsass memory": "T1003.001",
+    "security account manager": "T1003.002",
+    "ntds": "T1003.003",
+    "lsa secrets": "T1003.004",
+    "cached domain credentials": "T1003.005",
+    "dcsync": "T1003.006",
+    "proc filesystem": "T1003.007",
+    "/etc/passwd and /etc/shadow": "T1003.008",
+    "exfiltration over bluetooth": "T1011.001",
+    "internet connection discovery": "T1422.001",
+    "wi-fi discovery": "T1422.002",
+    "traffic duplication": "T1020.001",
+    "smb/windows admin shares": "T1021.002",
+    "distributed component object model": "T1021.003",
+    "ssh": "T1021.004",
+    "vnc": "T1021.005",
+    "cloud services": "T1021.007",
+    "direct cloud vm connections": "T1021.008",
+    "html smuggling": "T1027.006",
+    "dynamic api resolution": "T1027.007",
+    "stripped payloads": "T1027.008",
+    "embedded payloads": "T1027.009",
+    "command obfuscation": "T1027.010",
+    "fileless storage": "T1027.011",
+    "lnk icon smuggling": "T1027.012",
+    "encrypted/encoded file": "T1027.013",
+    "polymorphic code": "T1027.014",
+    "compression": "T1027.015",
+    "junk code insertion": "T1027.016",
+    "svg smuggling": "T1027.017",
+    "invisible unicode": "T1027.018",
+    "invalid code signature": "T1036.001",
+    "right-to-left override": "T1036.002",
+    "rename legitimate utilities": "T1036.003",
+    "masquerade task or service": "T1036.004",
+    "match legitimate resource name or location": "T1036.005",
+    "double file extension": "T1036.007",
+    "masquerade file type": "T1036.008",
+    "break process trees": "T1036.009",
+    "masquerade account name": "T1036.010",
+    "overwrite process arguments": "T1036.011",
+    "browser fingerprint": "T1036.012",
+    "logon script (windows)": "T1037.001",
+    "login hook": "T1037.002",
+    "network logon script": "T1037.003",
+    "rc scripts": "T1037.004",
+    "exfiltration over symmetric encrypted non-c2 protocol": "T1048.001",
+    "exfiltration over asymmetric encrypted non-c2 protocol": "T1048.002",
+    "exfiltration over unencrypted non-c2 protocol": "T1639.001",
+    "exfiltration over usb": "T1052.001",
+    "at (linux)": "T1053.001",
+    "cron": "T1053.003",
+    "launchd": "T1053.004",
+    "scheduled task": "T1053.005",
+    "systemd timers": "T1053.006",
+    "container orchestration job": "T1053.007",
+    "dynamic-link library injection": "T1055.001",
+    "portable executable injection": "T1055.002",
+    "thread execution hijacking": "T1055.003",
+    "asynchronous procedure call": "T1055.004",
+    "thread local storage": "T1055.005",
+    "ptrace system calls": "T1631.001",
+    "proc memory": "T1055.009",
+    "vdso hijacking": "T1055.014",
+    "listplanting": "T1055.015",
+    "keylogging": "T1417.001",
+    "gui input capture": "T1417.002",
+    "web portal capture": "T1056.003",
+    "credential api hooking": "T1056.004",
+    "windows command shell": "T1059.003",
+    "unix shell": "T1623.001",
+    "visual basic": "T1059.005",
+    "python": "T1059.006",
+    "javascript": "T1059.007",
+    "network device cli": "T1059.008",
+    "cloud api": "T1059.009",
+    "autohotkey & autoit": "T1059.010",
+    "lua": "T1059.011",
+    "hypervisor cli": "T1059.012",
+    "container cli/api": "T1059.013",
+    "local groups": "T1069.001",
+    "domain groups": "T1069.002",
+    "cloud groups": "T1069.003",
+    "clear windows event logs": "T1685.005",
+    "clear linux or mac system logs": "T1685.006",
+    "clear network connection history and configurations": "T1070.007",
+    "clear mailbox data": "T1070.008",
+    "clear persistence": "T1070.009",
+    "relocate malware": "T1070.010",
+    "web protocols": "T1437.001",
+    "file transfer protocols": "T1071.002",
+    "mail protocols": "T1071.003",
+    "dns": "T1590.002",
+    "publish/subscribe protocols": "T1071.005",
+    "local data staging": "T1074.001",
+    "remote data staging": "T1074.002",
+    "default accounts": "T1078.001",
+    "domain accounts": "T1078.002",
+    "local accounts": "T1078.003",
+    "cloud accounts": "T1586.003",
+    "local account": "T1136.001",
+    "domain account": "T1136.002",
+    "email account": "T1087.003",
+    "cloud account": "T1136.003",
+    "internal proxy": "T1090.001",
+    "external proxy": "T1090.002",
+    "additional cloud credentials": "T1098.001",
+    "additional email delegate permissions": "T1098.002",
+    "additional cloud roles": "T1098.003",
+    "ssh authorized keys": "T1098.004",
+    "device registration": "T1098.005",
+    "additional container cluster roles": "T1098.006",
+    "additional local or domain groups": "T1098.007",
+    "dead drop resolver": "T1481.001",
+    "bidirectional communication": "T1481.002",
+    "one-way communication": "T1481.003",
+    "password guessing": "T1110.001",
+    "password cracking": "T1110.002",
+    "password spraying": "T1110.003",
+    "credential stuffing": "T1110.004",
+    "local email collection": "T1114.001",
+    "remote email collection": "T1114.002",
+    "email forwarding rule": "T1114.003",
+    "msbuild": "T1127.001",
+    "clickonce": "T1127.002",
+    "jamplus": "T1127.003",
+    "standard encoding": "T1132.001",
+    "non-standard encoding": "T1132.002",
+    "token impersonation/theft": "T1134.001",
+    "create process with token": "T1134.002",
+    "make and impersonate token": "T1134.003",
+    "office template macros": "T1137.001",
+    "office test": "T1137.002",
+    "outlook forms": "T1137.003",
+    "outlook home page": "T1137.004",
+    "outlook rules": "T1137.005",
+    "add-ins": "T1137.006",
+    "browser extensions": "T1176.001",
+    "ide extensions": "T1176.002",
+    "compromise software dependencies and development tools": "T1474.001",
+    "compromise software supply chain": "T1474.003",
+    "compromise hardware supply chain": "T1474.002",
+    "malicious link": "T1204.001",
+    "malicious file": "T1204.002",
+    "malicious image": "T1204.003",
+    "malicious copy and paste": "T1204.004",
+    "malicious library": "T1204.005",
+    "port knocking": "T1205.001",
+    "socket filters": "T1205.002",
+    "confluence": "T1213.001",
+    "sharepoint": "T1213.002",
+    "code repositories": "T1593.003",
+    "customer relationship management software": "T1213.004",
+    "messaging applications": "T1213.005",
+    "databases": "T1213.006",
+    "pubprn": "T1216.001",
+    "syncappvpublishingserver": "T1216.002",
+    "control panel": "T1218.002",
+    "msiexec": "T1218.007",
+    "odbcconf": "T1218.008",
+    "verclsid": "T1218.012",
+    "mavinject": "T1218.013",
+    "mmc": "T1218.014",
+    "electron applications": "T1218.015",
+    "ide tunneling": "T1219.001",
+    "remote desktop software": "T1219.002",
+    "remote access hardware": "T1219.003",
+    "windows permissions": "T1222.001",
+    "linux and mac permissions": "T1222.002",
+    "remote device management services": "T1430.001",
+    "impersonate ss7 nodes": "T1430.002",
+    "environmental keying": "T1480.001",
+    "mutual exclusion": "T1480.002",
+    "group policy modification": "T1484.001",
+    "trust modification": "T1484.002",
+    "lifecycle-triggered deletion": "T1485.001",
+    "internal defacement": "T1491.001",
+    "external defacement": "T1491.002",
+    "compute hijacking": "T1496.001",
+    "bandwidth hijacking": "T1496.002",
+    "sms pumping": "T1496.003",
+    "cloud service hijacking": "T1496.004",
+    "system checks": "T1633.001",
+    "user activity based checks": "T1497.002",
+    "time based checks": "T1497.003",
+    "direct network flood": "T1498.001",
+    "reflection amplification": "T1498.002",
+    "os exhaustion flood": "T1499.001",
+    "service exhaustion flood": "T1499.002",
+    "application exhaustion flood": "T1499.003",
+    "application or system exploitation": "T1499.004",
+    "sql stored procedures": "T1505.001",
+    "transport agent": "T1505.002",
+    "iis components": "T1505.004",
+    "terminal services dll": "T1505.005",
+    "vsphere installation bundles": "T1505.006",
+    "backup software discovery": "T1518.002",
+    "symmetric cryptography": "T1573.001",
+    "asymmetric cryptography": "T1573.002",
+    "ssl pinning": "T1521.003",
+    "rommonkit": "T1542.004",
+    "tftp boot": "T1542.005",
+    "windows service": "T1543.003",
+    "container service": "T1543.005",
+    "unix shell configuration modification": "T1546.004",
+    "installer packages": "T1546.016",
+    "udev rules": "T1546.017",
+    "python startup hooks": "T1546.018",
+    "print processors": "T1547.012",
+    "xdg autostart entries": "T1547.013",
+    "active setup": "T1547.014",
+    "login items": "T1547.015",
+    "sudo and sudo caching": "T1548.003",
+    "temporary elevated cloud access": "T1548.005",
+    "tcc manipulation": "T1548.006",
+    "shell history": "T1552.003",
+    "group policy preferences": "T1552.006",
+    "container api": "T1552.007",
+    "chat messages": "T1552.008",
+    "mark-of-the-web bypass": "T1553.005",
+    "code signing policy modification": "T1632.001",
+    "windows credential manager": "T1555.004",
+    "password managers": "T1555.005",
+    "cloud secrets management stores": "T1555.006",
+    "domain controller authentication": "T1556.001",
+    "pluggable authentication modules": "T1556.003",
+    "network device authentication": "T1556.004",
+    "reversible encryption": "T1556.005",
+    "multi-factor authentication": "T1556.006",
+    "hybrid identity": "T1556.007",
+    "network provider dll": "T1556.008",
+    "conditional access policies": "T1556.009",
+    "name resolution poisoning and smb relay": "T1557.001",
+    "arp cache poisoning": "T1557.002",
+    "dhcp spoofing": "T1557.003",
+    "evil twin": "T1557.004",
+    "golden ticket": "T1558.001",
+    "silver ticket": "T1558.002",
+    "as-rep roasting": "T1558.004",
+    "ccache files": "T1558.005",
+    "component object model": "T1559.001",
+    "xpc services": "T1559.003",
+    "archive via utility": "T1560.001",
+    "archive via library": "T1560.002",
+    "archive via custom method": "T1560.003",
+    "disable windows event logging": "T1562.002",
+    "impair command history logging": "T1562.003",
+    "disable or modify cloud firewall": "T1562.007",
+    "disable cloud logs": "T1562.008",
+    "spoof security alerting": "T1562.011",
+    "disable or modify linux audit system": "T1562.012",
+    "disable or modify network device firewall": "T1562.013",
+    "rdp hijacking": "T1563.002",
+    "hidden file system": "T1564.005",
+    "run virtual instance": "T1564.006",
+    "vba stomping": "T1564.007",
+    "email hiding rules": "T1564.008",
+    "resource forking": "T1564.009",
+    "process argument spoofing": "T1564.010",
+    "ignore process interrupts": "T1564.011",
+    "file/path exclusions": "T1564.012",
+    "bind mounts": "T1564.013",
+    "extended attributes": "T1564.014",
+    "spearphishing voice": "T1598.004",
+    "exfiltration to code repository": "T1567.001",
+    "exfiltration to cloud storage": "T1567.002",
+    "exfiltration to text storage sites": "T1567.003",
+    "exfiltration over webhook": "T1567.004",
+    "fast flux dns": "T1568.001",
+    "dns calculation": "T1568.003",
+    "systemctl": "T1569.003",
+    "dll": "T1574.001",
+    "executable installer file permissions weakness": "T1574.005",
+    "dynamic linker hijacking": "T1574.006",
+    "path interception by path environment variable": "T1574.007",
+    "path interception by search order hijacking": "T1574.008",
+    "path interception by unquoted path": "T1574.009",
+    "services file permissions weakness": "T1574.010",
+    "services registry permissions weakness": "T1574.011",
+    "cor_profiler": "T1574.012",
+    "kernelcallbacktable": "T1574.013",
+    "appdomainmanager": "T1574.014",
+    "create snapshot": "T1578.001",
+    "create cloud instance": "T1578.002",
+    "delete cloud instance": "T1578.003",
+    "modify cloud compute configurations": "T1578.005",
+    "domains": "T1584.001",
+    "dns server": "T1584.002",
+    "virtual private server": "T1584.003",
+    "server": "T1584.004",
+    "botnet": "T1584.005",
+    "web services": "T1584.006",
+    "serverless": "T1584.007",
+    "malvertising": "T1583.008",
+    "network devices": "T1584.008",
+    "social media accounts": "T1586.001",
+    "email accounts": "T1586.002",
+    "malware": "T1588.001",
+    "code signing certificates": "T1588.003",
+    "digital certificates": "T1596.003",
+    "exploits": "T1588.005",
+    "tool": "T1588.002",
+    "vulnerabilities": "T1588.006",
+    "artificial intelligence": "T1588.007",
+    "credentials": "T1589.001",
+    "email addresses": "T1589.002",
+    "employee names": "T1589.003",
+    "domain properties": "T1590.001",
+    "network trust dependencies": "T1590.003",
+    "network topology": "T1590.004",
+    "ip addresses": "T1590.005",
+    "network security appliances": "T1590.006",
+    "determine physical locations": "T1591.001",
+    "business relationships": "T1591.002",
+    "identify business tempo": "T1591.003",
+    "identify roles": "T1591.004",
+    "hardware": "T1592.001",
+    "software": "T1592.002",
+    "firmware": "T1592.003",
+    "client configurations": "T1592.004",
+    "social media": "T1593.001",
+    "search engines": "T1593.002",
+    "scanning ip blocks": "T1595.001",
+    "vulnerability scanning": "T1595.002",
+    "wordlist scanning": "T1595.003",
+    "dns/passive dns": "T1596.001",
+    "whois": "T1596.002",
+    "cdns": "T1596.004",
+    "scan databases": "T1596.005",
+    "threat intel vendors": "T1597.001",
+    "purchase technical data": "T1597.002",
+    "spearphishing service": "T1598.001",
+    "network address translation traversal": "T1599.001",
+    "reduce key space": "T1600.001",
+    "disable crypto hardware": "T1600.002",
+    "patch system image": "T1601.001",
+    "downgrade system image": "T1601.002",
+    "snmp (mib dump)": "T1602.001",
+    "network device configuration dump": "T1602.002",
+    "web cookies": "T1606.001",
+    "saml tokens": "T1606.002",
+    "upload malware": "T1608.001",
+    "upload tool": "T1608.002",
+    "install digital certificate": "T1608.003",
+    "drive-by target": "T1608.004",
+    "link target": "T1608.005",
+    "seo poisoning": "T1608.006",
+    "system language discovery": "T1614.001",
+    "system runtime api hijacking": "T1625.001",
+    "conceal multimedia files": "T1628.003",
+    "prevent application removal": "T1629.001",
+    "calendar entries": "T1636.001",
+    "call log": "T1636.002",
+    "contact list": "T1636.003",
+    "sms messages": "T1636.004",
+    "accounts": "T1636.005",
+    "match legitimate name or location": "T1655.001",
+    "written content": "T1683.001",
+    "audio-visual content": "T1683.002",
+    "disable or modify windows event log": "T1685.001",
+    "disable or modify cloud log": "T1685.002",
+    "modify or spoof tool ui": "T1685.003",
+    "disable or modify linux audit system log": "T1685.004",
+    "cloud firewall": "T1686.001",
+    "network device firewall": "T1686.002",
+    "windows host firewall": "T1686.003"
+  },
+  "technique_to_tactics": {
+    "T1123": [
+      "collection"
+    ],
+    "T1119": [
+      "collection"
+    ],
+    "T1176": [
+      "collection",
+      "persistence"
+    ],
+    "T1115": [
+      "collection"
+    ],
+    "T1074": [
+      "collection"
+    ],
+    "T1005": [
+      "collection"
+    ],
+    "T1039": [
+      "collection"
+    ],
+    "T1025": [
+      "collection"
+    ],
+    "T1114": [
+      "collection"
+    ],
+    "T1056": [
+      "collection",
+      "credential-access"
+    ],
+    "T1185": [
+      "collection"
+    ],
+    "T1113": [
+      "collection"
+    ],
+    "T1125": [
+      "collection"
+    ],
+    "T1557": [
+      "collection",
+      "credential-access"
+    ],
+    "T1560": [
+      "collection"
+    ],
+    "T1530": [
+      "collection"
+    ],
+    "T1602": [
+      "collection"
+    ],
+    "T1213": [
+      "collection"
+    ],
+    "T1453": [
+      "collection",
+      "credential-access"
+    ],
+    "T1435": [
+      "collection"
+    ],
+    "T1433": [
+      "collection"
+    ],
+    "T1432": [
+      "collection"
+    ],
+    "T1413": [
+      "collection",
+      "credential-access"
+    ],
+    "T1409": [
+      "collection",
+      "credential-access"
+    ],
+    "T1414": [
+      "collection",
+      "credential-access"
+    ],
+    "T1412": [
+      "collection",
+      "credential-access"
+    ],
+    "T1430": [
+      "collection",
+      "discovery"
+    ],
+    "T1417": [
+      "collection",
+      "credential-access"
+    ],
+    "T1429": [
+      "collection"
+    ],
+    "T1410": [
+      "collection",
+      "credential-access"
+    ],
+    "T1557.002": [
+      "collection",
+      "credential-access"
+    ],
+    "T1560.003": [
+      "collection"
+    ],
+    "T1560.002": [
+      "collection"
+    ],
+    "T1560.001": [
+      "collection"
+    ],
+    "T1213.003": [
+      "collection"
+    ],
+    "T1213.001": [
+      "collection"
+    ],
+    "T1056.004": [
+      "collection",
+      "credential-access"
+    ],
+    "T1114.003": [
+      "collection"
+    ],
+    "T1056.002": [
+      "collection",
+      "credential-access"
+    ],
+    "T1056.001": [
+      "collection",
+      "credential-access"
+    ],
+    "T1557.001": [
+      "collection",
+      "credential-access"
+    ],
+    "T1074.001": [
+      "collection"
+    ],
+    "T1114.001": [
+      "collection"
+    ],
+    "T1602.002": [
+      "collection"
+    ],
+    "T1074.002": [
+      "collection"
+    ],
+    "T1114.002": [
+      "collection"
+    ],
+    "T1602.001": [
+      "collection"
+    ],
+    "T1213.002": [
+      "collection"
+    ],
+    "T1056.003": [
+      "collection",
+      "credential-access"
+    ],
+    "T1557.003": [
+      "collection",
+      "credential-access"
+    ],
+    "T1557.004": [
+      "collection",
+      "credential-access"
+    ],
+    "T1213.004": [
+      "collection"
+    ],
+    "T1213.005": [
+      "collection"
+    ],
+    "T1213.006": [
+      "collection"
+    ],
+    "T1043": [
+      "command-and-control"
+    ],
+    "T1092": [
+      "command-and-control"
+    ],
+    "T1090": [
+      "command-and-control",
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1094": [
+      "command-and-control"
+    ],
+    "T1024": [
+      "command-and-control"
+    ],
+    "T1132": [
+      "command-and-control"
+    ],
+    "T1001": [
+      "command-and-control"
+    ],
+    "T1172": [
+      "command-and-control"
+    ],
+    "T1008": [
+      "command-and-control"
+    ],
+    "T1104": [
+      "command-and-control"
+    ],
+    "T1188": [
+      "command-and-control"
+    ],
+    "T1026": [
+      "command-and-control"
+    ],
+    "T1079": [
+      "command-and-control"
+    ],
+    "T1105": [
+      "command-and-control",
+      "lateral-movement"
+    ],
+    "T1071": [
+      "command-and-control"
+    ],
+    "T1032": [
+      "command-and-control"
+    ],
+    "T1095": [
+      "command-and-control"
+    ],
+    "T1065": [
+      "command-and-control"
+    ],
+    "T1102": [
+      "command-and-control",
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1568": [
+      "command-and-control"
+    ],
+    "T1573": [
+      "command-and-control"
+    ],
+    "T1571": [
+      "command-and-control"
+    ],
+    "T1572": [
+      "command-and-control"
+    ],
+    "T1219": [
+      "command-and-control"
+    ],
+    "T1205": [
+      "command-and-control",
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1659": [
+      "command-and-control",
+      "initial-access"
+    ],
+    "T1665": [
+      "command-and-control"
+    ],
+    "T1483": [
+      "command-and-control"
+    ],
+    "T1438": [
+      "command-and-control",
+      "exfiltration"
+    ],
+    "T1436": [
+      "command-and-control",
+      "exfiltration"
+    ],
+    "T1437": [
+      "command-and-control",
+      "exfiltration"
+    ],
+    "T1573.002": [
+      "command-and-control"
+    ],
+    "T1102.002": [
+      "command-and-control"
+    ],
+    "T1071.004": [
+      "command-and-control"
+    ],
+    "T1568.003": [
+      "command-and-control"
+    ],
+    "T1102.001": [
+      "command-and-control"
+    ],
+    "T1090.004": [
+      "command-and-control"
+    ],
+    "T1568.002": [
+      "command-and-control"
+    ],
+    "T1090.002": [
+      "command-and-control"
+    ],
+    "T1568.001": [
+      "command-and-control"
+    ],
+    "T1071.002": [
+      "command-and-control"
+    ],
+    "T1090.001": [
+      "command-and-control"
+    ],
+    "T1001.001": [
+      "command-and-control"
+    ],
+    "T1071.003": [
+      "command-and-control"
+    ],
+    "T1090.003": [
+      "command-and-control"
+    ],
+    "T1132.002": [
+      "command-and-control"
+    ],
+    "T1102.003": [
+      "command-and-control"
+    ],
+    "T1205.001": [
+      "command-and-control",
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1001.003": [
+      "command-and-control"
+    ],
+    "T1132.001": [
+      "command-and-control"
+    ],
+    "T1001.002": [
+      "command-and-control"
+    ],
+    "T1573.001": [
+      "command-and-control"
+    ],
+    "T1071.001": [
+      "command-and-control"
+    ],
+    "T1205.002": [
+      "command-and-control",
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1071.005": [
+      "command-and-control"
+    ],
+    "T1219.001": [
+      "command-and-control"
+    ],
+    "T1219.003": [
+      "command-and-control"
+    ],
+    "T1219.002": [
+      "command-and-control"
+    ],
+    "T1098": [
+      "credential-access",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1139": [
+      "credential-access"
+    ],
+    "T1110": [
+      "credential-access"
+    ],
+    "T1003": [
+      "credential-access"
+    ],
+    "T1081": [
+      "credential-access"
+    ],
+    "T1068": [
+      "credential-access",
+      "defense-evasion",
+      "lateral-movement",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1187": [
+      "credential-access"
+    ],
+    "T1179": [
+      "credential-access",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1141": [
+      "credential-access"
+    ],
+    "T1142": [
+      "credential-access"
+    ],
+    "T1171": [
+      "credential-access"
+    ],
+    "T1040": [
+      "credential-access",
+      "discovery"
+    ],
+    "T1174": [
+      "credential-access"
+    ],
+    "T1145": [
+      "credential-access"
+    ],
+    "T1091": [
+      "credential-access",
+      "initial-access",
+      "lateral-movement"
+    ],
+    "T1167": [
+      "credential-access"
+    ],
+    "T1111": [
+      "credential-access"
+    ],
+    "T1555": [
+      "credential-access"
+    ],
+    "T1212": [
+      "credential-access"
+    ],
+    "T1606": [
+      "credential-access"
+    ],
+    "T1556": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1528": [
+      "credential-access"
+    ],
+    "T1539": [
+      "credential-access"
+    ],
+    "T1558": [
+      "credential-access"
+    ],
+    "T1552": [
+      "credential-access"
+    ],
+    "T1621": [
+      "credential-access"
+    ],
+    "T1649": [
+      "credential-access"
+    ],
+    "T1214": [
+      "credential-access"
+    ],
+    "T1208": [
+      "credential-access"
+    ],
+    "T1522": [
+      "credential-access"
+    ],
+    "T1503": [
+      "credential-access"
+    ],
+    "T1416": [
+      "credential-access"
+    ],
+    "T1405": [
+      "credential-access",
+      "privilege-escalation"
+    ],
+    "T1415": [
+      "credential-access"
+    ],
+    "T1411": [
+      "credential-access"
+    ],
+    "T1003.008": [
+      "credential-access"
+    ],
+    "T1558.004": [
+      "credential-access"
+    ],
+    "T1552.003": [
+      "credential-access"
+    ],
+    "T1003.005": [
+      "credential-access"
+    ],
+    "T1552.005": [
+      "credential-access"
+    ],
+    "T1552.007": [
+      "credential-access"
+    ],
+    "T1110.004": [
+      "credential-access"
+    ],
+    "T1552.001": [
+      "credential-access"
+    ],
+    "T1555.003": [
+      "credential-access"
+    ],
+    "T1552.002": [
+      "credential-access"
+    ],
+    "T1003.006": [
+      "credential-access"
+    ],
+    "T1556.001": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1558.001": [
+      "credential-access"
+    ],
+    "T1552.006": [
+      "credential-access"
+    ],
+    "T1558.003": [
+      "credential-access"
+    ],
+    "T1555.001": [
+      "credential-access"
+    ],
+    "T1003.004": [
+      "credential-access"
+    ],
+    "T1003.001": [
+      "credential-access"
+    ],
+    "T1003.003": [
+      "credential-access"
+    ],
+    "T1556.004": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1110.002": [
+      "credential-access"
+    ],
+    "T1556.002": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1110.001": [
+      "credential-access"
+    ],
+    "T1555.005": [
+      "credential-access"
+    ],
+    "T1110.003": [
+      "credential-access"
+    ],
+    "T1556.003": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1552.004": [
+      "credential-access"
+    ],
+    "T1003.007": [
+      "credential-access"
+    ],
+    "T1606.002": [
+      "credential-access"
+    ],
+    "T1003.002": [
+      "credential-access"
+    ],
+    "T1555.002": [
+      "credential-access"
+    ],
+    "T1558.002": [
+      "credential-access"
+    ],
+    "T1606.001": [
+      "credential-access"
+    ],
+    "T1555.004": [
+      "credential-access"
+    ],
+    "T1556.005": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1556.007": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1556.006": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1556.008": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1552.008": [
+      "credential-access"
+    ],
+    "T1555.006": [
+      "credential-access"
+    ],
+    "T1556.009": [
+      "credential-access",
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1558.005": [
+      "credential-access"
+    ],
+    "T1134": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1088": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1146": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1116": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1109": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1122": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1038": [
+      "defense-evasion",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1073": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1140": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1089": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1181": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1107": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1144": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1148": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1158": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1147": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1143": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1183": [
+      "defense-evasion",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1054": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1066": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1130": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1118": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1149": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1152": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "stealth"
+    ],
+    "T1036": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1112": [
+      "defense-evasion",
+      "defense-impairment",
+      "persistence",
+      "stealth"
+    ],
+    "T1170": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1096": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1126": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1150": [
+      "defense-evasion",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1186": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1093": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1055": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1108": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1121": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1117": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1014": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1085": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1064": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1045": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1151": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1099": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1127": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1078": [
+      "defense-evasion",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1548": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1197": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "stealth"
+    ],
+    "T1612": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1610": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1484": [
+      "defense-evasion",
+      "defense-impairment",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1480": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1211": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1222": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1564": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1574": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1562": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1202": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1578": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1601": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1599": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1542": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1620": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1207": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1218": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1216": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1553": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1221": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1535": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1550": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1497": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1600": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1220": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1647": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1622": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1656": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1666": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1672": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1679": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1678": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1684": [
+      "stealth"
+    ],
+    "T1191": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1196": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1198": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1223": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1500": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1527": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1502": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1536": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1506": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1418": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1408": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1407": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1398": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1400": [
+      "defense-evasion",
+      "impact",
+      "persistence",
+      "stealth"
+    ],
+    "T1399": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1406": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1550.001": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1055.004": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1027.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1542.003": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1548.002": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1218.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1574.012": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1070.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1078.004": [
+      "defense-evasion",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1553.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1553.006": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1027.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1542.002": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1218.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1578.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1134.002": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1578.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1574.001": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1574.002": [
+      "defense-evasion",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1078.001": [
+      "defense-evasion",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1578.003": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1562.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1600.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1562.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1078.002": [
+      "defense-evasion",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1484.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1036.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1601.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1574.004": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1574.006": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.001": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1548.004": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1564.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1480.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1574.005": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.011": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1070.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1553.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1484.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1027.006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.005": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.005": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1553.004": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1218.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1222.002": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1078.003": [
+      "defense-evasion",
+      "initial-access",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1218.014": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1127.001": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1134.003": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1553.005": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1036.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.005": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.013": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.005": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.004": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1599.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1070.005": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1134.004": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1550.002": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1550.003": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1601.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1574.007": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1574.008": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1574.009": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.002": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.009": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.013": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.012": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.008": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1216.001": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1542.004": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1600.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1218.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1578.004": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1036.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1218.011": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1134.005": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1553.003": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1562.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1574.010": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1574.011": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1548.001": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1027.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.003": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1548.003": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1497.001": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1542.001": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1542.005": [
+      "defense-evasion",
+      "persistence",
+      "stealth"
+    ],
+    "T1055.003": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.005": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1497.003": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1070.006": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1134.001": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1497.002": [
+      "defense-evasion",
+      "discovery",
+      "stealth"
+    ],
+    "T1564.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1055.014": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1218.012": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1550.004": [
+      "defense-evasion",
+      "lateral-movement",
+      "stealth"
+    ],
+    "T1222.001": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1574.013": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1055.015": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1564.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1070.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.007": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.011": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.008": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.011": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.009": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.011": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.012": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1548.005": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1027.012": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1578.005": [
+      "defense-evasion",
+      "defense-impairment",
+      "stealth"
+    ],
+    "T1564.012": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.013": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1574.014": [
+      "defense-evasion",
+      "execution",
+      "persistence",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1218.015": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1216.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1548.006": [
+      "defense-evasion",
+      "privilege-escalation",
+      "stealth"
+    ],
+    "T1480.002": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.014": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1127.002": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1070.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.010": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.011": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.013": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.016": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1564.014": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1027.017": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1127.003": [
+      "defense-evasion",
+      "execution",
+      "stealth"
+    ],
+    "T1027.015": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1562.013": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1036.012": [
+      "defense-evasion",
+      "stealth"
+    ],
+    "T1684.001": [
+      "stealth"
+    ],
+    "T1027.018": [
+      "stealth"
+    ],
+    "T1684.002": [
+      "stealth"
+    ],
+    "T1087": [
+      "discovery"
+    ],
+    "T1010": [
+      "discovery"
+    ],
+    "T1083": [
+      "discovery"
+    ],
+    "T1046": [
+      "discovery"
+    ],
+    "T1135": [
+      "discovery"
+    ],
+    "T1120": [
+      "discovery"
+    ],
+    "T1069": [
+      "discovery"
+    ],
+    "T1057": [
+      "discovery"
+    ],
+    "T1012": [
+      "discovery"
+    ],
+    "T1018": [
+      "discovery"
+    ],
+    "T1063": [
+      "discovery"
+    ],
+    "T1082": [
+      "discovery"
+    ],
+    "T1016": [
+      "discovery"
+    ],
+    "T1049": [
+      "discovery"
+    ],
+    "T1033": [
+      "discovery"
+    ],
+    "T1007": [
+      "discovery"
+    ],
+    "T1124": [
+      "discovery"
+    ],
+    "T1217": [
+      "discovery"
+    ],
+    "T1580": [
+      "discovery"
+    ],
+    "T1538": [
+      "discovery"
+    ],
+    "T1526": [
+      "discovery"
+    ],
+    "T1619": [
+      "discovery"
+    ],
+    "T1613": [
+      "discovery"
+    ],
+    "T1482": [
+      "discovery"
+    ],
+    "T1615": [
+      "discovery"
+    ],
+    "T1201": [
+      "discovery"
+    ],
+    "T1518": [
+      "discovery"
+    ],
+    "T1614": [
+      "discovery"
+    ],
+    "T1652": [
+      "discovery"
+    ],
+    "T1654": [
+      "discovery"
+    ],
+    "T1673": [
+      "discovery"
+    ],
+    "T1680": [
+      "discovery"
+    ],
+    "T1419": [
+      "discovery"
+    ],
+    "T1420": [
+      "discovery"
+    ],
+    "T1422": [
+      "discovery"
+    ],
+    "T1421": [
+      "discovery"
+    ],
+    "T1423": [
+      "discovery"
+    ],
+    "T1424": [
+      "discovery"
+    ],
+    "T1426": [
+      "discovery"
+    ],
+    "T1087.004": [
+      "discovery"
+    ],
+    "T1069.003": [
+      "discovery"
+    ],
+    "T1087.002": [
+      "discovery"
+    ],
+    "T1069.002": [
+      "discovery"
+    ],
+    "T1087.003": [
+      "discovery"
+    ],
+    "T1016.001": [
+      "discovery"
+    ],
+    "T1087.001": [
+      "discovery"
+    ],
+    "T1069.001": [
+      "discovery"
+    ],
+    "T1518.001": [
+      "discovery"
+    ],
+    "T1614.001": [
+      "discovery"
+    ],
+    "T1016.002": [
+      "discovery"
+    ],
+    "T1518.002": [
+      "discovery"
+    ],
+    "T1155": [
+      "execution",
+      "lateral-movement"
+    ],
+    "T1059": [
+      "execution"
+    ],
+    "T1175": [
+      "execution",
+      "lateral-movement"
+    ],
+    "T1173": [
+      "execution"
+    ],
+    "T1106": [
+      "execution"
+    ],
+    "T1129": [
+      "execution"
+    ],
+    "T1061": [
+      "execution"
+    ],
+    "T1177": [
+      "execution",
+      "persistence"
+    ],
+    "T1168": [
+      "execution",
+      "persistence"
+    ],
+    "T1086": [
+      "execution"
+    ],
+    "T1053": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1035": [
+      "execution"
+    ],
+    "T1153": [
+      "execution"
+    ],
+    "T1072": [
+      "execution",
+      "lateral-movement"
+    ],
+    "T1154": [
+      "execution",
+      "persistence"
+    ],
+    "T1047": [
+      "execution"
+    ],
+    "T1028": [
+      "execution",
+      "lateral-movement"
+    ],
+    "T1609": [
+      "execution"
+    ],
+    "T1203": [
+      "execution"
+    ],
+    "T1559": [
+      "execution"
+    ],
+    "T1569": [
+      "execution"
+    ],
+    "T1204": [
+      "execution"
+    ],
+    "T1648": [
+      "execution"
+    ],
+    "T1651": [
+      "execution"
+    ],
+    "T1675": [
+      "execution"
+    ],
+    "T1674": [
+      "execution"
+    ],
+    "T1677": [
+      "execution"
+    ],
+    "T1059.002": [
+      "execution"
+    ],
+    "T1053.001": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1053.002": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1559.001": [
+      "execution"
+    ],
+    "T1053.007": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1053.003": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1559.002": [
+      "execution"
+    ],
+    "T1059.007": [
+      "execution"
+    ],
+    "T1569.001": [
+      "execution"
+    ],
+    "T1204.002": [
+      "execution"
+    ],
+    "T1204.003": [
+      "execution"
+    ],
+    "T1204.001": [
+      "execution"
+    ],
+    "T1059.008": [
+      "execution"
+    ],
+    "T1059.001": [
+      "execution"
+    ],
+    "T1059.006": [
+      "execution"
+    ],
+    "T1053.005": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1569.002": [
+      "execution"
+    ],
+    "T1053.006": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1059.004": [
+      "execution"
+    ],
+    "T1059.005": [
+      "execution"
+    ],
+    "T1059.003": [
+      "execution"
+    ],
+    "T1559.003": [
+      "execution"
+    ],
+    "T1059.009": [
+      "execution"
+    ],
+    "T1059.010": [
+      "execution"
+    ],
+    "T1059.011": [
+      "execution"
+    ],
+    "T1569.003": [
+      "execution"
+    ],
+    "T1059.012": [
+      "execution"
+    ],
+    "T1204.004": [
+      "execution"
+    ],
+    "T1204.005": [
+      "execution"
+    ],
+    "T1059.013": [
+      "execution"
+    ],
+    "T1053.004": [
+      "execution",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1020": [
+      "exfiltration"
+    ],
+    "T1002": [
+      "exfiltration"
+    ],
+    "T1022": [
+      "exfiltration"
+    ],
+    "T1030": [
+      "exfiltration"
+    ],
+    "T1048": [
+      "exfiltration"
+    ],
+    "T1041": [
+      "exfiltration"
+    ],
+    "T1011": [
+      "exfiltration"
+    ],
+    "T1052": [
+      "exfiltration"
+    ],
+    "T1029": [
+      "exfiltration"
+    ],
+    "T1567": [
+      "exfiltration"
+    ],
+    "T1537": [
+      "exfiltration"
+    ],
+    "T1048.002": [
+      "exfiltration"
+    ],
+    "T1011.001": [
+      "exfiltration"
+    ],
+    "T1048.001": [
+      "exfiltration"
+    ],
+    "T1048.003": [
+      "exfiltration"
+    ],
+    "T1052.001": [
+      "exfiltration"
+    ],
+    "T1567.002": [
+      "exfiltration"
+    ],
+    "T1567.001": [
+      "exfiltration"
+    ],
+    "T1020.001": [
+      "exfiltration"
+    ],
+    "T1567.003": [
+      "exfiltration"
+    ],
+    "T1567.004": [
+      "exfiltration"
+    ],
+    "T1531": [
+      "impact"
+    ],
+    "T1485": [
+      "impact"
+    ],
+    "T1486": [
+      "impact"
+    ],
+    "T1565": [
+      "impact"
+    ],
+    "T1491": [
+      "impact"
+    ],
+    "T1561": [
+      "impact"
+    ],
+    "T1499": [
+      "impact"
+    ],
+    "T1495": [
+      "impact"
+    ],
+    "T1490": [
+      "impact"
+    ],
+    "T1498": [
+      "impact"
+    ],
+    "T1496": [
+      "impact"
+    ],
+    "T1489": [
+      "impact"
+    ],
+    "T1529": [
+      "impact"
+    ],
+    "T1657": [
+      "impact"
+    ],
+    "T1667": [
+      "impact"
+    ],
+    "T1488": [
+      "impact"
+    ],
+    "T1487": [
+      "impact"
+    ],
+    "T1494": [
+      "impact"
+    ],
+    "T1492": [
+      "impact"
+    ],
+    "T1493": [
+      "impact"
+    ],
+    "T1499.003": [
+      "impact"
+    ],
+    "T1499.004": [
+      "impact"
+    ],
+    "T1498.001": [
+      "impact"
+    ],
+    "T1561.001": [
+      "impact"
+    ],
+    "T1561.002": [
+      "impact"
+    ],
+    "T1491.002": [
+      "impact"
+    ],
+    "T1491.001": [
+      "impact"
+    ],
+    "T1499.001": [
+      "impact"
+    ],
+    "T1498.002": [
+      "impact"
+    ],
+    "T1565.003": [
+      "impact"
+    ],
+    "T1499.002": [
+      "impact"
+    ],
+    "T1565.001": [
+      "impact"
+    ],
+    "T1565.002": [
+      "impact"
+    ],
+    "T1485.001": [
+      "impact"
+    ],
+    "T1496.003": [
+      "impact"
+    ],
+    "T1496.002": [
+      "impact"
+    ],
+    "T1496.004": [
+      "impact"
+    ],
+    "T1496.001": [
+      "impact"
+    ],
+    "T1133": [
+      "initial-access",
+      "persistence"
+    ],
+    "T1189": [
+      "initial-access"
+    ],
+    "T1190": [
+      "initial-access"
+    ],
+    "T1200": [
+      "initial-access"
+    ],
+    "T1566": [
+      "initial-access"
+    ],
+    "T1195": [
+      "initial-access"
+    ],
+    "T1199": [
+      "initial-access"
+    ],
+    "T1669": [
+      "initial-access"
+    ],
+    "T1193": [
+      "initial-access"
+    ],
+    "T1192": [
+      "initial-access"
+    ],
+    "T1194": [
+      "initial-access"
+    ],
+    "T1195.003": [
+      "initial-access"
+    ],
+    "T1195.001": [
+      "initial-access"
+    ],
+    "T1195.002": [
+      "initial-access"
+    ],
+    "T1566.001": [
+      "initial-access"
+    ],
+    "T1566.002": [
+      "initial-access"
+    ],
+    "T1566.003": [
+      "initial-access"
+    ],
+    "T1566.004": [
+      "initial-access"
+    ],
+    "T1017": [
+      "lateral-movement"
+    ],
+    "T1037": [
+      "lateral-movement",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1075": [
+      "lateral-movement"
+    ],
+    "T1097": [
+      "lateral-movement"
+    ],
+    "T1076": [
+      "lateral-movement"
+    ],
+    "T1021": [
+      "lateral-movement"
+    ],
+    "T1184": [
+      "lateral-movement"
+    ],
+    "T1051": [
+      "lateral-movement"
+    ],
+    "T1080": [
+      "lateral-movement"
+    ],
+    "T1077": [
+      "lateral-movement"
+    ],
+    "T1210": [
+      "lateral-movement"
+    ],
+    "T1534": [
+      "lateral-movement"
+    ],
+    "T1570": [
+      "lateral-movement"
+    ],
+    "T1563": [
+      "lateral-movement"
+    ],
+    "T1427": [
+      "lateral-movement"
+    ],
+    "T1428": [
+      "lateral-movement"
+    ],
+    "T1021.003": [
+      "lateral-movement"
+    ],
+    "T1563.002": [
+      "lateral-movement"
+    ],
+    "T1021.001": [
+      "lateral-movement"
+    ],
+    "T1021.002": [
+      "lateral-movement"
+    ],
+    "T1021.004": [
+      "lateral-movement"
+    ],
+    "T1563.001": [
+      "lateral-movement"
+    ],
+    "T1021.005": [
+      "lateral-movement"
+    ],
+    "T1021.006": [
+      "lateral-movement"
+    ],
+    "T1021.007": [
+      "lateral-movement"
+    ],
+    "T1021.008": [
+      "lateral-movement"
+    ],
+    "T1156": [
+      "persistence"
+    ],
+    "T1015": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1182": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1103": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1138": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1131": [
+      "persistence"
+    ],
+    "T1067": [
+      "persistence"
+    ],
+    "T1042": [
+      "persistence"
+    ],
+    "T1136": [
+      "persistence"
+    ],
+    "T1157": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1044": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1062": [
+      "persistence"
+    ],
+    "T1161": [
+      "persistence"
+    ],
+    "T1159": [
+      "persistence"
+    ],
+    "T1160": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1162": [
+      "persistence"
+    ],
+    "T1031": [
+      "persistence"
+    ],
+    "T1128": [
+      "persistence"
+    ],
+    "T1050": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1137": [
+      "persistence"
+    ],
+    "T1034": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1013": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1163": [
+      "persistence"
+    ],
+    "T1164": [
+      "persistence"
+    ],
+    "T1060": [
+      "persistence"
+    ],
+    "T1180": [
+      "persistence"
+    ],
+    "T1101": [
+      "persistence"
+    ],
+    "T1058": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1166": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1023": [
+      "persistence"
+    ],
+    "T1165": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1019": [
+      "persistence"
+    ],
+    "T1100": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1084": [
+      "persistence"
+    ],
+    "T1004": [
+      "persistence"
+    ],
+    "T1547": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1554": [
+      "persistence"
+    ],
+    "T1543": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1525": [
+      "persistence"
+    ],
+    "T1505": [
+      "persistence"
+    ],
+    "T1653": [
+      "persistence"
+    ],
+    "T1671": [
+      "persistence"
+    ],
+    "T1668": [
+      "persistence"
+    ],
+    "T1215": [
+      "persistence"
+    ],
+    "T1209": [
+      "persistence"
+    ],
+    "T1501": [
+      "persistence"
+    ],
+    "T1519": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1504": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1401": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1402": [
+      "execution",
+      "persistence"
+    ],
+    "T1403": [
+      "persistence"
+    ],
+    "T1546.008": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.014": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1098.003": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1137.006": [
+      "persistence"
+    ],
+    "T1098.001": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.009": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.010": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.011": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.002": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.001": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1136.003": [
+      "persistence"
+    ],
+    "T1546.015": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1136.002": [
+      "persistence"
+    ],
+    "T1546.014": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1098.002": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1505.004": [
+      "persistence"
+    ],
+    "T1546.012": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.006": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.006": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.008": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1543.001": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1543.004": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1136.001": [
+      "persistence"
+    ],
+    "T1547.015": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1037.002": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1037.001": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.007": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1037.003": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1137.001": [
+      "persistence"
+    ],
+    "T1137.002": [
+      "persistence"
+    ],
+    "T1137.003": [
+      "persistence"
+    ],
+    "T1137.004": [
+      "persistence"
+    ],
+    "T1137.005": [
+      "persistence"
+    ],
+    "T1547.011": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.010": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.013": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.012": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1037.004": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.007": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.001": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1505.001": [
+      "persistence"
+    ],
+    "T1098.004": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.002": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.005": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.009": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1037.005": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1543.002": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.003": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1505.002": [
+      "persistence"
+    ],
+    "T1546.005": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.004": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1505.003": [
+      "persistence"
+    ],
+    "T1546.003": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1543.003": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.004": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1547.013": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1505.005": [
+      "persistence"
+    ],
+    "T1098.005": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.016": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1098.006": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1543.005": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1098.007": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1546.017": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1176.001": [
+      "persistence"
+    ],
+    "T1176.002": [
+      "persistence"
+    ],
+    "T1505.006": [
+      "persistence"
+    ],
+    "T1546.018": [
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1178": [
+      "privilege-escalation"
+    ],
+    "T1169": [
+      "privilege-escalation"
+    ],
+    "T1611": [
+      "privilege-escalation"
+    ],
+    "T1206": [
+      "privilege-escalation"
+    ],
+    "T1514": [
+      "privilege-escalation"
+    ],
+    "T1404": [
+      "privilege-escalation"
+    ],
+    "T1595": [
+      "reconnaissance"
+    ],
+    "T1592": [
+      "reconnaissance"
+    ],
+    "T1589": [
+      "reconnaissance"
+    ],
+    "T1590": [
+      "reconnaissance"
+    ],
+    "T1591": [
+      "reconnaissance"
+    ],
+    "T1598": [
+      "reconnaissance"
+    ],
+    "T1597": [
+      "reconnaissance"
+    ],
+    "T1596": [
+      "reconnaissance"
+    ],
+    "T1593": [
+      "reconnaissance"
+    ],
+    "T1594": [
+      "reconnaissance"
+    ],
+    "T1681": [
+      "reconnaissance"
+    ],
+    "T1682": [
+      "reconnaissance"
+    ],
+    "T1591.002": [
+      "reconnaissance"
+    ],
+    "T1596.004": [
+      "reconnaissance"
+    ],
+    "T1592.004": [
+      "reconnaissance"
+    ],
+    "T1589.001": [
+      "reconnaissance"
+    ],
+    "T1590.002": [
+      "reconnaissance"
+    ],
+    "T1596.001": [
+      "reconnaissance"
+    ],
+    "T1591.001": [
+      "reconnaissance"
+    ],
+    "T1596.003": [
+      "reconnaissance"
+    ],
+    "T1590.001": [
+      "reconnaissance"
+    ],
+    "T1589.002": [
+      "reconnaissance"
+    ],
+    "T1589.003": [
+      "reconnaissance"
+    ],
+    "T1592.003": [
+      "reconnaissance"
+    ],
+    "T1592.001": [
+      "reconnaissance"
+    ],
+    "T1590.005": [
+      "reconnaissance"
+    ],
+    "T1591.003": [
+      "reconnaissance"
+    ],
+    "T1591.004": [
+      "reconnaissance"
+    ],
+    "T1590.006": [
+      "reconnaissance"
+    ],
+    "T1590.004": [
+      "reconnaissance"
+    ],
+    "T1590.003": [
+      "reconnaissance"
+    ],
+    "T1597.002": [
+      "reconnaissance"
+    ],
+    "T1596.005": [
+      "reconnaissance"
+    ],
+    "T1595.001": [
+      "reconnaissance"
+    ],
+    "T1593.002": [
+      "reconnaissance"
+    ],
+    "T1593.001": [
+      "reconnaissance"
+    ],
+    "T1592.002": [
+      "reconnaissance"
+    ],
+    "T1598.002": [
+      "reconnaissance"
+    ],
+    "T1598.003": [
+      "reconnaissance"
+    ],
+    "T1598.001": [
+      "reconnaissance"
+    ],
+    "T1597.001": [
+      "reconnaissance"
+    ],
+    "T1595.002": [
+      "reconnaissance"
+    ],
+    "T1596.002": [
+      "reconnaissance"
+    ],
+    "T1595.003": [
+      "reconnaissance"
+    ],
+    "T1593.003": [
+      "reconnaissance"
+    ],
+    "T1598.004": [
+      "reconnaissance"
+    ],
+    "T1583": [
+      "resource-development"
+    ],
+    "T1586": [
+      "resource-development"
+    ],
+    "T1584": [
+      "resource-development"
+    ],
+    "T1587": [
+      "resource-development"
+    ],
+    "T1585": [
+      "resource-development"
+    ],
+    "T1588": [
+      "resource-development"
+    ],
+    "T1608": [
+      "resource-development"
+    ],
+    "T1650": [
+      "resource-development"
+    ],
+    "T1683": [
+      "resource-development"
+    ],
+    "T1583.005": [
+      "resource-development"
+    ],
+    "T1584.005": [
+      "resource-development"
+    ],
+    "T1587.002": [
+      "resource-development"
+    ],
+    "T1588.003": [
+      "resource-development"
+    ],
+    "T1583.002": [
+      "resource-development"
+    ],
+    "T1584.002": [
+      "resource-development"
+    ],
+    "T1587.003": [
+      "resource-development"
+    ],
+    "T1588.004": [
+      "resource-development"
+    ],
+    "T1583.001": [
+      "resource-development"
+    ],
+    "T1584.001": [
+      "resource-development"
+    ],
+    "T1608.004": [
+      "resource-development"
+    ],
+    "T1585.002": [
+      "resource-development"
+    ],
+    "T1586.002": [
+      "resource-development"
+    ],
+    "T1587.004": [
+      "resource-development"
+    ],
+    "T1588.005": [
+      "resource-development"
+    ],
+    "T1608.003": [
+      "resource-development"
+    ],
+    "T1608.005": [
+      "resource-development"
+    ],
+    "T1587.001": [
+      "resource-development"
+    ],
+    "T1588.001": [
+      "resource-development"
+    ],
+    "T1583.004": [
+      "resource-development"
+    ],
+    "T1584.004": [
+      "resource-development"
+    ],
+    "T1585.001": [
+      "resource-development"
+    ],
+    "T1586.001": [
+      "resource-development"
+    ],
+    "T1588.002": [
+      "resource-development"
+    ],
+    "T1608.001": [
+      "resource-development"
+    ],
+    "T1608.002": [
+      "resource-development"
+    ],
+    "T1583.003": [
+      "resource-development"
+    ],
+    "T1584.003": [
+      "resource-development"
+    ],
+    "T1588.006": [
+      "resource-development"
+    ],
+    "T1583.006": [
+      "resource-development"
+    ],
+    "T1584.006": [
+      "resource-development"
+    ],
+    "T1583.007": [
+      "resource-development"
+    ],
+    "T1586.003": [
+      "resource-development"
+    ],
+    "T1585.003": [
+      "resource-development"
+    ],
+    "T1584.007": [
+      "resource-development"
+    ],
+    "T1608.006": [
+      "resource-development"
+    ],
+    "T1583.008": [
+      "resource-development"
+    ],
+    "T1588.007": [
+      "resource-development"
+    ],
+    "T1584.008": [
+      "resource-development"
+    ],
+    "T1683.001": [
+      "resource-development"
+    ],
+    "T1683.002": [
+      "resource-development"
+    ],
+    "T1687": [
+      "defense-impairment"
+    ],
+    "T1689": [
+      "defense-impairment"
+    ],
+    "T1690": [
+      "defense-impairment"
+    ],
+    "T1685": [
+      "defense-impairment"
+    ],
+    "T1688": [
+      "defense-impairment"
+    ],
+    "T1686": [
+      "defense-impairment"
+    ],
+    "T1685.003": [
+      "defense-impairment"
+    ],
+    "T1685.001": [
+      "defense-impairment"
+    ],
+    "T1685.004": [
+      "defense-impairment"
+    ],
+    "T1686.003": [
+      "defense-impairment"
+    ],
+    "T1685.002": [
+      "defense-impairment"
+    ],
+    "T1685.006": [
+      "defense-impairment"
+    ],
+    "T1685.005": [
+      "defense-impairment"
+    ],
+    "T1686.002": [
+      "defense-impairment"
+    ],
+    "T1686.001": [
+      "defense-impairment"
+    ],
+    "T1517": [
+      "collection",
+      "credential-access"
+    ],
+    "T1616": [
+      "collection",
+      "command-and-control",
+      "impact"
+    ],
+    "T1512": [
+      "collection"
+    ],
+    "T1532": [
+      "collection",
+      "exfiltration"
+    ],
+    "T1533": [
+      "collection"
+    ],
+    "T1541": [
+      "collection",
+      "defense-evasion",
+      "persistence"
+    ],
+    "T1507": [
+      "collection"
+    ],
+    "T1513": [
+      "collection"
+    ],
+    "T1638": [
+      "collection"
+    ],
+    "T1636": [
+      "collection"
+    ],
+    "T1676": [
+      "collection",
+      "persistence"
+    ],
+    "T1430.002": [
+      "collection",
+      "discovery"
+    ],
+    "T1636.002": [
+      "collection"
+    ],
+    "T1417.002": [
+      "collection",
+      "credential-access"
+    ],
+    "T1430.001": [
+      "collection",
+      "discovery"
+    ],
+    "T1636.001": [
+      "collection"
+    ],
+    "T1417.001": [
+      "collection",
+      "credential-access"
+    ],
+    "T1636.004": [
+      "collection"
+    ],
+    "T1636.003": [
+      "collection"
+    ],
+    "T1636.005": [
+      "collection"
+    ],
+    "T1520": [
+      "command-and-control"
+    ],
+    "T1544": [
+      "command-and-control"
+    ],
+    "T1521": [
+      "command-and-control"
+    ],
+    "T1509": [
+      "command-and-control"
+    ],
+    "T1481": [
+      "command-and-control"
+    ],
+    "T1637": [
+      "command-and-control"
+    ],
+    "T1644": [
+      "command-and-control"
+    ],
+    "T1663": [
+      "command-and-control"
+    ],
+    "T1521.002": [
+      "command-and-control"
+    ],
+    "T1437.001": [
+      "command-and-control"
+    ],
+    "T1481.002": [
+      "command-and-control"
+    ],
+    "T1481.001": [
+      "command-and-control"
+    ],
+    "T1521.001": [
+      "command-and-control"
+    ],
+    "T1481.003": [
+      "command-and-control"
+    ],
+    "T1637.001": [
+      "command-and-control"
+    ],
+    "T1521.003": [
+      "command-and-control"
+    ],
+    "T1579": [
+      "credential-access"
+    ],
+    "T1635": [
+      "credential-access"
+    ],
+    "T1634": [
+      "credential-access"
+    ],
+    "T1635.001": [
+      "credential-access"
+    ],
+    "T1634.001": [
+      "credential-access"
+    ],
+    "T1446": [
+      "defense-evasion",
+      "impact"
+    ],
+    "T1444": [
+      "defense-evasion",
+      "initial-access"
+    ],
+    "T1447": [
+      "defense-evasion",
+      "impact"
+    ],
+    "T1540": [
+      "defense-evasion",
+      "persistence",
+      "privilege-escalation"
+    ],
+    "T1523": [
+      "defense-evasion",
+      "discovery"
+    ],
+    "T1581": [
+      "defense-evasion"
+    ],
+    "T1617": [
+      "defense-evasion"
+    ],
+    "T1516": [
+      "defense-evasion",
+      "impact"
+    ],
+    "T1478": [
+      "defense-evasion",
+      "initial-access"
+    ],
+    "T1575": [
+      "defense-evasion",
+      "execution"
+    ],
+    "T1604": [
+      "defense-evasion"
+    ],
+    "T1508": [
+      "defense-evasion"
+    ],
+    "T1576": [
+      "defense-evasion"
+    ],
+    "T1618": [
+      "defense-evasion"
+    ],
+    "T1630": [
+      "defense-evasion"
+    ],
+    "T1629": [
+      "defense-evasion"
+    ],
+    "T1633": [
+      "defense-evasion"
+    ],
+    "T1627": [
+      "defense-evasion"
+    ],
+    "T1632": [
+      "defense-evasion"
+    ],
+    "T1631": [
+      "defense-evasion",
+      "privilege-escalation"
+    ],
+    "T1628": [
+      "defense-evasion"
+    ],
+    "T1661": [
+      "defense-evasion",
+      "initial-access"
+    ],
+    "T1655": [
+      "defense-evasion"
+    ],
+    "T1670": [
+      "defense-evasion"
+    ],
+    "T1630.001": [
+      "defense-evasion"
+    ],
+    "T1631.001": [
+      "defense-evasion",
+      "privilege-escalation"
+    ],
+    "T1628.002": [
+      "defense-evasion"
+    ],
+    "T1629.003": [
+      "defense-evasion"
+    ],
+    "T1406.002": [
+      "defense-evasion"
+    ],
+    "T1633.001": [
+      "defense-evasion"
+    ],
+    "T1630.003": [
+      "defense-evasion"
+    ],
+    "T1630.002": [
+      "defense-evasion"
+    ],
+    "T1629.002": [
+      "defense-evasion"
+    ],
+    "T1629.001": [
+      "defense-evasion"
+    ],
+    "T1627.001": [
+      "defense-evasion"
+    ],
+    "T1628.001": [
+      "defense-evasion"
+    ],
+    "T1406.001": [
+      "defense-evasion"
+    ],
+    "T1632.001": [
+      "defense-evasion"
+    ],
+    "T1655.001": [
+      "defense-evasion"
+    ],
+    "T1628.003": [
+      "defense-evasion"
+    ],
+    "T1418.001": [
+      "discovery"
+    ],
+    "T1422.001": [
+      "discovery"
+    ],
+    "T1422.002": [
+      "discovery"
+    ],
+    "T1605": [
+      "execution"
+    ],
+    "T1603": [
+      "execution",
+      "persistence"
+    ],
+    "T1623": [
+      "execution"
+    ],
+    "T1658": [
+      "execution"
+    ],
+    "T1623.001": [
+      "execution"
+    ],
+    "T1646": [
+      "exfiltration"
+    ],
+    "T1639": [
+      "exfiltration"
+    ],
+    "T1639.001": [
+      "exfiltration"
+    ],
+    "T1471": [
+      "impact"
+    ],
+    "T1472": [
+      "impact"
+    ],
+    "T1464": [
+      "impact",
+      "network-effects"
+    ],
+    "T1452": [
+      "impact"
+    ],
+    "T1448": [
+      "impact"
+    ],
+    "T1510": [
+      "impact"
+    ],
+    "T1582": [
+      "impact"
+    ],
+    "T1643": [
+      "impact"
+    ],
+    "T1641": [
+      "impact"
+    ],
+    "T1640": [
+      "impact"
+    ],
+    "T1642": [
+      "impact"
+    ],
+    "T1662": [
+      "impact"
+    ],
+    "T1641.001": [
+      "impact"
+    ],
+    "T1458": [
+      "initial-access",
+      "lateral-movement"
+    ],
+    "T1461": [
+      "initial-access"
+    ],
+    "T1456": [
+      "initial-access"
+    ],
+    "T1451": [
+      "initial-access",
+      "network-effects"
+    ],
+    "T1475": [
+      "initial-access"
+    ],
+    "T1476": [
+      "initial-access"
+    ],
+    "T1477": [
+      "initial-access"
+    ],
+    "T1474": [
+      "initial-access"
+    ],
+    "T1660": [
+      "initial-access"
+    ],
+    "T1664": [
+      "initial-access"
+    ],
+    "T1474.001": [
+      "initial-access"
+    ],
+    "T1474.003": [
+      "initial-access"
+    ],
+    "T1474.002": [
+      "initial-access"
+    ],
+    "T1466": [
+      "network-effects"
+    ],
+    "T1439": [
+      "network-effects"
+    ],
+    "T1449": [
+      "network-effects"
+    ],
+    "T1450": [
+      "network-effects"
+    ],
+    "T1463": [
+      "network-effects"
+    ],
+    "T1467": [
+      "network-effects"
+    ],
+    "T1465": [
+      "network-effects"
+    ],
+    "T1577": [
+      "persistence"
+    ],
+    "T1645": [
+      "persistence"
+    ],
+    "T1625": [
+      "persistence"
+    ],
+    "T1624": [
+      "persistence"
+    ],
+    "T1624.001": [
+      "persistence"
+    ],
+    "T1625.001": [
+      "persistence"
+    ],
+    "T1626": [
+      "privilege-escalation"
+    ],
+    "T1626.001": [
+      "privilege-escalation"
+    ],
+    "T1470": [
+      "remote-service-effects"
+    ],
+    "T1468": [
+      "remote-service-effects"
+    ],
+    "T1469": [
+      "remote-service-effects"
+    ]
+  }
+}
