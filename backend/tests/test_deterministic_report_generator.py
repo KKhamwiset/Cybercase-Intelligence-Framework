@@ -178,7 +178,11 @@ class _EmptyDb:
 
 
 def test_invalid_case_id_returns_404() -> None:
+    from app.services.report_workflow import ReportWorkflowService
+    service = ReportWorkflowService(
+        db=_EmptyDb()
+    )
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_case_report("missing-case", db=_EmptyDb()))
+        asyncio.run(get_case_report("missing-case", service=service))
 
     assert exc_info.value.status_code == 404

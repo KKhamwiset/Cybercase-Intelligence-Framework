@@ -1,11 +1,8 @@
-import asyncio
 import importlib
 
 import pytest
 from pydantic import ValidationError
 
-from app.routers import report as legacy_report_router
-from app.routers import reports as reports_router
 from app.services.report_request_helpers import hash_bytes_sha256
 from app.schemas.legacy import legacy_report_response_from_payload
 from app.schemas.rag import QueryRequest
@@ -16,7 +13,6 @@ from app.schemas.report import (
     CompletenessField,
     CyberCaseReport,
     EvidenceReference,
-    GenerateReportRequest,
     LegalRelevanceAssessment,
     ReportCompletedResponse,
     ReportFollowUpResponse,
@@ -213,95 +209,6 @@ def test_legacy_response_adapter_preserves_old_top_level_fields() -> None:
     assert legacy.missing_information == ["incident date/time"]
 
 
-class _FakeReportWorkflowService:
-    def __init__(self, response: ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse):
-        self.response = response
-        self.requests: list[GenerateReportRequest] = []
-
-    async def generate_report(
-        self, request: GenerateReportRequest
-    ) -> ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse:
-        self.requests.append(request)
-        return self.response
-
-
-def test_new_reports_route_uses_canonical_service_response() -> None:
-    service = _FakeReportWorkflowService(
-        ReportCompletedResponse(
-            status="completed",
-            answer="report complete",
-            report_id="report-1",
-            report=_report(),
-        )
-    )
-
-    result = asyncio.run(
-        reports_router.generate_report(
-            GenerateReportRequest(query="short case"),
-            service=service,  # type: ignore[arg-type]
-        )
-    )
-
-    assert result.status == "completed"
-    assert service.requests[0].query == "short case"
-    assert "case_fact_pack" not in result.model_dump(mode="json")
-    assert "retrieval_context_id" not in result.model_dump(mode="json")
-
-
-def test_legacy_report_route_still_returns_compatible_adapter_shape() -> None:
-    service = _FakeReportWorkflowService(
-        ReportCompletedResponse(
-            status="completed",
-            answer="report complete",
-            report_id="report-1",
-            report=_report(),
-        )
-    )
-
-    started = asyncio.run(
-        legacy_report_router.generate_report(ReportRequest(query="short case"), service=service) # type: ignore[arg-type]
-    )
-    assert started.status == "completed"
-    assert started.report_id == "report-1"
-    assert started.case_fact_pack is not None
-
-
-def test_new_reports_route_returns_error_response_for_missing_context() -> None:
-    service = _FakeReportWorkflowService(
-        ReportErrorResponse(
-            status="context_expired",
-            error_code="retrieval_context_expired",
-            message="Context missing"
-        )
-    )
-    result = asyncio.run(
-        reports_router.generate_report(
-            GenerateReportRequest(query="short case"),
-            service=service,  # type: ignore[arg-type]
-        )
-    )
-    dumped = result.model_dump(mode="json")
-    assert dumped["status"] == "context_expired"
-    assert dumped["error_code"] == "retrieval_context_expired"
-    assert "session_id" not in dumped
-
-
-def test_legacy_report_route_adapts_error_response_without_session_id() -> None:
-    service = _FakeReportWorkflowService(
-        ReportErrorResponse(
-            status="context_expired",
-            error_code="retrieval_context_expired",
-            message="Context missing"
-        )
-    )
-    result = asyncio.run(
-        legacy_report_router.generate_report(ReportRequest(query="short case"), service=service) # type: ignore[arg-type]
-    )
-    assert result.status == "context_expired"
-    assert result.error_code == "retrieval_context_expired"
-    assert result.session_id == ""
-
-
 def test_schema_imports_do_not_create_circular_imports() -> None:
     for module_name in [
         "app.schemas.common",
@@ -310,7 +217,6 @@ def test_schema_imports_do_not_create_circular_imports() -> None:
         "app.schemas.report",
         "app.schemas.legacy",
         "app.routers.rag",
-        "app.routers.report",
         "app.routers.reports",
     ]:
         assert importlib.import_module(module_name)

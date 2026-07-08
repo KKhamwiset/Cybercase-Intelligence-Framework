@@ -198,6 +198,13 @@ class GenerateReportRequest(BaseModel):
 ReportRequest = GenerateReportRequest
 
 
+class GenerateCaseReportRequest(BaseModel):
+    """Request body for POST /cases/{case_id}/report — no query required."""
+    report_type: ReportType = "overview"
+    legal: bool = False
+    force_generate: bool = False
+
+
 class ReportInputSnapshot(BaseModel):
     retrieval_context_id: str
     query: str = ""
@@ -281,6 +288,20 @@ class ReportViewModel(BaseModel):
     metadata: ReportMetadata = Field(default_factory=ReportMetadata)
 
 
+class ReportRegistryItem(BaseModel):
+    report_id: str
+    case_id: str
+    case_title: str
+    case_status: str
+    severity: str
+    report_type: str
+    workflow_status: str
+    review_status: str
+    created_at: str
+    updated_at: str
+    executive_summary_preview: str
+
+
 __all__ = [
     "CaseFact",
     "CaseFactPack",
@@ -290,6 +311,7 @@ __all__ = [
     "DeterministicReportStatus",
     "EvidenceReference",
     "GapPriority",
+    "GenerateCaseReportRequest",
     "GenerateReportRequest",
     "IncidentReportType",
     "Indicator",
@@ -303,6 +325,7 @@ __all__ = [
     "ReportGap",
     "ReportInputSnapshot",
     "ReportMetadata",
+    "ReportRegistryItem",
     "ReportRequest",
     "ReportResumeRequest",
     "ReportSection",

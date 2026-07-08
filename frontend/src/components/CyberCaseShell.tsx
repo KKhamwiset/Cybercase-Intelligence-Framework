@@ -8,6 +8,7 @@ type ActiveNav = "Home" | "Investigate" | "Reports";
 const NAV_ITEMS: { label: ActiveNav; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "Investigate", href: "/cases" },
+  { label: "Reports", href: "/reports" },
 ];
 
 type CyberCaseShellProps = {

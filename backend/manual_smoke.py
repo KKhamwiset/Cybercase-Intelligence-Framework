@@ -4,39 +4,34 @@ sys.path.insert(0, ".")
 
 from fastapi.testclient import TestClient
 from app.main import app as backend_app
-from app.schemas.report import ReportRequest, ReportResumeRequest, ReviewStatusUpdate
 
 client = TestClient(backend_app)
 
-print("=== 1. Generate Report with dummy retrieval context ===")
-# We don't have RAG running, but we can simulate RagServiceClient failure 
-# which returns a followup status.
-resp = client.post("/api/v1/reports/generate", json={
-    "query": "Short test case",
-    "retrieval_context_id": "dummy-ctx"
+print("=== 1. Create case ===")
+resp = client.post("/api/v1/cases", json={
+    "title": "Manual smoke case",
+    "severity": "medium",
+    "incident_summary": "Short test case",
+})
+print("Status:", resp.status_code)
+data = resp.json()
+print("Case Response:", data)
+case_id = data["case_id"]
+
+print("\n=== 2. Generate case-owned report ===")
+resp = client.post(f"/api/v1/cases/{case_id}/report", json={
+    "report_type": "overview",
+    "force_generate": True,
 })
 print("Status:", resp.status_code)
 data = resp.json()
 print("Generate Response:", data)
-assert data["status"] == "context_expired"
-
-session_id = data.get("session_id", "")
-
-print("\n=== 2. Resume Report ===")
-if session_id:
-    resp = client.post("/api/v1/reports/resume", json={
-        "session_id": session_id,
-        "answer": "test answer"
-    })
-    print("Status:", resp.status_code)
-    data = resp.json()
-    print("Resume Response:", data)
-    assert data["status"] in ("completed", "followup")
+assert data["status"] in ("completed", "context_expired")
 
 report_id = data.get("report_id", "")
 
 if report_id:
-    print("\n=== 3. Get Report ===")
+    print("\n=== 3. Get Report By ID ===")
     resp = client.get(f"/api/v1/reports/{report_id}")
     print("Status:", resp.status_code)
     print("Get Report:", resp.json()["status"])

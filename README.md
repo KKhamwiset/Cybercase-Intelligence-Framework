@@ -136,21 +136,21 @@ The system must not determine guilt or innocence, claim court admissibility, mak
 
 The actual report generation is managed by the backend `ReportWorkflowService` and `backend/app/services/reporting/generator.py::ReportGenerator`.
 
-* `POST /api/v1/rag/generate-report`: (Legacy compatibility adapter) start report analysis from text.
-* `POST /api/v1/rag/generate-report-file`: (Legacy compatibility adapter) start report analysis from an uploaded PDF/image with OCR provenance.
-* `POST /api/v1/rag/resume-report`: (Legacy compatibility adapter) resume report generation after a follow-up question.
-* `GET /api/v1/rag/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
-* `PATCH /api/v1/rag/reports/{report_id}/review-status`: update `draft`, `ai_generated`, `reviewed`, or `approved` status.
+* `POST /api/v1/cases/{case_id}/report`: start report analysis for a specific case from its facts and evidence.
+* `POST /api/v1/cases/{case_id}/report/resume`: resume report generation for a case after a follow-up answer is submitted.
+* `GET /api/v1/cases/{case_id}/report`: retrieve the latest generated report for a case.
+* `GET /api/v1/reports`: retrieve all reports summaries for the reports registry library.
+* `GET /api/v1/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
+* `PATCH /api/v1/reports/{report_id}/review-status`: update review status (`draft`, `ai_generated`, `reviewed`, `approved`).
 
-Note: The `rag/...` report endpoints remain as compatibility adapters but delegate to the local backend `ReportWorkflowService`. They **do not** proxy requests to RAG report endpoints.
+Report generation is case-owned. Standalone legacy `/reports/generate`, `/reports/generate-file`, and `/reports/resume` endpoints are not exposed.
 
 ### Migrations And Tests
 
-This MVP stores generated report/review state in the backend in-memory store, so it does not add persisted SQLAlchemy models or an Alembic migration. (Note: retrieval contexts are stored in RAG memory and expire after TTL, while report/session state is stored in backend memory. Service restart clears this state). If persistence is added later, create and apply a migration with:
+This platform stores generated report/review and session states in the PostgreSQL database via SQLAlchemy models `ReportRecord` and `ReportSessionRecord`. Migrations are managed by Alembic. To apply migrations, run:
 
 ```bash
 cd backend
-alembic revision --autogenerate -m "add report persistence"
 alembic upgrade head
 ```
 

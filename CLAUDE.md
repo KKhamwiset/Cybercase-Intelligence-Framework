@@ -128,7 +128,12 @@ Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — query routes prox
 - `POST /api/v1/rag/query` — Query RAG (chain or agent mode via `use_agent`)
 - `POST /api/v1/rag/query-file` — Upload a document (PDF/image); Typhoon OCR extracts markdown, then queries RAG in chain mode
 - `POST /api/v1/rag/resume` — Resume a paused follow-up session (send `session_id`)
-- `POST /api/v1/rag/generate-report` — Generate a structured `CyberCaseReport`
+- `POST /api/v1/cases/{case_id}/report` — Start RAG-driven report generation for a case
+- `POST /api/v1/cases/{case_id}/report/resume` — Resume report follow-up session
+- `GET /api/v1/cases/{case_id}/report` — Get latest report for a case
+- `GET /api/v1/reports` — List all persisted reports registry summaries
+- `GET /api/v1/reports/{report_id}` — Get report details
+- `PATCH /api/v1/reports/{report_id}/review-status` — Update report review status
 
 RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `POST /resume`.
 

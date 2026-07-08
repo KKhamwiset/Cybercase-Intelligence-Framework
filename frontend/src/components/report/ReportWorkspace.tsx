@@ -1,40 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import type { ChangeEvent, FormEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import CyberCaseShell from "@/components/CyberCaseShell";
 import {
-  generateReport,
-  generateReportFile,
-  resumeReport,
+  listReports,
+  getReport,
   updateReportReviewStatus,
 } from "@/lib/api";
 import type {
   CaseInformationCompleteness,
   CyberCaseReport,
   EvidenceStatus,
-  ReportType,
   ReportWorkflowResponse,
   ReviewStatus,
+  ReportRegistryItem,
 } from "@/lib/api";
-
-const SAMPLE_CASE =
-  "On 2026-02-14 at 09:20, a finance employee reported a phishing email sent to a corporate banking account. The email linked to https://secure-bank-example.com/login and activity was observed from suspicious IP 203.0.113.45. The employee entered credentials on the website. An unauthorized transfer was then detected. Available evidence: email header, proxy log, and bank transaction log. Affected assets: corporate email account and online banking account. Impact: suspected financial fraud loss.";
-
-const REPORT_TYPE_OPTIONS: { value: ReportType; label: string }[] = [
-  { value: "overview", label: "Case Overview" },
-  { value: "subject", label: "Evidence & Indicators" },
-  { value: "timeline", label: "Incident Timeline" },
-  { value: "vulnerability", label: "Exposure & Risk" },
-];
-
-const REVIEW_OPTIONS: ReviewStatus[] = [
-  "draft",
-  "ai_generated",
-  "reviewed",
-  "approved",
-];
 
 function statusClass(value: EvidenceStatus | ReviewStatus | string) {
   if (value === "confirmed" || value === "approved") {
@@ -72,61 +53,6 @@ function StatusBadge({
   );
 }
 
-function CompletenessMeter({
-  completeness,
-}: {
-  completeness: CaseInformationCompleteness | null;
-}) {
-  if (!completeness) {
-    return (
-      <div className="border border-black/10 bg-white p-4">
-        <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-          Case Completeness
-        </p>
-        <p className="mt-2 text-sm leading-6 text-neutral">
-          Completeness analysis will appear after report generation.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-black/10 bg-white p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-            Case Completeness
-          </p>
-          <p className="mt-2 text-sm font-black text-black">
-            {completeness.status}
-          </p>
-        </div>
-
-        <span className="text-3xl font-black tracking-tight text-black">
-          {completeness.percentage}%
-        </span>
-      </div>
-
-      <div className="mt-4 h-2 overflow-hidden bg-neutral-200">
-        <div
-          className="h-full bg-black"
-          style={{ width: `${completeness.percentage}%` }}
-        />
-      </div>
-
-      {completeness.missing_fields.length ? (
-        <p className="mt-3 text-xs leading-5 text-neutral">
-          Missing: {completeness.missing_fields.join(", ")}
-        </p>
-      ) : (
-        <p className="mt-3 text-xs leading-5 text-neutral">
-          Required preliminary case details are available.
-        </p>
-      )}
-    </div>
-  );
-}
-
 function ReportPreview({
   report,
   completeness,
@@ -134,15 +60,13 @@ function ReportPreview({
   report: CyberCaseReport | null;
   completeness: CaseInformationCompleteness | null;
 }) {
-  const title = report?.title || "CyberCase Preliminary Investigation Report";
+  if (!report) return null;
 
-  const summary =
-    report?.executive_case_summary ||
-    "Generate a report to synthesize submitted case facts, available evidence, MITRE ATT&CK mappings, investigation gaps, and recommended next actions.";
+  const title = report.title || "CyberCase Preliminary Investigation Report";
+  const summary = report.executive_case_summary || "No executive summary available.";
+  const reportDate = report.created_at?.slice(0, 10) || "Pending";
 
-  const reportDate = report?.created_at?.slice(0, 10) || "Pending";
-
-  const nextSteps = report?.investigation_next_steps.length
+  const nextSteps = report.investigation_next_steps?.length
     ? report.investigation_next_steps.slice(0, 6)
     : [
         "Collect the initial incident narrative and affected asset details.",
@@ -158,7 +82,7 @@ function ReportPreview({
             CyberCase Investigation Report
           </p>
 
-          <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight tracking-tight md:text-4xl">
+          <h2 className="mt-3 max-w-3xl text-3xl font-black leading-tight tracking-tight md:text-4xl text-black">
             {title}
           </h2>
 
@@ -174,12 +98,12 @@ function ReportPreview({
           </div>
         </div>
 
-        <StatusBadge value={report?.review_status || "draft"} />
+        <StatusBadge value={report.review_status || "draft"} />
       </div>
 
       <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black">1. Executive Summary</h3>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-secondary">
+        <h3 className="text-lg font-black text-black">1. Executive Summary</h3>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-neutral-800">
           {summary}
         </p>
       </section>
@@ -187,7 +111,7 @@ function ReportPreview({
       <section className="border-b border-black/20 py-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-lg font-black">2. Case Readiness</h3>
+            <h3 className="text-lg font-black text-black">2. Case Readiness</h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral">
               Evaluation of whether enough verified information is available for
               an analyst-ready preliminary report.
@@ -195,7 +119,7 @@ function ReportPreview({
           </div>
 
           {completeness ? (
-            <span className="text-3xl font-black">
+            <span className="text-3xl font-black text-black">
               {completeness.percentage}%
             </span>
           ) : null}
@@ -211,22 +135,22 @@ function ReportPreview({
             </div>
 
             <p className="mt-3 text-xs leading-5 text-neutral">
-              {completeness.missing_fields.length
+              {completeness.missing_fields?.length
                 ? `Missing fields: ${completeness.missing_fields.join(", ")}`
                 : "No missing preliminary fields were identified."}
             </p>
           </>
         ) : (
           <p className="mt-5 text-sm text-neutral">
-            Generate a report to evaluate case completeness.
+            No completeness metrics available for this report.
           </p>
         )}
       </section>
 
       <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black">3. Evidence & Indicators</h3>
+        <h3 className="text-lg font-black text-black">3. Evidence & Indicators</h3>
 
-        {report?.evidence_and_indicators_table.length ? (
+        {report.evidence_and_indicators_table?.length ? (
           <div className="mt-4 overflow-x-auto border border-black/10">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-black/10 bg-neutral-50 text-[10px] font-black uppercase tracking-widest text-neutral">
@@ -240,9 +164,9 @@ function ReportPreview({
               <tbody>
                 {report.evidence_and_indicators_table
                   .slice(0, 8)
-                  .map((indicator) => (
+                  .map((indicator, index) => (
                     <tr
-                      key={indicator.indicator_id}
+                      key={`${indicator.indicator_id || index}-${indicator.value}`}
                       className="border-b border-black/10 last:border-b-0"
                     >
                       <td className="px-4 py-3 text-xs font-black uppercase text-neutral">
@@ -263,30 +187,29 @@ function ReportPreview({
           </div>
         ) : (
           <p className="mt-4 text-sm leading-7 text-neutral">
-            No indicators have been extracted yet. Add case details or upload
-            evidence, then generate the report.
+            No indicators have been extracted in this report.
           </p>
         )}
       </section>
 
       <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black">4. MITRE ATT&CK Assessment</h3>
+        <h3 className="text-lg font-black text-black">4. MITRE ATT&CK Assessment</h3>
 
-        {report?.mitre_attack_assessment.length ? (
+        {report.mitre_attack_assessment?.length ? (
           <div className="mt-4 divide-y divide-black/10 border border-black/10">
-            {report.mitre_attack_assessment.slice(0, 6).map((mapping) => (
+            {report.mitre_attack_assessment.slice(0, 6).map((mapping, index) => (
               <div
-                key={`${mapping.technique_id}-${mapping.technique_name}`}
+                key={`${mapping.technique_id || index}-${mapping.technique_name}`}
                 className="grid gap-3 p-4 md:grid-cols-[170px_minmax(0,1fr)_auto]"
               >
                 <div>
-                  <p className="text-sm font-black">{mapping.technique_id}</p>
+                  <p className="text-sm font-black text-black">{mapping.technique_id}</p>
                   <p className="mt-1 text-xs font-semibold text-neutral">
                     {mapping.technique_name}
                   </p>
                 </div>
 
-                <p className="text-sm leading-6 text-secondary">
+                <p className="text-sm leading-6 text-neutral-800">
                   {mapping.justification}
                 </p>
 
@@ -298,16 +221,39 @@ function ReportPreview({
           </div>
         ) : (
           <p className="mt-4 text-sm leading-7 text-neutral">
-            MITRE ATT&CK mappings will appear when the case context supports
-            them.
+            No MITRE ATT&CK technique mappings are present in this report.
           </p>
         )}
       </section>
 
-      <section className="pt-7">
-        <h3 className="text-lg font-black">5. Recommended Next Steps</h3>
+      {report.legal_assessments?.length ? (
+        <section className="border-b border-black/20 py-7">
+          <h3 className="text-lg font-black text-black">5. Legal Relevance Assessment</h3>
+          <div className="mt-4 space-y-4">
+            {report.legal_assessments.map((assessment, index) => (
+              <div key={index} className="border border-black/10 p-4 bg-neutral-50">
+                <div className="flex justify-between items-start">
+                  <h4 className="text-sm font-black text-black">{assessment.provision_reference}</h4>
+                  <StatusBadge value={assessment.status} />
+                </div>
+                <p className="mt-2 text-sm leading-6 text-neutral-800 italic">
+                  &quot;{assessment.preliminary_relevance}&quot;
+                </p>
+                {assessment.disclaimer && (
+                  <p className="mt-3 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
+                    Disclaimer: {assessment.disclaimer}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-        <ul className="mt-4 space-y-3 text-sm leading-6 text-secondary">
+      <section className="pt-7">
+        <h3 className="text-lg font-black text-black">6. Recommended Next Steps</h3>
+
+        <ul className="mt-4 space-y-3 text-sm leading-6 text-neutral-800">
           {nextSteps.map((step) => (
             <li key={step} className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-black" />
@@ -321,357 +267,249 @@ function ReportPreview({
 }
 
 export default function ReportWorkspace() {
-  const [query, setQuery] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [reportType, setReportType] = useState<ReportType>("overview");
-  const [legal, setLegal] = useState(false);
-  const [forceGenerate, setForceGenerate] = useState(false);
-  const [workflow, setWorkflow] = useState<ReportWorkflowResponse | null>(null);
-  const [followupAnswer, setFollowupAnswer] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [reportsList, setReportsList] = useState<ReportRegistryItem[]>([]);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [detailedWorkflow, setDetailedWorkflow] = useState<ReportWorkflowResponse | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState("");
 
-  const report =
-    workflow?.status === "completed" ? (workflow.report ?? null) : null;
-
-  const completeness = report
-    ? (report.case_information_completeness ??
-      report.case_fact_pack?.completeness ??
-      null)
-    : workflow?.status === "followup"
-      ? workflow.completeness
-      : null;
-
-  const canSubmit = useMemo(
-    () => (query.trim().length > 0 || file !== null) && !isGenerating,
-    [query, file, isGenerating],
-  );
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!canSubmit) {
-      setError("Add case text or upload an evidence file before generating.");
-      return;
+  useEffect(() => {
+    async function loadList() {
+      setIsLoadingList(true);
+      setError("");
+      try {
+        const data = await listReports();
+        setReportsList(data);
+      } catch (err) {
+        console.error("Failed to load reports registry:", err);
+        setError("Could not load reports registry from backend database.");
+      } finally {
+        setIsLoadingList(false);
+      }
     }
+    loadList();
+  }, []);
 
-    setIsGenerating(true);
+  async function handleSelectReport(reportId: string) {
+    setSelectedReportId(reportId);
+    setIsLoadingDetail(true);
+    setDetailedWorkflow(null);
     setError("");
-    setWorkflow(null);
-    setFollowupAnswer("");
-
     try {
-      const result = file
-        ? await generateReportFile(
-            file,
-            query.trim(),
-            reportType,
-            legal,
-            forceGenerate,
-          )
-        : await generateReport(query.trim(), reportType, legal, forceGenerate);
-
-      setWorkflow(result);
-    } catch (generationError) {
-      console.error(generationError);
-      setError(
-        "Report generation failed. Check the backend and RAG service, then try again.",
-      );
+      const data = await getReport(reportId);
+      setDetailedWorkflow(data);
+    } catch (err) {
+      console.error("Failed to load report details:", err);
+      setError("Could not load full report details.");
     } finally {
-      setIsGenerating(false);
+      setIsLoadingDetail(false);
     }
   }
 
-  async function handleResume() {
-    if (
-      workflow?.status !== "followup" ||
-      !workflow.session_id ||
-      !followupAnswer.trim()
-    ) {
-      return;
-    }
-
-    setIsGenerating(true);
-    setError("");
-
-    try {
-      const result = await resumeReport(
-        workflow.session_id,
-        followupAnswer.trim(),
-      );
-
-      setWorkflow(result);
-      setFollowupAnswer("");
-    } catch (resumeError) {
-      console.error(resumeError);
-      setError("Could not resume the CyberCase report session.");
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  async function handleReviewStatus(status: ReviewStatus) {
-    if (!report) {
-      return;
-    }
+  async function handleReviewStatusChange(status: ReviewStatus) {
+    if (!selectedReportId || !detailedWorkflow || detailedWorkflow.status !== "completed") return;
 
     setIsUpdatingStatus(true);
     setError("");
-
     try {
-      const result = await updateReportReviewStatus(report.report_id, status);
-      setWorkflow(result);
-    } catch (statusError) {
-      console.error(statusError);
-      setError("Could not update the report review status.");
+      const result = await updateReportReviewStatus(selectedReportId, status);
+      setDetailedWorkflow(result);
+      
+      // Update status in local list without reloading everything
+      setReportsList(prev => 
+        prev.map(r => r.report_id === selectedReportId ? { ...r, review_status: status } : r)
+      );
+    } catch (err) {
+      console.error("Failed to update review status:", err);
+      setError("Could not update report review status.");
     } finally {
       setIsUpdatingStatus(false);
     }
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    setFile(event.target.files?.[0] ?? null);
-  }
+  const filteredReports = useMemo(() => {
+    return reportsList.filter(r => 
+      r.case_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.case_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.report_id.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [reportsList, searchQuery]);
+
+  const activeReport = detailedWorkflow?.status === "completed" ? detailedWorkflow.report : null;
+  const activeCompleteness = activeReport
+    ? (activeReport.case_information_completeness ?? activeReport.case_fact_pack?.completeness ?? null)
+    : null;
 
   return (
     <CyberCaseShell
       activeNav="Reports"
-      eyebrow="CyberCase Intelligence Framework"
-      title="Report Builder"
-      subtitle="Generate evidence-led cyber investigation reports"
+      eyebrow="Threat Intelligence & Documentation"
+      title="Incident Reports Library"
+      subtitle="Registry of all persisted case investigation reports"
       actions={
-        <>
-          <Link
-            href="/chat"
-            className="border border-black/15 px-3 py-2 text-xs font-black transition hover:border-black hover:bg-black hover:text-white"
-          >
-            Investigate
-          </Link>
-        </>
+        <Link
+          href="/cases"
+          className="border border-black/15 px-3 py-2 text-xs font-black transition hover:border-black hover:bg-black hover:text-white bg-white text-black"
+        >
+          Go to Cases
+        </Link>
       }
     >
-      <div className="flex h-full min-h-0 flex-col xl:flex-row">
-        <aside className="shrink-0 overflow-y-auto border-b border-black/10 bg-[#f7f7f7] xl:w-[370px] xl:border-b-0 xl:border-r">
-          <form onSubmit={handleSubmit} className="space-y-4 p-4">
-            <section className="border border-black/10 bg-white p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-                Report Input
-              </p>
-
-              <h2 className="mt-2 text-lg font-black">
-                Build from case evidence.
-              </h2>
-
-              <p className="mt-2 text-xs leading-5 text-neutral">
-                Add incident facts directly, attach an evidence file, or use
-                both as report context.
-              </p>
-
-              <label
-                htmlFor="case-detail"
-                className="mt-5 block text-[10px] font-black uppercase tracking-widest text-neutral"
-              >
-                Incident details
-              </label>
-
-              <textarea
-                id="case-detail"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Paste incident details, observed actions, evidence, indicators, logs, or analyst notes..."
-                className="mt-2 min-h-36 w-full resize-y border border-black/15 bg-white p-3 text-sm leading-6 outline-none focus:border-black"
-              />
-
-              <label
-                htmlFor="case-file"
-                className="mt-4 block text-[10px] font-black uppercase tracking-widest text-neutral"
-              >
-                Evidence file
-              </label>
-
-              <input
-                id="case-file"
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg"
-                onChange={handleFileChange}
-                className="mt-2 block w-full border border-black/15 bg-white p-2 text-xs file:mr-3 file:border-0 file:bg-black file:px-3 file:py-2 file:text-white"
-              />
-
-              {file ? (
-                <div className="mt-2 flex items-center justify-between gap-3 border border-black/10 bg-neutral-50 px-3 py-2">
-                  <span className="truncate text-xs font-semibold">
-                    {file.name}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setFile(null)}
-                    className="text-xs font-black hover:underline"
-                  >
-                    Clear
-                  </button>
-                </div>
-              ) : null}
-            </section>
-
-            <section className="border border-black/10 bg-white p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-                Report Configuration
-              </p>
-
-              <div className="mt-4 space-y-2">
-                {REPORT_TYPE_OPTIONS.map((option) => (
-                  <label
-                    key={option.value}
-                    className="flex cursor-pointer items-center gap-3 border border-transparent px-2 py-2 text-sm font-bold hover:bg-neutral-50"
-                  >
-                    <input
-                      type="radio"
-                      name="report-type"
-                      checked={reportType === option.value}
-                      onChange={() => setReportType(option.value)}
-                      className="h-4 w-4 accent-black"
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-
-              <div className="mt-4 border-t border-black/10 pt-4">
-                <label className="flex cursor-pointer items-start gap-3 text-sm font-bold">
-                  <input
-                    type="checkbox"
-                    checked={legal}
-                    onChange={(event) => setLegal(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-black"
-                  />
-
-                  <span>
-                    Include legal relevance
-                    <span className="mt-1 block text-xs font-medium text-neutral">
-                      Include legal-focused analysis where applicable.
-                    </span>
-                  </span>
-                </label>
-
-                <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm font-bold">
-                  <input
-                    type="checkbox"
-                    checked={forceGenerate}
-                    onChange={(event) => setForceGenerate(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-black"
-                  />
-
-                  <span>
-                    Generate with missing facts
-                    <span className="mt-1 block text-xs font-medium text-neutral">
-                      Continue while clearly flagging incomplete information.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            </section>
-
-            <div className="grid gap-2">
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="bg-black px-4 py-3 text-sm font-black text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-300"
-              >
-                {isGenerating ? "Generating Report..." : "Generate Report"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setQuery(SAMPLE_CASE)}
-                disabled={isGenerating}
-                className="border border-black/15 px-4 py-3 text-sm font-black transition hover:border-black hover:bg-white disabled:opacity-50"
-              >
-                Use Sample Case
-              </button>
-            </div>
-
-            {error ? (
-              <p className="border border-black/15 bg-white p-3 text-sm leading-6 text-secondary">
-                {error}
-              </p>
-            ) : null}
-
-            <CompletenessMeter completeness={completeness} />
-
-            {workflow?.status === "followup" ? (
-              <section className="border border-black/10 bg-white p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-                  Follow-up Required
-                </p>
-
-                <h2 className="mt-2 text-lg font-black">
-                  More case detail is needed.
-                </h2>
-
-                <p className="mt-3 text-sm leading-6 text-secondary">
-                  {workflow.followup_question}
-                </p>
-
-                <textarea
-                  value={followupAnswer}
-                  onChange={(event) => setFollowupAnswer(event.target.value)}
-                  className="mt-3 min-h-24 w-full resize-y border border-black/15 bg-white p-3 text-sm outline-none focus:border-black"
-                  placeholder="Provide the missing fact, or write unknown."
-                />
-
-                <button
-                  type="button"
-                  onClick={handleResume}
-                  disabled={!followupAnswer.trim() || isGenerating}
-                  className="mt-3 bg-black px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
-                >
-                  Resume Report
-                </button>
-              </section>
-            ) : null}
-          </form>
-        </aside>
-
-        <section className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f5f5f5] p-4 md:p-6">
-          <div className="mx-auto mb-4 flex max-w-5xl flex-col gap-3 border border-black/10 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-neutral">
-                Live Report Preview
-              </p>
-              <p className="mt-1 text-xs font-semibold text-neutral">
-                Review status and report content update after generation.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {report ? (
-                REVIEW_OPTIONS.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    disabled={
-                      isUpdatingStatus || report.review_status === status
-                    }
-                    onClick={() => handleReviewStatus(status)}
-                    className={`border px-2 py-1 text-[10px] font-black uppercase transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                      report.review_status === status
-                        ? "border-black bg-black text-white"
-                        : "border-black/15 bg-white hover:border-black"
-                    }`}
-                  >
-                    {status.replace("_", " ")}
-                  </button>
-                ))
-              ) : (
-                <StatusBadge value="draft" />
-              )}
-            </div>
+      <div className="flex h-full min-h-0 flex-col xl:flex-row bg-[#FAF9F6]">
+        {/* Left Side: Report List Panel */}
+        <aside className="shrink-0 overflow-y-auto border-b border-black/10 bg-[#F5F4F0] xl:w-[380px] xl:border-b-0 xl:border-r flex flex-col h-full">
+          <div className="p-4 border-b border-black/10 bg-white">
+            <label htmlFor="search" className="sr-only">Search Reports</label>
+            <input
+              id="search"
+              type="text"
+              placeholder="Search reports by title or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full border border-black/15 px-3 py-2 text-xs bg-[#FAF9F6] text-black focus:outline-none focus:border-black"
+            />
           </div>
 
-          <ReportPreview report={report} completeness={completeness} />
-        </section>
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingList ? (
+              <div className="p-8 text-center text-xs font-black uppercase tracking-widest text-neutral">
+                Loading Registry...
+              </div>
+            ) : filteredReports.length === 0 ? (
+              <div className="p-8 text-center text-xs text-neutral">
+                No reports found.
+              </div>
+            ) : (
+              <div className="divide-y divide-black/5">
+                {filteredReports.map((item) => (
+                  <button
+                    key={item.report_id}
+                    onClick={() => handleSelectReport(item.report_id)}
+                    className={`w-full text-left p-4 transition-all duration-200 border-l-4 ${
+                      selectedReportId === item.report_id
+                        ? "border-black bg-white shadow-sm"
+                        : "border-transparent hover:bg-white/50"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                        {item.case_id}
+                      </span>
+                      <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 border ${
+                        item.severity === "high" || item.severity === "critical"
+                          ? "border-red-500/30 bg-red-50 text-red-700"
+                          : item.severity === "medium"
+                          ? "border-amber-500/30 bg-amber-50 text-amber-700"
+                          : "border-neutral-300 bg-neutral-50 text-neutral-700"
+                      }`}>
+                        {item.severity}
+                      </span>
+                    </div>
+
+                    <h3 className="mt-1.5 text-sm font-black text-black leading-snug line-clamp-2">
+                      {item.case_title}
+                    </h3>
+
+                    <p className="mt-2 text-xs text-neutral-600 line-clamp-2">
+                      {item.executive_summary_preview}
+                    </p>
+
+                    <div className="mt-3.5 flex justify-between items-center text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                      <span>{item.created_at.slice(0, 10)}</span>
+                      <span className="border border-black/10 px-1 py-0.5 bg-neutral-100 text-[8px]">
+                        {item.review_status}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Right Side: Report Detail View */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-10 flex flex-col">
+          {error && (
+            <div className="mb-6 border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-800">
+              {error}
+            </div>
+          )}
+
+          {isLoadingDetail ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
+              <p className="mt-4 text-xs font-black uppercase tracking-widest text-neutral">
+                Retrieving Investigation Report...
+              </p>
+            </div>
+          ) : detailedWorkflow?.status === "error" ||
+            detailedWorkflow?.status === "context_expired" ? (
+            <div className="flex-1 flex flex-col items-center justify-center border border-red-200 bg-white p-12 text-center">
+              <h2 className="text-lg font-black text-red-800">
+                Report details unavailable
+              </h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-red-700">
+                {detailedWorkflow.message}
+              </p>
+            </div>
+          ) : activeReport ? (
+            <div className="flex-1 flex flex-col gap-6">
+              {/* Action and Review Status Bar */}
+              <div className="border border-black/10 bg-white p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="text-xs">
+                  <span className="font-bold text-neutral-500">Persisted Report ID: </span>
+                  <code className="bg-neutral-100 px-1 py-0.5 font-mono text-black font-semibold">
+                    {activeReport.report_id}
+                  </code>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label htmlFor="review-status" className="text-xs font-bold text-neutral-700">
+                    Review Status:
+                  </label>
+                  <select
+                    id="review-status"
+                    value={activeReport.review_status}
+                    disabled={isUpdatingStatus}
+                    onChange={(e) => handleReviewStatusChange(e.target.value as ReviewStatus)}
+                    className="border border-black/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-black focus:outline-none focus:border-black"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="ai_generated">AI Generated</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="approved">Approved</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* The Actual Report Preview */}
+              <ReportPreview report={activeReport} completeness={activeCompleteness} />
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-black/10 rounded p-12 text-center bg-white/50">
+              <svg
+                className="h-12 w-12 text-neutral-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <h2 className="mt-4 text-lg font-black text-black">Incident Reports Library</h2>
+              <p className="mt-2 max-w-md text-xs leading-5 text-neutral-600">
+                Select an incident report from the registry list on the left to examine detailed MITRE technique mappings, timeline events, evidence files, and legal assessments.
+              </p>
+            </div>
+          )}
+        </main>
       </div>
     </CyberCaseShell>
   );

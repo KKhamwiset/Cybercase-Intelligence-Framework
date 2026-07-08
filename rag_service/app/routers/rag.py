@@ -117,6 +117,11 @@ async def get_retrieval_context(context_id: str, req: Request):
     if not cached:
         raise HTTPException(status_code=404, detail="Retrieval context not found")
 
+    if not cached.get("mitre_table") and cached.get("rag_result") and cached.get("answer"):
+        cached["mitre_table"] = build_mitre_table(
+            cached["rag_result"], cached["answer"]
+        )
+
     snapshot = export_retrieval_context(req, context_id)
     if not snapshot:
         raise HTTPException(status_code=404, detail="Retrieval context not found")
