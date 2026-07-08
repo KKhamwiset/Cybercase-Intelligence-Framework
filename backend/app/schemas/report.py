@@ -203,6 +203,7 @@ class GenerateCaseReportRequest(BaseModel):
     report_type: ReportType = "overview"
     legal: bool = False
     force_generate: bool = False
+    retrieval_context_id: str | None = None
 
 
 class ReportInputSnapshot(BaseModel):
@@ -228,6 +229,7 @@ class ReportCompletedResponse(BaseModel):
     report_id: str
     report: CyberCaseReport
     answer: str = ""
+    retrieval_context_id: str | None = None
 
 
 class ReportFollowUpResponse(BaseModel):

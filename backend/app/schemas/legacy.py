@@ -73,7 +73,7 @@ def legacy_report_response_from_payload(
         session_id=data.get("session_id", ""),
         error_code=data.get("error_code", ""),
         message=data.get("message", ""),
-        retrieval_context_id=data.get("retrieval_context_id", ""),
+        retrieval_context_id=data.get("retrieval_context_id") or "",
         report_id=report_id,
         report=report,
         case_fact_pack=case_fact_pack,

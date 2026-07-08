@@ -94,8 +94,6 @@ class ReportWorkflowService:
     def __init__(
         self,
         report_gen: ReportGenerator | None = None,
-        report_store: dict | None = None,  # Kept for compatibility
-        report_sessions: dict | None = None,  # Kept for compatibility
         client: RagServiceClient | None = None,
         db: AsyncSession | None = None,
     ) -> None:
@@ -131,14 +129,34 @@ class ReportWorkflowService:
 
         evidence_registry = build_evidence_registry_from_case(case)
 
-        # 3. Call RAG service internally to perform /query and obtain retrieval_context_id
-        try:
-            rag_payload = {"query": query, "use_agent": False}
-            rag_res = await self.client.post_json("/query", rag_payload)
-            retrieval_context_id = rag_res.get("retrieval_context_id", "")
-        except Exception as exc:
-            print(f"[RAG] Error calling query internally: {exc}")
-            retrieval_context_id = ""
+        # 3. Call RAG service internally or use provided retrieval_context_id
+        retrieval_context_id = request.retrieval_context_id or ""
+        snapshot = None
+
+        if retrieval_context_id:
+            try:
+                snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
+                if not snapshot or "context" not in snapshot:
+                    raise ValueError("Empty or invalid retrieval context snapshot")
+            except Exception as exc:
+                print(f"[RAG] Failed to load retrieval context {retrieval_context_id}: {exc}")
+                internal_request = GenerateReportRequest(
+                    query=query,
+                    report_type=request.report_type,
+                    legal=request.legal,
+                    force_generate=request.force_generate,
+                    evidence_registry=evidence_registry,
+                    retrieval_context_id=retrieval_context_id,
+                )
+                return self._report_context_wait_response(internal_request)
+        else:
+            try:
+                rag_payload = {"query": query, "use_agent": False}
+                rag_res = await self.client.post_json("/query", rag_payload)
+                retrieval_context_id = rag_res.get("retrieval_context_id", "")
+            except Exception as exc:
+                print(f"[RAG] Error calling query internally: {exc}")
+                retrieval_context_id = ""
 
         # Build internal request from case data
         internal_request = GenerateReportRequest(
@@ -150,11 +168,12 @@ class ReportWorkflowService:
             retrieval_context_id=retrieval_context_id,
         )
 
-        # 4. Fetch retrieval context snapshot
-        try:
-            snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
-        except Exception:
-            return self._report_context_wait_response(internal_request)
+        # 4. Fetch retrieval context snapshot (if not already fetched)
+        if snapshot is None:
+            try:
+                snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
+            except Exception:
+                return self._report_context_wait_response(internal_request)
 
         # 5. Preview fact pack to check if follow-up is needed
         preview_pack = self.report_gen.preview_case_fact_pack(

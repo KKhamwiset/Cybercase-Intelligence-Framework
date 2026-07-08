@@ -153,7 +153,7 @@ def test_canonical_completed_response_excludes_duplicated_top_level_fields() -> 
     assert "case_fact_pack" not in dumped
     assert "completeness" not in dumped
     assert "missing_information" not in dumped
-    assert "retrieval_context_id" not in dumped
+    assert dumped["retrieval_context_id"] is None
     assert dumped["report"]["case_fact_pack"]["missing_information"] == [
         "incident date/time"
     ]

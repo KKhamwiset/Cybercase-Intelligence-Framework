@@ -21,6 +21,8 @@ import type {
   ReportType,
 } from "@/lib/api";
 import ReportMarkdownView from "@/components/report/ReportMarkdownView";
+import CaseAnalysisAssistantPanel from "@/components/cases/CaseAnalysisAssistantPanel";
+import CaseContextPanel from "@/components/cases/CaseContextPanel";
 
 function statusClass(value: EvidenceStatus | ReviewStatus | string) {
   if (value === "confirmed" || value === "approved") {
@@ -125,7 +127,17 @@ export default function CaseReportWorkspace() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExporting, setIsExporting] = useState<"md" | "pdf" | null>(null);
+  const [retrievalContextId, setRetrievalContextId] = useState<string | undefined>(undefined);
   const [followupAnswer, setFollowupAnswer] = useState("");
+
+  function updateWorkflowAndContext(data: ReportWorkflowResponse) {
+    setWorkflow(data);
+    if (data.status === "followup" && data.retrieval_context_id) {
+      setRetrievalContextId(data.retrieval_context_id);
+    } else if (data.status === "completed" && data.retrieval_context_id) {
+      setRetrievalContextId(data.retrieval_context_id);
+    }
+  }
   const [reportType, setReportType] = useState<ReportType>("overview");
   const [legal, setLegal] = useState(false);
   const [error, setError] = useState("");
@@ -161,7 +173,7 @@ export default function CaseReportWorkspace() {
       setError("");
       try {
         const data = await getLatestCaseReport(activeCaseId);
-        setWorkflow(data);
+        updateWorkflowAndContext(data);
       } catch (err: unknown) {
         // If 404, it means no report has been generated yet, which is expected
         if (getHttpStatus(err) !== 404) {
@@ -175,14 +187,16 @@ export default function CaseReportWorkspace() {
     loadLatestReport();
   }, [caseId]);
 
+
+
   async function handleGenerate(force: boolean = false) {
     if (!caseId) return;
 
     setIsGenerating(true);
     setError("");
     try {
-      const result = await generateCaseReport(caseId, reportType, legal, force);
-      setWorkflow(result);
+      const result = await generateCaseReport(caseId, reportType, legal, force, retrievalContextId);
+      updateWorkflowAndContext(result);
     } catch (err: unknown) {
       console.error("Failed to generate case report:", err);
       setError("Failed to generate report. Make sure database and RAG systems are operational.");
@@ -198,7 +212,7 @@ export default function CaseReportWorkspace() {
     setError("");
     try {
       const result = await resumeCaseReport(caseId, workflow.session_id, followupAnswer.trim());
-      setWorkflow(result);
+      updateWorkflowAndContext(result);
       setFollowupAnswer("");
     } catch (err: unknown) {
       console.error("Failed to resume report generation:", err);
@@ -215,7 +229,7 @@ export default function CaseReportWorkspace() {
     setError("");
     try {
       const result = await updateReportReviewStatus(workflow.report_id, status);
-      setWorkflow(result);
+      updateWorkflowAndContext(result);
     } catch (err) {
       console.error("Failed to update review status:", err);
       setError("Could not update review status.");
@@ -338,124 +352,32 @@ export default function CaseReportWorkspace() {
               answer={workflow.status === "completed" ? workflow.answer : undefined}
             />
           </div>
-        ) : workflow?.status === "followup" && workflow.session_id ? (
-          <div className="mx-auto max-w-2xl border border-black/10 bg-white p-6 md:p-8">
-            <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
-              Case Analysis Incomplete ({activeCompleteness?.percentage || 0}% Complete)
-            </span>
-            
-            <h3 className="mt-3 text-lg font-black text-black">
-              Incident Details Verification
-            </h3>
-
-            <p className="mt-2 text-sm text-neutral-700 leading-relaxed">
-              Before the CyberCase investigation report can be finalized, additional details are recommended to improve MITRE technique mappings and legal assessment confidence.
-            </p>
-
-            <div className="mt-6 border border-black/10 bg-neutral-50 p-4">
-              <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
-                Question from Case Assistant:
-              </p>
-              <p className="mt-1 text-sm font-semibold text-neutral-900">
-                {workflow.followup_question}
-              </p>
-            </div>
-
-            <div className="mt-6">
-              <label htmlFor="followup-answer" className="text-xs font-bold text-neutral-700 uppercase tracking-wide block">
-                Your Answer
-              </label>
-              <textarea
-                id="followup-answer"
-                rows={4}
-                placeholder="Type your response here..."
-                value={followupAnswer}
-                onChange={(e) => setFollowupAnswer(e.target.value)}
-                className="mt-2 w-full border border-black/15 px-3 py-2 text-xs bg-[#FAF9F6] text-black focus:outline-none focus:border-black"
-              />
-            </div>
-
-            <div className="mt-6 flex flex-wrap gap-3 justify-end">
-              <button
-                onClick={() => handleGenerate(true)}
-                className="border border-black/15 bg-white px-4 py-2 text-xs font-black text-black hover:border-black transition"
-              >
-                Skip & Force Generate
-              </button>
-              <button
-                disabled={!followupAnswer.trim()}
-                onClick={handleResume}
-                className="border border-black bg-black px-4 py-2 text-xs font-black text-white hover:bg-neutral-800 disabled:opacity-40 transition"
-              >
-                Submit & Resume
-              </button>
-            </div>
-          </div>
         ) : (
-          <div className="mx-auto max-w-xl border border-black/10 bg-white p-8 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-neutral-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="lg:col-span-2">
+              <CaseAnalysisAssistantPanel
+                caseData={caseQuery.data}
+                workflow={workflow}
+                reportType={reportType}
+                legal={legal}
+                followupAnswer={followupAnswer}
+                isGenerating={isGenerating}
+                onReportTypeChange={setReportType}
+                onLegalChange={setLegal}
+                onFollowupAnswerChange={setFollowupAnswer}
+                onStartAnalysis={() => handleGenerate(false)}
+                onSubmitFollowup={handleResume}
+                onForceGenerate={() => handleGenerate(true)}
               />
-            </svg>
-
-            <h3 className="mt-4 text-base font-black text-black">
-              No Report Generated Yet
-            </h3>
-            
-            <p className="mt-2 text-xs text-neutral-600 leading-relaxed">
-              Generate an evidence-based cyber incident report for this case. This automatically analyzes incident details, maps threat techniques to MITRE ATT&CK, and assesses Thai cybersecurity law relevance.
-            </p>
-
-            <div className="mt-6 border-t border-black/10 pt-6 flex flex-col gap-4 text-left">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="report-type-select" className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                    Report Type
-                  </label>
-                  <select
-                    id="report-type-select"
-                    value={reportType}
-                    onChange={(e) => setReportType(e.target.value as ReportType)}
-                    className="mt-1.5 w-full border border-black/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-black focus:outline-none focus:border-black"
-                  >
-                    <option value="overview">Case Overview</option>
-                    <option value="subject">Evidence & Indicators</option>
-                    <option value="timeline">Incident Timeline</option>
-                    <option value="vulnerability">Exposure & Risk</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col justify-end pb-1">
-                  <label htmlFor="legal-advice-checkbox" className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      id="legal-advice-checkbox"
-                      type="checkbox"
-                      checked={legal}
-                      onChange={(e) => setLegal(e.target.checked)}
-                      className="accent-black h-4 w-4"
-                    />
-                    <span className="text-xs font-semibold text-neutral-800">
-                      Request Legal Assessment
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleGenerate(false)}
-                className="mt-4 border border-black bg-black py-2.5 text-xs font-black text-white hover:bg-neutral-800 transition"
-              >
-                Generate CyberCase Report
-              </button>
+            </div>
+            <div className="lg:col-span-1">
+              <CaseContextPanel
+                caseData={caseQuery.data}
+                workflow={workflow}
+                reportType={reportType}
+                legal={legal}
+                completeness={activeCompleteness}
+              />
             </div>
           </div>
         )}

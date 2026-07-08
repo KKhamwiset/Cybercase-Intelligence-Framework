@@ -1,0 +1,282 @@
+import asyncio
+import pytest
+from fastapi import HTTPException
+from app.schemas.report import (
+    GenerateCaseReportRequest,
+    CyberCaseReport,
+    CaseFactPack,
+    CaseInformationCompleteness,
+)
+from app.services.report_workflow import ReportWorkflowService
+from app.models.case import CaseRecord
+
+
+class _MockRagClient:
+    def __init__(self):
+        self.queries_called = 0
+        self.contexts_fetched = []
+
+    async def post_json(self, path, payload):
+        if path == "/query":
+            self.queries_called += 1
+            return {"retrieval_context_id": "ctx-123"}
+        return {}
+
+    async def get_json(self, path):
+        self.contexts_fetched.append(path)
+        if path == "/retrieval-contexts/ctx-123":
+            return {
+                "retrieval_context_id": "ctx-123",
+                "query": "Suspicious logins from foreign IP.",
+                "rag_result": {
+                    "vector_results": [],
+                    "graph_results": []
+                },
+                "context": "Sample threat context data",
+                "answer": "Sample RAG answer",
+                "mitre_table": [
+                    {
+                        "technique_id": "T1566",
+                        "name": "Phishing",
+                        "entity_type": "Technique",
+                        "score": 0.98,
+                        "source": "graph",
+                        "relevance": "cited_in_answer",
+                        "description": "Email phishing technique"
+                    }
+                ],
+            }
+        elif path == "/retrieval-contexts/ctx-expired":
+            return {}  # empty snapshot
+        return {}
+
+
+class _MockReportGenerator:
+    def preview_case_fact_pack(self, query, legal=False, evidence_registry=None):
+        return CaseFactPack(
+            facts=[],
+            evidence_registry=evidence_registry or [],
+            indicators=[],
+            timeline=[],
+            mitre_assessments=[],
+            legal_assessments=[],
+            missing_information=[],
+            limitations=[],
+            completeness_percentage=100,
+            completeness=CaseInformationCompleteness(
+                percentage=100,
+                status="Sufficient for preliminary report",
+                missing_fields=[],
+                fields=[],
+            ),
+            review_status="draft",
+        )
+
+    def generate(
+        self,
+        query,
+        context,
+        rag_result=None,
+        mitre_table=None,
+        rag_answer="",
+        report_type="overview",
+        legal=False,
+        evidence_registry=None,
+        force_generate=False,
+    ):
+        from app.schemas.report import MitreAssessment
+        
+        mitre_assessments = []
+        if mitre_table:
+            for row in mitre_table:
+                technique_id = getattr(row, "technique_id", "") if not isinstance(row, dict) else row.get("technique_id", "")
+                name = getattr(row, "name", "") if not isinstance(row, dict) else row.get("name", "")
+                entity_type = getattr(row, "entity_type", "Technique") if not isinstance(row, dict) else row.get("entity_type", "Technique")
+                mitre_assessments.append(
+                    MitreAssessment(
+                        technique_id=technique_id,
+                        technique_name=name,
+                        mapping_status="confirmed",
+                        evidence_ids=["E-001"],
+                        justification="Test",
+                    )
+                )
+
+        return CyberCaseReport(
+            report_id="rep-123",
+            title="Incident Report",
+            report_type=report_type,
+            executive_case_summary="Synthesized incident report",
+            case_information_completeness=CaseInformationCompleteness(
+                percentage=100,
+                status="Sufficient for preliminary report",
+                missing_fields=[],
+                fields=[],
+            ),
+            evidence_and_indicators_table=[],
+            incident_timeline=[],
+            mitre_attack_assessment=mitre_assessments,
+            evidence_still_required=[],
+            investigation_next_steps=[],
+            legal_assessments=[],
+            limitations_and_disclaimers=[],
+            review_status="draft",
+            case_fact_pack=CaseFactPack(
+                facts=[],
+                evidence_registry=evidence_registry or [],
+                indicators=[],
+                timeline=[],
+                mitre_assessments=[],
+                legal_assessments=[],
+                missing_information=[],
+                limitations=[],
+                completeness_percentage=100,
+                completeness=CaseInformationCompleteness(
+                    percentage=100,
+                    status="Sufficient for preliminary report",
+                    missing_fields=[],
+                    fields=[],
+                ),
+                review_status="draft",
+            ),
+            created_at="2026-07-08T00:00:00Z",
+        )
+
+    def render_report_markdown(self, report):
+        # Must return the expected headings
+        headings = [
+            "# CyberCase Investigation Report",
+            "## 1. Case Summary",
+            "## 2. Found Indicators",
+            "## 3. MITRE ATT&CK Mapping",
+            "## 4. Mapping Rationale",
+            "## 5. Evidence That Should Be Checked",
+            "## 6. Preliminary Recommendations",
+            "## 7. System Limitations"
+        ]
+        return "\n\n".join(headings)
+
+
+class _FakeDb:
+    def __init__(self, records=None) -> None:
+        self.records = records or {}
+        self.added = []
+        self.commits = 0
+
+    def add(self, record) -> None:
+        self.added.append(record)
+        key = getattr(record, "case_id", None) or getattr(record, "report_id", None)
+        if key:
+            self.records[key] = record
+
+    async def commit(self) -> None:
+        self.commits += 1
+
+    async def execute(self, statement):
+        stmt_str = str(statement)
+        matched_record = None
+        for key, rec in self.records.items():
+            if key in stmt_str:
+                matched_record = rec
+                break
+        if not matched_record and self.records:
+            matched_record = list(self.records.values())[0]
+        return _Result(matched_record)
+
+
+class _Result:
+    def __init__(self, record) -> None:
+        self.record = record
+
+    def scalars(self):
+        return _Scalars(self.record)
+
+
+class _Scalars:
+    def __init__(self, record) -> None:
+        self.record = record
+
+    def first(self):
+        return self.record
+
+
+def test_generate_report_reuses_retrieval_context() -> None:
+    case_rec = CaseRecord(
+        case_id="CASE-123",
+        title="Phishing breach",
+        status="open",
+        severity="high",
+        data={"incident_summary": "Suspicious logins from foreign IP."},
+    )
+    db = _FakeDb(records={"CASE-123": case_rec})
+    client = _MockRagClient()
+    service = ReportWorkflowService(
+        report_gen=_MockReportGenerator(),
+        client=client,
+        db=db,
+    )
+
+    req = GenerateCaseReportRequest(
+        report_type="overview",
+        retrieval_context_id="ctx-123"
+    )
+    response = asyncio.run(service.generate_report("CASE-123", req))
+
+    assert response.status == "completed"
+    assert client.queries_called == 0
+    assert "/retrieval-contexts/ctx-123" in client.contexts_fetched
+    assert len(response.report.mitre_attack_assessment) == 1
+    assert response.report.mitre_attack_assessment[0].technique_id == "T1566"
+
+
+def test_generate_report_queries_when_context_id_missing() -> None:
+    case_rec = CaseRecord(
+        case_id="CASE-123",
+        title="Phishing breach",
+        status="open",
+        severity="high",
+        data={"incident_summary": "Suspicious logins from foreign IP."},
+    )
+    db = _FakeDb(records={"CASE-123": case_rec})
+    client = _MockRagClient()
+    service = ReportWorkflowService(
+        report_gen=_MockReportGenerator(),
+        client=client,
+        db=db,
+    )
+
+    req = GenerateCaseReportRequest(
+        report_type="overview",
+        retrieval_context_id=None
+    )
+    response = asyncio.run(service.generate_report("CASE-123", req))
+
+    assert response.status == "completed"
+    assert client.queries_called == 1
+    assert "/retrieval-contexts/ctx-123" in client.contexts_fetched
+
+
+def test_generate_report_expired_context_returns_error() -> None:
+    case_rec = CaseRecord(
+        case_id="CASE-123",
+        title="Phishing breach",
+        status="open",
+        severity="high",
+        data={"incident_summary": "Suspicious logins from foreign IP."},
+    )
+    db = _FakeDb(records={"CASE-123": case_rec})
+    client = _MockRagClient()
+    service = ReportWorkflowService(
+        report_gen=_MockReportGenerator(),
+        client=client,
+        db=db,
+    )
+
+    req = GenerateCaseReportRequest(
+        report_type="overview",
+        retrieval_context_id="ctx-expired"
+    )
+    response = asyncio.run(service.generate_report("CASE-123", req))
+
+    assert response.status == "context_expired"
+    assert client.queries_called == 0
