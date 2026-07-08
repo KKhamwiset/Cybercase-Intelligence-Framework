@@ -17,6 +17,7 @@ from app.schemas.report import (
     ReportCompletedResponse,
     ReportErrorResponse,
     ReportFollowUpResponse,
+    ReportInputSnapshot,
     ReportResumeRequest,
     ReviewStatusUpdate,
     EvidenceReference,
@@ -374,13 +375,14 @@ class ReportWorkflowService:
 
         try:
             print(f"[REPORT] Formatting report locally from RAG context: {request.retrieval_context_id}")
-            rag_result = snapshot.get("rag_result", {})
-            context = snapshot.get("context", "")
+            input_snapshot = ReportInputSnapshot.model_validate(snapshot)
 
             report = self.report_gen.generate(
                 request.query,
-                context,
-                rag_result=rag_result,
+                input_snapshot.context,
+                rag_result=input_snapshot.rag_result,
+                mitre_table=input_snapshot.mitre_table,
+                rag_answer=input_snapshot.answer,
                 report_type=request.report_type,
                 legal=request.legal,
                 evidence_registry=request.evidence_registry,

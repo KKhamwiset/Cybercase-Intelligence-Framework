@@ -17,12 +17,14 @@ class ReportEvidenceMixin:
         context: str,
         rag_result: Any | None = None,
         report_type: str = "overview",
+        mitre_table: Any | None = None,
     ) -> ReportEvidencePacket:
         packet = ReportEvidencePacket(
             report_type=self._normalize_report_type(report_type),
             user_query=query,
             raw_context_excerpt=(context or "")[:3000],
         )
+        mitre_table_rows = self._list_mitre_table_rows(mitre_table)
 
         if rag_result:
             self._add_vector_results(
@@ -40,11 +42,16 @@ class ReportEvidenceMixin:
                 if entity.source == "graph_center"
             ]
         )
-        packet.ttp_candidates = [
+        raw_ttp_candidates = [
             entity
             for entity in candidate_entities
             if self._is_technique(entity) and self._is_attack_technique_id(entity.attack_id)
         ][:10]
+
+        if mitre_table_rows:
+            packet.ttp_candidates = self._entities_from_mitre_table(mitre_table_rows)
+        else:
+            packet.ttp_candidates = raw_ttp_candidates
         return packet
 
     def build_evidence_registry(
@@ -228,6 +235,80 @@ class ReportEvidenceMixin:
             ),
             source=source,
         )
+
+    def _entities_from_mitre_table(self, mitre_table: Any | None) -> list[ReportEntity]:
+        rows = self._list_mitre_table_rows(mitre_table)
+        cited_rows: list[tuple[float, ReportEntity]] = []
+        retrieved_rows: list[tuple[float, ReportEntity]] = []
+
+        for row in rows:
+            entity = self._entity_from_mitre_table_row(row)
+            if not entity:
+                continue
+            scored_entity = (
+                entity.relevance if entity.relevance is not None else float("-inf"),
+                entity,
+            )
+            if entity.source == "mitre_table:cited_in_answer":
+                cited_rows.append(scored_entity)
+            else:
+                retrieved_rows.append(scored_entity)
+
+        ordered_entities = [
+            entity
+            for _, entity in sorted(cited_rows, key=lambda item: item[0], reverse=True)
+        ] + [
+            entity
+            for _, entity in sorted(retrieved_rows, key=lambda item: item[0], reverse=True)
+        ]
+
+        entities: list[ReportEntity] = []
+        for entity in ordered_entities:
+            self._append_entity(entities, entity)
+            if len(entities) >= 6:
+                break
+        return entities
+
+    def _entity_from_mitre_table_row(self, row: Any) -> ReportEntity | None:
+        attack_id = self._read_field(row, "technique_id", "") or ""
+        if not self._is_attack_technique_id(attack_id):
+            return None
+        kind = self._read_field(row, "entity_type", "") or ""
+        if not self._is_mitre_table_technique_kind(kind):
+            return None
+
+        name = self._read_field(row, "name", "") or attack_id
+        source = self._read_field(row, "relevance", "") or "retrieved_only"
+        if source not in {"cited_in_answer", "retrieved_only"}:
+            source = "retrieved_only"
+        relevance = self._read_field(row, "score", None)
+        try:
+            relevance = float(relevance) if relevance is not None else None
+        except (TypeError, ValueError):
+            relevance = None
+
+        return ReportEntity(
+            name=name,
+            kind=kind,
+            attack_id=attack_id,
+            description=self._shorten(
+                self._read_field(row, "description", ""), 500
+            ),
+            relevance=relevance,
+            source=f"mitre_table:{source}",
+        )
+
+    @staticmethod
+    def _list_mitre_table_rows(mitre_table: Any | None) -> list[Any]:
+        try:
+            return list(mitre_table or [])
+        except TypeError:
+            return []
+
+    @staticmethod
+    def _is_mitre_table_technique_kind(kind: str) -> bool:
+        normalized = (kind or "").lower().replace("-", "").replace("_", "").replace(" ", "")
+        return normalized in {"technique", "subtechnique", "attackpattern"}
 
     def _append_entity(self, items: list[ReportEntity], entity: ReportEntity) -> None:
         key = self._entity_key(entity)

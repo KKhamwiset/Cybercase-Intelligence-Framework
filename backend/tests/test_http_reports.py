@@ -105,8 +105,12 @@ class _MockRagClient:
     async def get_json(self, path: str) -> dict:
         if path == "/retrieval-contexts/ctx-http":
             return {
+                "retrieval_context_id": "ctx-http",
+                "query": "Suspicious logins from a foreign IP.",
                 "rag_result": {},
                 "context": "Sample threat context data",
+                "answer": "Sample RAG answer",
+                "mitre_table": [],
             }
         return {}
 
@@ -134,6 +138,8 @@ class _MockReportGenerator:
         query: str,
         context: str,
         rag_result: dict | None = None,
+        mitre_table: list | None = None,
+        rag_answer: str = "",
         report_type: str = "overview",
         legal: bool = False,
         evidence_registry: list | None = None,

@@ -54,6 +54,8 @@ class ReportGenerator(
         query: str,
         context: str,
         rag_result: Any | None = None,
+        mitre_table: Any | None = None,
+        rag_answer: str = "",
         report_type: str = "overview",
         legal: bool = False,
         evidence_registry: list[EvidenceReference] | None = None,
@@ -63,6 +65,7 @@ class ReportGenerator(
             query=query,
             context=context,
             rag_result=rag_result,
+            mitre_table=mitre_table,
             report_type=report_type,
         )
         allowed_techniques = packet.ttp_candidates
@@ -84,6 +87,11 @@ class ReportGenerator(
             case_fact_pack.limitations,
             "Report generated from a predefined evidence/MITRE template using RAG-provided context.",
         )
+        if rag_answer.strip():
+            self._append_unique(
+                case_fact_pack.limitations,
+                "RAG technical analysis was available as AI-generated interpretation and was not treated as primary evidence.",
+            )
 
         if force_generate and case_fact_pack.completeness_percentage < COMPLETENESS_THRESHOLD:
             self._append_unique(

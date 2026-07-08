@@ -14,6 +14,12 @@ from .schemas import (
 )
 
 
+NON_LEGAL_REPORT_TITLE = "Evidence-Grounded Preliminary Cyber Incident Report"
+AI_ASSISTED_LIMITATION = (
+    "This report is AI-assisted preliminary investigation support and requires analyst review."
+)
+
+
 class ReportBuilderMixin:
     def build_evidence_locked_report(
         self,
@@ -24,25 +30,13 @@ class ReportBuilderMixin:
         review_status: ReviewStatus = "ai_generated"
         case_fact_pack.review_status = review_status
         completeness = case_fact_pack.completeness
-        primary_evidence = self._primary_case_evidence_id(case_fact_pack)
-        title = (
-            INCOMPLETE_TITLE
-            if completeness.percentage < COMPLETENESS_THRESHOLD
-            else "Evidence-Traceable Preliminary Legal Relevance Report"
-        )
-
-        fact_sentences = [fact.statement for fact in case_fact_pack.facts[:4]]
-        fact_summary = " ".join(fact_sentences) if fact_sentences else "No supported case facts were extracted."
-        executive_summary = (
-            f"Preliminary assessment based on reported and confirmed evidence metadata "
-            f"{self._format_evidence_citations([primary_evidence])}: {fact_summary} "
-            "This report organizes evidence and gaps for investigator/legal review; "
-            "it does not determine guilt, admissibility, or final legal conclusions."
-        )
+        title = self._build_report_title(completeness.percentage, legal)
+        executive_summary = self._build_executive_case_summary(case_fact_pack)
 
         next_steps = self._build_next_steps(case_fact_pack)
         required = self._build_evidence_required(case_fact_pack)
         limitations = list(case_fact_pack.limitations)
+        self._append_unique(limitations, AI_ASSISTED_LIMITATION)
         if not legal:
             self._append_unique(
                 limitations,
@@ -70,6 +64,65 @@ class ReportBuilderMixin:
         )
         return report
 
+    @staticmethod
+    def _build_report_title(completeness_percentage: int, legal: bool) -> str:
+        if not legal:
+            return NON_LEGAL_REPORT_TITLE
+        if completeness_percentage < COMPLETENESS_THRESHOLD:
+            return INCOMPLETE_TITLE
+        return "Evidence-Traceable Preliminary Legal Relevance Report"
+
+    def _build_executive_case_summary(self, case_fact_pack: CaseFactPack) -> str:
+        indicators = case_fact_pack.indicators
+        timeline = case_fact_pack.timeline
+        mitre_assessments = case_fact_pack.mitre_assessments
+        completeness = case_fact_pack.completeness
+
+        parts = [
+            (
+                "This preliminary report summarizes submitted case information and "
+                "evidence metadata for analyst review."
+            ),
+            f"Case readiness is {completeness.percentage}% ({completeness.status}).",
+        ]
+
+        if indicators:
+            indicator_preview = ", ".join(
+                f"{item.indicator_type.upper()} {item.value}" for item in indicators[:3]
+            )
+            parts.append(
+                f"{len(indicators)} indicator(s) were extracted, including {indicator_preview}."
+            )
+        else:
+            parts.append("No explicit indicators were extracted from the submitted case information.")
+
+        if timeline:
+            timestamp_preview = [
+                item.timestamp for item in timeline[:3] if item.timestamp
+            ]
+            if timestamp_preview:
+                parts.append(
+                    f"Timeline evidence includes {len(timeline)} reported event(s) around "
+                    f"{', '.join(timestamp_preview)}."
+                )
+            else:
+                parts.append(
+                    f"Timeline evidence includes {len(timeline)} reported event(s) without exact timestamps."
+                )
+        else:
+            parts.append("No reliable incident timeline was extracted.")
+
+        if mitre_assessments:
+            technique_preview = ", ".join(
+                f"{item.technique_id} {item.technique_name}"
+                for item in mitre_assessments[:3]
+            )
+            parts.append(f"MITRE ATT&CK candidate mapping includes {technique_preview}.")
+        else:
+            parts.append("No MITRE ATT&CK candidate was supported by retrieved MITRE data.")
+
+        return " ".join(parts)
+
     def _build_evidence_required(self, case_fact_pack: CaseFactPack) -> list[str]:
         required = [
             f"Provide {item}." for item in case_fact_pack.missing_information
@@ -80,7 +133,9 @@ class ReportBuilderMixin:
             required.append("Collect timestamps or a reliable sequence of observed events.")
         if not case_fact_pack.mitre_assessments:
             required.append("Collect technical behavior evidence that can support or reject MITRE ATT&CK mappings.")
-        return required or ["No additional required evidence was identified for a preliminary report."]
+        return required or [
+            "No additional required evidence was identified for this preliminary report. Analyst review is still recommended."
+        ]
 
     def _build_next_steps(self, case_fact_pack: CaseFactPack) -> list[str]:
         steps = [

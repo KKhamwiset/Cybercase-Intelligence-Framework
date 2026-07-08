@@ -40,6 +40,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Alembic env.py must be tracked (not matched by env* above)
+!backend/alembic/env.py
+
 # Unit test / coverage reports
 htmlcov/
 .tox/

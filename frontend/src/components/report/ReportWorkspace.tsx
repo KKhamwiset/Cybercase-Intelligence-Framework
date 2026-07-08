@@ -9,7 +9,6 @@ import {
   updateReportReviewStatus,
 } from "@/lib/api";
 import type {
-  CaseInformationCompleteness,
   CyberCaseReport,
   EvidenceStatus,
   ReportWorkflowResponse,
@@ -53,26 +52,21 @@ function StatusBadge({
   );
 }
 
+function stripLeadingH1(markdown: string): string {
+  return markdown.replace(/^\s*#\s+[^\n]*\n?/, "").trim();
+}
+
 function ReportPreview({
   report,
-  completeness,
+  answer,
 }: {
   report: CyberCaseReport | null;
-  completeness: CaseInformationCompleteness | null;
+  answer?: string;
 }) {
   if (!report) return null;
 
   const title = report.title || "CyberCase Preliminary Investigation Report";
-  const summary = report.executive_case_summary || "No executive summary available.";
   const reportDate = report.created_at?.slice(0, 10) || "Pending";
-
-  const nextSteps = report.investigation_next_steps?.length
-    ? report.investigation_next_steps.slice(0, 6)
-    : [
-        "Collect the initial incident narrative and affected asset details.",
-        "Validate indicators against available logs and telemetry.",
-        "Confirm the confidence of each MITRE ATT&CK mapping.",
-      ];
 
   return (
     <article className="mx-auto min-h-[760px] max-w-5xl border border-black/15 bg-white p-6 md:p-10">
@@ -101,167 +95,9 @@ function ReportPreview({
         <StatusBadge value={report.review_status || "draft"} />
       </div>
 
-      <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black text-black">1. Executive Summary</h3>
-        <p className="mt-4 max-w-3xl text-sm leading-7 text-neutral-800">
-          {summary}
-        </p>
-      </section>
-
-      <section className="border-b border-black/20 py-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-lg font-black text-black">2. Case Readiness</h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral">
-              Evaluation of whether enough verified information is available for
-              an analyst-ready preliminary report.
-            </p>
-          </div>
-
-          {completeness ? (
-            <span className="text-3xl font-black text-black">
-              {completeness.percentage}%
-            </span>
-          ) : null}
-        </div>
-
-        {completeness ? (
-          <>
-            <div className="mt-5 h-2 overflow-hidden bg-neutral-200">
-              <div
-                className="h-full bg-black"
-                style={{ width: `${completeness.percentage}%` }}
-              />
-            </div>
-
-            <p className="mt-3 text-xs leading-5 text-neutral">
-              {completeness.missing_fields?.length
-                ? `Missing fields: ${completeness.missing_fields.join(", ")}`
-                : "No missing preliminary fields were identified."}
-            </p>
-          </>
-        ) : (
-          <p className="mt-5 text-sm text-neutral">
-            No completeness metrics available for this report.
-          </p>
-        )}
-      </section>
-
-      <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black text-black">3. Evidence & Indicators</h3>
-
-        {report.evidence_and_indicators_table?.length ? (
-          <div className="mt-4 overflow-x-auto border border-black/10">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-black/10 bg-neutral-50 text-[10px] font-black uppercase tracking-widest text-neutral">
-                <tr>
-                  <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Observed Value</th>
-                  <th className="px-4 py-3">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {report.evidence_and_indicators_table
-                  .slice(0, 8)
-                  .map((indicator, index) => (
-                    <tr
-                      key={`${indicator.indicator_id || index}-${indicator.value}`}
-                      className="border-b border-black/10 last:border-b-0"
-                    >
-                      <td className="px-4 py-3 text-xs font-black uppercase text-neutral">
-                        {indicator.indicator_type}
-                      </td>
-
-                      <td className="max-w-md break-all px-4 py-3 font-semibold text-black">
-                        {indicator.value}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <StatusBadge value={indicator.status} />
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm leading-7 text-neutral">
-            No indicators have been extracted in this report.
-          </p>
-        )}
-      </section>
-
-      <section className="border-b border-black/20 py-7">
-        <h3 className="text-lg font-black text-black">4. MITRE ATT&CK Assessment</h3>
-
-        {report.mitre_attack_assessment?.length ? (
-          <div className="mt-4 divide-y divide-black/10 border border-black/10">
-            {report.mitre_attack_assessment.slice(0, 6).map((mapping, index) => (
-              <div
-                key={`${mapping.technique_id || index}-${mapping.technique_name}`}
-                className="grid gap-3 p-4 md:grid-cols-[170px_minmax(0,1fr)_auto]"
-              >
-                <div>
-                  <p className="text-sm font-black text-black">{mapping.technique_id}</p>
-                  <p className="mt-1 text-xs font-semibold text-neutral">
-                    {mapping.technique_name}
-                  </p>
-                </div>
-
-                <p className="text-sm leading-6 text-neutral-800">
-                  {mapping.justification}
-                </p>
-
-                <div>
-                  <StatusBadge value={mapping.mapping_status} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm leading-7 text-neutral">
-            No MITRE ATT&CK technique mappings are present in this report.
-          </p>
-        )}
-      </section>
-
-      {report.legal_assessments?.length ? (
-        <section className="border-b border-black/20 py-7">
-          <h3 className="text-lg font-black text-black">5. Legal Relevance Assessment</h3>
-          <div className="mt-4 space-y-4">
-            {report.legal_assessments.map((assessment, index) => (
-              <div key={index} className="border border-black/10 p-4 bg-neutral-50">
-                <div className="flex justify-between items-start">
-                  <h4 className="text-sm font-black text-black">{assessment.provision_reference}</h4>
-                  <StatusBadge value={assessment.status} />
-                </div>
-                <p className="mt-2 text-sm leading-6 text-neutral-800 italic">
-                  &quot;{assessment.preliminary_relevance}&quot;
-                </p>
-                {assessment.disclaimer && (
-                  <p className="mt-3 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
-                    Disclaimer: {assessment.disclaimer}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="pt-7">
-        <h3 className="text-lg font-black text-black">6. Recommended Next Steps</h3>
-
-        <ul className="mt-4 space-y-3 text-sm leading-6 text-neutral-800">
-          {nextSteps.map((step) => (
-            <li key={step} className="flex gap-3">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 bg-black" />
-              <span>{step}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <pre className="mt-7 whitespace-pre-wrap text-sm leading-7 text-neutral-800 font-sans">
+        {answer ? stripLeadingH1(answer) : "No rendered report content is available."}
+      </pre>
     </article>
   );
 }
@@ -338,10 +174,10 @@ export default function ReportWorkspace() {
     );
   }, [reportsList, searchQuery]);
 
-  const activeReport = detailedWorkflow?.status === "completed" ? detailedWorkflow.report : null;
-  const activeCompleteness = activeReport
-    ? (activeReport.case_information_completeness ?? activeReport.case_fact_pack?.completeness ?? null)
-    : null;
+  const activeReport =
+    detailedWorkflow?.status === "completed" && detailedWorkflow.report_id === selectedReportId
+      ? detailedWorkflow.report
+      : null;
 
   return (
     <CyberCaseShell
@@ -486,7 +322,14 @@ export default function ReportWorkspace() {
               </div>
 
               {/* The Actual Report Preview */}
-              <ReportPreview report={activeReport} completeness={activeCompleteness} />
+              <ReportPreview
+                report={activeReport}
+                answer={
+                  detailedWorkflow?.status === "completed" && detailedWorkflow.report_id === selectedReportId
+                    ? detailedWorkflow.answer
+                    : undefined
+                }
+              />
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-black/10 rounded p-12 text-center bg-white/50">

@@ -52,17 +52,27 @@ class DeterministicFactPackMixin:
             if not mitre_evidence_id:
                 continue
             evidence_ids = [source_ids[0], mitre_evidence_id]
+            if entity.source.startswith("mitre_table:"):
+                justification = (
+                    f"The filtered MITRE table from the RAG service returned "
+                    f"{entity.attack_id} {entity.name} "
+                    f"as a candidate MITRE ATT&CK technique. The mapping is "
+                    f"preliminary and must be checked against observed behavior "
+                    f"and source evidence [{source_ids[0]}] [{mitre_evidence_id}]."
+                )
+            else:
+                justification = (
+                    f"Hybrid retrieval returned {entity.attack_id} {entity.name} "
+                    f"as a candidate MITRE ATT&CK technique. The mapping is "
+                    f"preliminary and must be checked against observed behavior "
+                    f"and source evidence [{source_ids[0]}] [{mitre_evidence_id}]."
+                )
             mitre_assessments.append(
                 MitreAssessment(
                     technique_id=entity.attack_id,
                     technique_name=entity.name,
                     mapping_status="inferred",
-                    justification=(
-                        f"Hybrid retrieval returned {entity.attack_id} {entity.name} "
-                        f"as a candidate MITRE ATT&CK technique. The mapping is "
-                        f"preliminary and must be checked against observed behavior "
-                        f"and source evidence [{source_ids[0]}] [{mitre_evidence_id}]."
-                    ),
+                    justification=justification,
                     evidence_ids=evidence_ids,
                 )
             )
