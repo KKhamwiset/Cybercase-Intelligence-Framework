@@ -192,9 +192,16 @@ export interface ReportFollowUpResponse {
   missing_information: string[];
 }
 
+export interface ReportErrorResponse {
+  status: "error" | "context_expired";
+  error_code: string;
+  message: string;
+}
+
 export type ReportWorkflowResponse =
   | ReportCompletedResponse
-  | ReportFollowUpResponse;
+  | ReportFollowUpResponse
+  | ReportErrorResponse;
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -223,92 +230,6 @@ export const queryRag = async (
     return response.data;
   } catch (error) {
     console.error("RAG query failed:", error);
-    throw error;
-  }
-};
-
-export const generateReport = async (
-  query: string,
-  reportType: ReportType = "overview",
-  legal: boolean = false,
-  forceGenerate: boolean = false,
-  retrievalContextId: string = "",
-): Promise<ReportWorkflowResponse> => {
-  const baseUrl = getApiBaseUrl();
-  try {
-    const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/reports/generate",
-      {
-        query,
-        report_type: reportType,
-        legal,
-        force_generate: forceGenerate,
-        retrieval_context_id: retrievalContextId,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    return response.data;
-  } catch (error) {
-    console.error("Report generation failed:", error);
-    throw error;
-  }
-};
-
-export const generateReportFile = async (
-  file: File,
-  query: string,
-  reportType: ReportType = "overview",
-  legal: boolean = false,
-  forceGenerate: boolean = false,
-): Promise<ReportWorkflowResponse> => {
-  const baseUrl = getApiBaseUrl();
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("query", query);
-  formData.append("report_type", reportType);
-  formData.append("legal", String(legal));
-  formData.append("force_generate", String(forceGenerate));
-
-  try {
-    const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/reports/generate-file",
-      formData,
-    );
-
-    return response.data;
-  } catch (error) {
-    console.error("Report file generation failed:", error);
-    throw error;
-  }
-};
-
-export const resumeReport = async (
-  sessionId: string,
-  answer: string,
-): Promise<ReportWorkflowResponse> => {
-  const baseUrl = getApiBaseUrl();
-  try {
-    const response = await axios.post<ReportWorkflowResponse>(
-      baseUrl + "/reports/resume",
-      {
-        session_id: sessionId,
-        answer,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    return response.data;
-  } catch (error) {
-    console.error("Report resume failed:", error);
     throw error;
   }
 };

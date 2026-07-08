@@ -4,19 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import InvestigationWorkspace from "./InvestigationWorkspace";
 import {
   chatContinue,
-  generateReport,
+  generateCaseReport,
   queryRagFile,
+  resumeCaseReport,
   resumeRag,
-  resumeReport,
 } from "@/lib/api";
 import type { CyberCaseReport } from "@/lib/api";
 
 vi.mock("@/lib/api", () => ({
   chatContinue: vi.fn(),
-  generateReport: vi.fn(),
+  generateCaseReport: vi.fn(),
   queryRagFile: vi.fn(),
+  resumeCaseReport: vi.fn(),
   resumeRag: vi.fn(),
-  resumeReport: vi.fn(),
 }));
 
 function submitChatInput(value: string) {
@@ -70,10 +70,10 @@ describe("InvestigationWorkspace follow-up progression", () => {
   beforeEach(() => {
     Element.prototype.scrollIntoView = vi.fn();
     vi.mocked(chatContinue).mockReset();
-    vi.mocked(generateReport).mockReset();
+    vi.mocked(generateCaseReport).mockReset();
     vi.mocked(queryRagFile).mockReset();
+    vi.mocked(resumeCaseReport).mockReset();
     vi.mocked(resumeRag).mockReset();
-    vi.mocked(resumeReport).mockReset();
   });
 
   it("handles nested follow-ups, marks retrieval refresh, and regenerates with the latest context", async () => {
@@ -101,14 +101,14 @@ describe("InvestigationWorkspace follow-up progression", () => {
         answer: "Final analysis after follow-up",
         retrieval_context_id: "CTX-2",
       });
-    vi.mocked(generateReport).mockResolvedValue({
+    vi.mocked(generateCaseReport).mockResolvedValue({
       status: "completed",
       report_id: "report-1",
       report: makeReport(),
       answer: "Report generated",
     });
 
-    render(<InvestigationWorkspace showCaseList={false} />);
+    render(<InvestigationWorkspace showCaseList={false} caseId="CASE-CHAT" />);
 
     submitChatInput("Initial phishing narrative");
 
@@ -117,12 +117,11 @@ describe("InvestigationWorkspace follow-up progression", () => {
     fireEvent.click(screen.getByRole("button", { name: "Generate from investigation" }));
 
     await waitFor(() => {
-      expect(generateReport).toHaveBeenLastCalledWith(
-        expect.any(String),
+      expect(generateCaseReport).toHaveBeenLastCalledWith(
+        "CASE-CHAT",
         "overview",
         false,
         false,
-        "CTX-1",
       );
     });
 
@@ -155,12 +154,11 @@ describe("InvestigationWorkspace follow-up progression", () => {
     );
 
     await waitFor(() => {
-      expect(generateReport).toHaveBeenLastCalledWith(
-        expect.any(String),
+      expect(generateCaseReport).toHaveBeenLastCalledWith(
+        "CASE-CHAT",
         "overview",
         false,
         false,
-        "CTX-2",
       );
     });
   });

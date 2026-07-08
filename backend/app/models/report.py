@@ -46,6 +46,7 @@ class ReportSessionRecord(Base):
         String(80), ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False, index=True
     )
     request_payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    followup_question: Mapped[str] = mapped_column(String(2000), nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

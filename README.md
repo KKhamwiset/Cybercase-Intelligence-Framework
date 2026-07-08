@@ -143,7 +143,7 @@ The actual report generation is managed by the backend `ReportWorkflowService` a
 * `GET /api/v1/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
 * `PATCH /api/v1/reports/{report_id}/review-status`: update review status (`draft`, `ai_generated`, `reviewed`, `approved`).
 
-Note: Legacy `/reports/generate`, `/reports/generate-file`, and `/reports/resume` endpoints are kept as deprecated compatibility adapters.
+Report generation is case-owned. Standalone legacy `/reports/generate`, `/reports/generate-file`, and `/reports/resume` endpoints are not exposed.
 
 ### Migrations And Tests
 
@@ -151,7 +151,6 @@ This platform stores generated report/review and session states in the PostgreSQ
 
 ```bash
 cd backend
-alembic revision --autogenerate -m "add report persistence"
 alembic upgrade head
 ```
 

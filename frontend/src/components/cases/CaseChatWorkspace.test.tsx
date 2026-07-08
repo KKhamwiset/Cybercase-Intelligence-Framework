@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CaseChatWorkspace from "./CaseChatWorkspace";
-import { chatContinue, generateReport, queryRagFile, resumeRag, resumeReport } from "@/lib/api";
+import { chatContinue, generateCaseReport, queryRagFile, resumeCaseReport, resumeRag } from "@/lib/api";
 import { getCase } from "@/lib/cases";
 import type { StructuredCase } from "@/lib/cases";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";
@@ -17,10 +17,10 @@ vi.mock("@/lib/cases", async () => {
 
 vi.mock("@/lib/api", () => ({
   chatContinue: vi.fn(),
-  generateReport: vi.fn(),
+  generateCaseReport: vi.fn(),
   queryRagFile: vi.fn(),
   resumeRag: vi.fn(),
-  resumeReport: vi.fn(),
+  resumeCaseReport: vi.fn(),
 }));
 
 function makeCase(overrides: Partial<StructuredCase> = {}): StructuredCase {
@@ -68,10 +68,10 @@ describe("CaseChatWorkspace", () => {
     Element.prototype.scrollIntoView = vi.fn();
     vi.mocked(getCase).mockReset();
     vi.mocked(chatContinue).mockReset();
-    vi.mocked(generateReport).mockReset();
+    vi.mocked(generateCaseReport).mockReset();
     vi.mocked(queryRagFile).mockReset();
     vi.mocked(resumeRag).mockReset();
-    vi.mocked(resumeReport).mockReset();
+    vi.mocked(resumeCaseReport).mockReset();
   });
 
   it("auto-runs a saved case and prefixes later non-resume turns without showing hidden context", async () => {

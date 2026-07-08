@@ -57,6 +57,15 @@ function StatusBadge({
   );
 }
 
+function getHttpStatus(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null || !("response" in error)) {
+    return undefined;
+  }
+
+  const response = (error as { response?: { status?: number } }).response;
+  return response?.status;
+}
+
 function ReportPreview({
   report,
   completeness,
@@ -67,7 +76,7 @@ function ReportPreview({
   if (!report) return null;
 
   const title = report.title || "CyberCase Preliminary Incident Analysis Report";
-  const summary = report.executive_case_summary || report.case_summary || "No executive summary available.";
+  const summary = report.executive_case_summary || "No executive summary available.";
   const reportDate = report.created_at?.slice(0, 10) || "Pending";
 
   const nextSteps = report.investigation_next_steps?.length
@@ -241,7 +250,7 @@ function ReportPreview({
                   <StatusBadge value={assessment.status} />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-neutral-800 italic">
-                  "{assessment.preliminary_relevance}"
+                  &quot;{assessment.preliminary_relevance}&quot;
                 </p>
                 {assessment.disclaimer && (
                   <p className="mt-3 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
@@ -286,16 +295,17 @@ export default function CaseReportWorkspace() {
 
   useEffect(() => {
     if (!caseId) return;
+    const activeCaseId = caseId;
 
     async function loadLatestReport() {
       setIsLoading(true);
       setError("");
       try {
-        const data = await getLatestCaseReport(caseId);
+        const data = await getLatestCaseReport(activeCaseId);
         setWorkflow(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         // If 404, it means no report has been generated yet, which is expected
-        if (err.response?.status !== 404) {
+        if (getHttpStatus(err) !== 404) {
           console.error("Failed to load case report:", err);
           setError("Could not retrieve existing case report.");
         }
@@ -314,7 +324,7 @@ export default function CaseReportWorkspace() {
     try {
       const result = await generateCaseReport(caseId, reportType, legal, force);
       setWorkflow(result);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to generate case report:", err);
       setError("Failed to generate report. Make sure database and RAG systems are operational.");
     } finally {
@@ -331,7 +341,7 @@ export default function CaseReportWorkspace() {
       const result = await resumeCaseReport(caseId, workflow.session_id, followupAnswer.trim());
       setWorkflow(result);
       setFollowupAnswer("");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to resume report generation:", err);
       setError("Could not submit follow-up response.");
     } finally {
@@ -395,6 +405,15 @@ export default function CaseReportWorkspace() {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
             <p className="mt-4 text-xs font-black uppercase tracking-widest text-neutral">
               Orchestrating internal RAG retrieval and generating CyberCase report...
+            </p>
+          </div>
+        ) : workflow?.status === "error" || workflow?.status === "context_expired" ? (
+          <div className="mx-auto max-w-2xl border border-red-200 bg-white p-6 text-center">
+            <h3 className="text-base font-black text-red-800">
+              Report generation could not complete
+            </h3>
+            <p className="mt-3 text-sm leading-6 text-red-700">
+              {workflow.message}
             </p>
           </div>
         ) : workflow?.status === "completed" && activeReport ? (

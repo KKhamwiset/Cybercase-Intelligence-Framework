@@ -362,7 +362,15 @@ export default function InvestigationReportPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto py-4">
-        {reportWorkflow?.status === "followup" ? (
+        {reportWorkflow?.status === "error" ||
+        reportWorkflow?.status === "context_expired" ? (
+          <section className="mx-4 border border-red-200 bg-white p-4">
+            <p className="mono-label">Report Error</p>
+            <p className="mt-3 text-sm leading-6 text-red-700">
+              {reportWorkflow.message}
+            </p>
+          </section>
+        ) : reportWorkflow?.status === "followup" ? (
           <section className="mx-4 border border-black/15 bg-white p-4">
             <p className="mono-label">Follow-up Required</p>
 

@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from app.routers.cases import generate_case_report, resume_case_report, get_case_report
 from app.routers.reports import list_reports
 from app.schemas.report import (
-    GenerateReportRequest,
+    GenerateCaseReportRequest,
     ReportResumeRequest,
     CyberCaseReport,
     CaseFactPack,
@@ -188,7 +188,7 @@ def test_generate_case_report() -> None:
         db=db,
     )
 
-    req = GenerateReportRequest(query="", report_type="overview")
+    req = GenerateCaseReportRequest(report_type="overview")
     response = asyncio.run(generate_case_report("CASE-123", req, service=service))
 
     assert response.status == "completed"

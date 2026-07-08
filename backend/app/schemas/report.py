@@ -198,6 +198,13 @@ class GenerateReportRequest(BaseModel):
 ReportRequest = GenerateReportRequest
 
 
+class GenerateCaseReportRequest(BaseModel):
+    """Request body for POST /cases/{case_id}/report — no query required."""
+    report_type: ReportType = "overview"
+    legal: bool = False
+    force_generate: bool = False
+
+
 class ReportInputSnapshot(BaseModel):
     retrieval_context_id: str
     query: str = ""
@@ -304,6 +311,7 @@ __all__ = [
     "DeterministicReportStatus",
     "EvidenceReference",
     "GapPriority",
+    "GenerateCaseReportRequest",
     "GenerateReportRequest",
     "IncidentReportType",
     "Indicator",

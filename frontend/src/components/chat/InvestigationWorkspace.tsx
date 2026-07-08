@@ -13,10 +13,10 @@ import InvestigationReportPanel from "@/components/chat/InvestigationReportPanel
 import type { FollowUpEntry } from "@/components/FollowUpModule";
 import {
   chatContinue,
-  generateReport,
+  generateCaseReport,
   queryRagFile,
   resumeRag,
-  resumeReport,
+  resumeCaseReport,
 } from "@/lib/api";
 import type {
   ChatMessage,
@@ -35,35 +35,8 @@ type InvestigationWorkspaceProps = {
   initialDisplayMessage?: string;
   autoRunInitialPrompt?: boolean;
   contextPrefix?: string;
+  caseId?: string | null;
 };
-
-function buildReportTranscript(messages: ChatMessage[]): string {
-  const userTurns = messages
-    .filter((message) => message.role === "user")
-    .map(
-      (message, index) => `User turn ${index + 1}:\n${message.content.trim()}`,
-    )
-    .join("\n\n");
-
-  const assistantTurns = messages
-    .filter((message) => message.role === "assistant")
-    .map(
-      (message, index) =>
-        `Assistant turn ${index + 1}:\n${message.content.trim()}`,
-    )
-    .join("\n\n");
-
-  return [
-    "Generate a CyberCase preliminary incident investigation report from this chat transcript.",
-    "Treat user turns as submitted case details. Treat assistant turns as analysis context that still requires evidence review.",
-    "",
-    "User-provided case details:",
-    userTurns || "No user case details captured.",
-    "",
-    "Assistant analysis context:",
-    assistantTurns || "No assistant analysis captured.",
-  ].join("\n");
-}
 
 export default function InvestigationWorkspace({
   title = "Current CyberCase Investigation",
@@ -75,6 +48,7 @@ export default function InvestigationWorkspace({
   initialDisplayMessage,
   autoRunInitialPrompt = false,
   contextPrefix = "",
+  caseId = null,
 }: InvestigationWorkspaceProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -116,19 +90,15 @@ export default function InvestigationWorkspace({
       latestRetrievalContextId &&
       latestRetrievalContextId !== reportSourceRetrievalContextId,
   );
-  const canGenerateReport = Boolean(latestRetrievalContextId);
+  const reportPanelEnabled = Boolean(caseId);
+  const canGenerateReport = Boolean(caseId);
   const reportButtonLabel = !canGenerateReport
-    ? "Complete RAG analysis first"
+    ? "Save as case first"
     : reportHasRefreshedContext
       ? "Regenerate from refreshed context"
       : reportWorkflow
         ? "Regenerate from investigation"
         : "Generate from investigation";
-  const chatTranscript = useMemo(
-    () => buildReportTranscript(messages),
-    [messages],
-  );
-
   const latestUserMessage = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       if (messages[index].role === "user") {
@@ -404,7 +374,7 @@ export default function InvestigationWorkspace({
   };
 
   const handleGenerateReport = async () => {
-    if (!canGenerateReport || isReportLoading) {
+    if (!caseId || !canGenerateReport || isReportLoading) {
       return;
     }
 
@@ -414,13 +384,7 @@ export default function InvestigationWorkspace({
     setReportFollowupAnswer("");
 
     try {
-      const result = await generateReport(
-        chatTranscript,
-        reportType,
-        false,
-        false,
-        latestRetrievalContextId,
-      );
+      const result = await generateCaseReport(caseId, reportType, false, false);
 
       setReportWorkflow(result);
       setReportSourceCount(messages.length);
@@ -440,6 +404,7 @@ export default function InvestigationWorkspace({
     if (
       reportWorkflow?.status !== "followup" ||
       !reportWorkflow.session_id ||
+      !caseId ||
       !reportFollowupAnswer.trim() ||
       isReportLoading
     ) {
@@ -451,7 +416,8 @@ export default function InvestigationWorkspace({
     setReportError("");
 
     try {
-      const result = await resumeReport(
+      const result = await resumeCaseReport(
+        caseId,
         reportWorkflow.session_id,
         reportFollowupAnswer.trim(),
       );
@@ -469,7 +435,11 @@ export default function InvestigationWorkspace({
     }
   };
 
-  const gridColumns = showCaseList
+  const gridColumns = !reportPanelEnabled
+    ? showCaseList
+      ? "lg:grid-cols-[250px_minmax(0,1fr)]"
+      : ""
+    : showCaseList
     ? isReportOpen
       ? "lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_390px]"
       : "lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_56px]"
@@ -514,24 +484,26 @@ export default function InvestigationWorkspace({
         onFollowUpSubmit={handleFollowUpSubmit}
       />
 
-      <InvestigationReportPanel
-        isOpen={isReportOpen}
-        reportWorkflow={reportWorkflow}
-        reportType={reportType}
-        reportButtonLabel={reportButtonLabel}
-        reportIsStale={reportIsStale}
-        retrievalRefreshed={retrievalRefreshedAfterFollowUp}
-        isReportLoading={isReportLoading}
-        reportError={reportError}
-        canGenerateReport={canGenerateReport}
-        reportFollowupAnswer={reportFollowupAnswer}
-        onClose={() => setIsReportOpen(false)}
-        onOpen={() => setIsReportOpen(true)}
-        onReportTypeChange={setReportType}
-        onGenerateReport={handleGenerateReport}
-        onReportFollowupAnswerChange={setReportFollowupAnswer}
-        onResumeReport={handleResumeReport}
-      />
+      {reportPanelEnabled ? (
+        <InvestigationReportPanel
+          isOpen={isReportOpen}
+          reportWorkflow={reportWorkflow}
+          reportType={reportType}
+          reportButtonLabel={reportButtonLabel}
+          reportIsStale={reportIsStale}
+          retrievalRefreshed={retrievalRefreshedAfterFollowUp}
+          isReportLoading={isReportLoading}
+          reportError={reportError}
+          canGenerateReport={canGenerateReport}
+          reportFollowupAnswer={reportFollowupAnswer}
+          onClose={() => setIsReportOpen(false)}
+          onOpen={() => setIsReportOpen(true)}
+          onReportTypeChange={setReportType}
+          onGenerateReport={handleGenerateReport}
+          onReportFollowupAnswerChange={setReportFollowupAnswer}
+          onResumeReport={handleResumeReport}
+        />
+      ) : null}
     </div>
   );
 }

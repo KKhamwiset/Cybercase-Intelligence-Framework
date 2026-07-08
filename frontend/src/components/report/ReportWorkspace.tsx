@@ -63,7 +63,7 @@ function ReportPreview({
   if (!report) return null;
 
   const title = report.title || "CyberCase Preliminary Investigation Report";
-  const summary = report.executive_case_summary || report.case_summary || "No executive summary available.";
+  const summary = report.executive_case_summary || "No executive summary available.";
   const reportDate = report.created_at?.slice(0, 10) || "Pending";
 
   const nextSteps = report.investigation_next_steps?.length
@@ -237,7 +237,7 @@ function ReportPreview({
                   <StatusBadge value={assessment.status} />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-neutral-800 italic">
-                  "{assessment.preliminary_relevance}"
+                  &quot;{assessment.preliminary_relevance}&quot;
                 </p>
                 {assessment.disclaimer && (
                   <p className="mt-3 text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">
@@ -443,6 +443,16 @@ export default function ReportWorkspace() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
               <p className="mt-4 text-xs font-black uppercase tracking-widest text-neutral">
                 Retrieving Investigation Report...
+              </p>
+            </div>
+          ) : detailedWorkflow?.status === "error" ||
+            detailedWorkflow?.status === "context_expired" ? (
+            <div className="flex-1 flex flex-col items-center justify-center border border-red-200 bg-white p-12 text-center">
+              <h2 className="text-lg font-black text-red-800">
+                Report details unavailable
+              </h2>
+              <p className="mt-3 max-w-md text-sm leading-6 text-red-700">
+                {detailedWorkflow.message}
               </p>
             </div>
           ) : activeReport ? (

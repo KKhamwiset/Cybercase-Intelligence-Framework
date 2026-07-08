@@ -58,6 +58,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
         initialDisplayMessage={savedCaseDisplayMessage}
         autoRunInitialPrompt={hasSavedIntake}
         contextPrefix={hasSavedIntake ? savedCasePrompt : ""}
+        caseId={loadedCase.case_id}
       />
     </CaseStageShell>
   );

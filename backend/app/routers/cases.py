@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
-from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateReportRequest, ReportResumeRequest
+from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateCaseReportRequest, ReportResumeRequest
 from app.services.case_outputs import apply_case_intake_outputs
 from app.services.report_generator import (
     DeterministicReportGenerator,
@@ -149,7 +149,7 @@ async def update_case(
 @router.post("/{case_id}/report", response_model=ReportWorkflowResponse)
 async def generate_case_report(
     case_id: str,
-    request: GenerateReportRequest,
+    request: GenerateCaseReportRequest,
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResponse:
     return await service.generate_report(case_id, request)

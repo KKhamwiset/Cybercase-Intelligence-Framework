@@ -12,6 +12,7 @@ from app.models.report import ReportRecord, ReportSessionRecord
 from app.schemas.report import (
     CaseFactPack,
     CyberCaseReport,
+    GenerateCaseReportRequest,
     GenerateReportRequest,
     ReportCompletedResponse,
     ReportErrorResponse,
@@ -25,17 +26,34 @@ from app.services.rag_client import RagServiceClient
 from app.services.reporting.generator import ReportGenerator
 from app.services.reporting.thanoy_client import get_legal_advice
 
-ReportWorkflowResult = ReportCompletedResponse | ReportFollowUpResponse
+ReportWorkflowResult = ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse
 
 REPORT_CONTEXT_WAIT_MESSAGE = (
-    "Report generation is waiting for RAG context. Run the case through the RAG "
-    "query or resume API first, then call report generation with the returned "
-    "retrieval_context_id."
+    "Report generation could not complete because RAG retrieval context "
+    "was unavailable. Please retry from the case report page."
 )
+
+
+def _report_source_type(source_type: str) -> str:
+    if source_type in {
+        "user_input",
+        "uploaded_file",
+        "log",
+        "rag_source",
+        "mitre_source",
+        "legal_source",
+    }:
+        return source_type
+    if source_type == "document":
+        return "uploaded_file"
+    if source_type == "rag":
+        return "rag_source"
+    return "user_input"
 
 
 def build_evidence_registry_from_case(case: CaseRecord) -> list[EvidenceReference]:
     registry = []
+    used_ids: set[str] = set()
     incident_summary = case.data.get("incident_summary", "")
     if incident_summary.strip():
         registry.append(
@@ -46,6 +64,7 @@ def build_evidence_registry_from_case(case: CaseRecord) -> list[EvidenceReferenc
                 excerpt=incident_summary.strip()[:1200],
             )
         )
+        used_ids.add("E-001")
     
     next_id = 2
     for item in case.data.get("evidence_items", []):
@@ -53,16 +72,16 @@ def build_evidence_registry_from_case(case: CaseRecord) -> list[EvidenceReferenc
         if not ev_id:
             ev_id = f"E-{next_id:03d}"
             next_id += 1
-        
-        # Avoid duplicate E-001 if it was already used
-        if ev_id == "E-001" and incident_summary.strip():
+
+        while ev_id in used_ids:
             ev_id = f"E-{next_id:03d}"
             next_id += 1
+        used_ids.add(ev_id)
             
         registry.append(
             EvidenceReference(
                 evidence_id=ev_id,
-                source_type=item.get("source_type", "user_input"),
+                source_type=_report_source_type(item.get("source_type", "user_input")),
                 source_name=item.get("title", "Evidence item"),
                 excerpt=item.get("description", "")[:1200],
             )
@@ -84,7 +103,7 @@ class ReportWorkflowService:
         self.db = db
 
     async def generate_report(
-        self, case_id: str, request: GenerateReportRequest
+        self, case_id: str, request: GenerateCaseReportRequest
     ) -> ReportWorkflowResult:
         if not self.report_gen:
             raise HTTPException(status_code=503, detail="Report Generator not available")
@@ -101,6 +120,14 @@ class ReportWorkflowService:
         if not query.strip():
             query = f"Incident investigation for case {case_id}"
 
+        # Include prior follow-up answers so regeneration doesn't re-ask
+        followup_answers = case.data.get("report_followup_answers", [])
+        if followup_answers:
+            followup_text = "\n\nPreviously provided follow-up answers:\n"
+            for qa in followup_answers:
+                followup_text += f"Q: {qa.get('question', '')}\nA: {qa.get('answer', '')}\n"
+            query += followup_text
+
         evidence_registry = build_evidence_registry_from_case(case)
 
         # 3. Call RAG service internally to perform /query and obtain retrieval_context_id
@@ -112,35 +139,38 @@ class ReportWorkflowService:
             print(f"[RAG] Error calling query internally: {exc}")
             retrieval_context_id = ""
 
-        # Override request parameters internally
-        request = request.model_copy(
-            update={
-                "query": query,
-                "evidence_registry": evidence_registry,
-                "retrieval_context_id": retrieval_context_id,
-            }
+        # Build internal request from case data
+        internal_request = GenerateReportRequest(
+            query=query,
+            report_type=request.report_type,
+            legal=request.legal,
+            force_generate=request.force_generate,
+            evidence_registry=evidence_registry,
+            retrieval_context_id=retrieval_context_id,
         )
 
         # 4. Fetch retrieval context snapshot
         try:
             snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
         except Exception:
-            return self._report_context_wait_response(request)
+            return self._report_context_wait_response(internal_request)
 
         # 5. Preview fact pack to check if follow-up is needed
         preview_pack = self.report_gen.preview_case_fact_pack(
-            request.query,
-            legal=request.legal,
-            evidence_registry=request.evidence_registry,
+            internal_request.query,
+            legal=internal_request.legal,
+            evidence_registry=internal_request.evidence_registry,
         )
-        if self._needs_report_followup(preview_pack) and not request.force_generate:
-            return await self._start_report_followup_db(case_id, request, preview_pack)
+        if self._needs_report_followup(preview_pack) and not internal_request.force_generate:
+            return await self._start_report_followup_db(case_id, internal_request, preview_pack)
 
-        return await self._complete_report_generation_db(case_id, request, snapshot)
+        return await self._complete_report_generation_db(case_id, internal_request, snapshot)
 
     async def resume_report(
         self, case_id: str, request: ReportResumeRequest
     ) -> ReportWorkflowResult:
+        from datetime import datetime, timezone
+
         # 1. Load active session from DB and verify ownership
         stmt = select(ReportSessionRecord).where(ReportSessionRecord.session_id == request.session_id)
         res = await self.db.execute(stmt)
@@ -151,10 +181,28 @@ class ReportWorkflowService:
         if session_record.case_id != case_id:
             raise HTTPException(status_code=403, detail="Report session does not belong to this case")
 
+        # 2. Persist follow-up Q&A into the case record
+        case_stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
+        case_res = await self.db.execute(case_stmt)
+        case = case_res.scalars().first()
+        if case:
+            payload = dict(case.data or {})
+            answers = list(payload.get("report_followup_answers", []))
+            answers.append({
+                "question": session_record.followup_question,
+                "answer": request.answer.strip(),
+                "answered_at": datetime.now(timezone.utc).isoformat(),
+                "source": "report_followup",
+            })
+            payload["report_followup_answers"] = answers
+            payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+            case.data = payload
+            await self.db.commit()
+
         # Load original request
         original = GenerateReportRequest.model_validate(session_record.request_payload_json)
 
-        # 2. Merge answer into the query/incident_summary
+        # 3. Merge answer into the query/incident_summary
         combined_query = original.query
         if request.answer.strip():
             combined_query = (
@@ -165,7 +213,7 @@ class ReportWorkflowService:
         update_fields = {"query": combined_query, "force_generate": True}
         resumed_request = original.model_copy(update=update_fields)
 
-        # 3. Call RAG service internally to perform /query and obtain a new retrieval_context_id
+        # 4. Call RAG service internally to perform /query and obtain a new retrieval_context_id
         try:
             rag_payload = {"query": combined_query, "use_agent": False}
             rag_res = await self.client.post_json("/query", rag_payload)
@@ -177,13 +225,13 @@ class ReportWorkflowService:
             print(f"[RAG] Error calling query internally during resume: {exc}")
             new_retrieval_context_id = resumed_request.retrieval_context_id
 
-        # 4. Fetch retrieval context snapshot
+        # 5. Fetch retrieval context snapshot
         try:
             snapshot = await self.client.get_json(f"/retrieval-contexts/{new_retrieval_context_id}")
         except Exception:
             return self._report_context_wait_response(resumed_request)
 
-        # 5. Complete generation and delete session
+        # 6. Complete generation and delete session
         return await self._complete_report_generation_db(case_id, resumed_request, snapshot)
 
     async def get_report(self, report_id: str) -> ReportWorkflowResult:
@@ -194,7 +242,7 @@ class ReportWorkflowService:
             raise HTTPException(status_code=404, detail="Report not found")
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
-        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.case_summary
+        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -218,7 +266,7 @@ class ReportWorkflowService:
             raise HTTPException(status_code=404, detail="No report found for this case")
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
-        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.case_summary
+        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -241,7 +289,7 @@ class ReportWorkflowService:
         summaries = []
         for report_record, case_record in items:
             report = CyberCaseReport.model_validate(report_record.report_payload_json)
-            exec_summary = report.executive_case_summary or report.case_summary or ""
+            exec_summary = report.executive_case_summary or ""
             short_summary = exec_summary[:200] + "..." if len(exec_summary) > 200 else exec_summary
 
             summaries.append(
@@ -282,7 +330,7 @@ class ReportWorkflowService:
 
         await self.db.commit()
 
-        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.case_summary
+        answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -299,11 +347,12 @@ class ReportWorkflowService:
         followup_question = self._build_report_followup_question(case_fact_pack)
         session_id = str(uuid.uuid4())
 
-        # Persist session in DB
+        # Persist session in DB with the follow-up question
         session_record = ReportSessionRecord(
             session_id=session_id,
             case_id=case_id,
             request_payload_json=request.model_dump(mode="json"),
+            followup_question=followup_question,
         )
         self.db.add(session_record)
         await self.db.commit()
@@ -383,7 +432,7 @@ class ReportWorkflowService:
         return ReportErrorResponse(
             status="context_expired",
             error_code="retrieval_context_expired",
-            message="Report generation is waiting for RAG context. Run the case through the RAG query or resume API first, then call report generation with the returned retrieval_context_id."
+            message="Report generation could not complete because RAG retrieval context was unavailable. Please retry from the case report page.",
         )
 
     def _build_report_followup_question(self, case_fact_pack: CaseFactPack) -> str:
@@ -396,7 +445,7 @@ class ReportWorkflowService:
         )
 
     async def _apply_thanoy_legal_advice(self, report: CyberCaseReport) -> None:
-        advice = await get_legal_advice(report.executive_case_summary or report.case_summary)
+        advice = await get_legal_advice(report.executive_case_summary)
         if not advice:
             return
 
