@@ -9,10 +9,11 @@ import CaseAnalysisAssistantPanel from "@/components/cases/CaseAnalysisAssistant
 import CaseContextPanel from "@/components/cases/CaseContextPanel";
 import { isNotFound, useCase } from "@/hooks/useCase";
 import {
+  startCaseAnalysis,
+  getCaseAnalysis,
+  submitCaseAnalysisFollowUp,
   generateCaseReport,
-  resumeCaseReport,
-  getLatestCaseReport,
-  ReportWorkflowResponse,
+  CaseAnalysisResponse,
   ReportType,
 } from "@/lib/api";
 
@@ -21,7 +22,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   const caseQuery = useCase(caseId);
   const loadedCase = caseQuery.data;
 
-  const [workflow, setWorkflow] = useState<ReportWorkflowResponse | null>(null);
+  const [workflow, setWorkflow] = useState<CaseAnalysisResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [retrievalContextId, setRetrievalContextId] = useState<string | undefined>(undefined);
   const [followupAnswer, setFollowupAnswer] = useState("");
@@ -29,11 +30,9 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   const [legal, setLegal] = useState(false);
   const [error, setError] = useState("");
 
-  function updateWorkflowAndContext(data: ReportWorkflowResponse) {
+  function updateWorkflowAndContext(data: CaseAnalysisResponse) {
     setWorkflow(data);
-    if (data.status === "followup" && data.retrieval_context_id) {
-      setRetrievalContextId(data.retrieval_context_id);
-    } else if (data.status === "completed" && data.retrieval_context_id) {
+    if (data.retrieval_context_id) {
       setRetrievalContextId(data.retrieval_context_id);
     }
   }
@@ -43,22 +42,22 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
     const activeCaseId = caseId;
     async function loadActiveWorkflow() {
       try {
-        const data = await getLatestCaseReport(activeCaseId);
+        const data = await getCaseAnalysis(activeCaseId);
         updateWorkflowAndContext(data);
       } catch {
-        // 404 is expected if no report has been generated yet
+        console.log("No case analysis found for case " + activeCaseId);
       }
     }
     loadActiveWorkflow();
   }, [caseId]);
 
-  async function handleGenerate(force: boolean = false) {
+  async function handleGenerate() {
     if (!caseId) return;
 
     setIsGenerating(true);
     setError("");
     try {
-      const result = await generateCaseReport(caseId, reportType, legal, force, retrievalContextId);
+      const result = await startCaseAnalysis(caseId, reportType, legal);
       updateWorkflowAndContext(result);
     } catch (err: unknown) {
       console.error("Failed to run case analysis:", err);
@@ -69,17 +68,34 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   }
 
   async function handleResume() {
-    if (!caseId || workflow?.status !== "followup" || !workflow.session_id) return;
+    if (!caseId || workflow?.workflow_status !== "needs_followup" || !workflow.session_id) return;
 
     setIsGenerating(true);
     setError("");
     try {
-      const result = await resumeCaseReport(caseId, workflow.session_id, followupAnswer.trim());
+      const result = await submitCaseAnalysisFollowUp(caseId, workflow.session_id, followupAnswer.trim());
       updateWorkflowAndContext(result);
       setFollowupAnswer("");
     } catch (err: unknown) {
       console.error("Failed to resume analysis:", err);
       setError("Could not submit follow-up response.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleGenerateReport() {
+    if (!caseId) return;
+
+    setIsGenerating(true);
+    setError("");
+    try {
+      await generateCaseReport(caseId, reportType, legal, true, retrievalContextId);
+      const updated = await getCaseAnalysis(caseId);
+      updateWorkflowAndContext(updated);
+    } catch (err: unknown) {
+      console.error("Failed to generate report:", err);
+      setError("Report generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -101,11 +117,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
     return <CaseRouteState title="Case Assistant" message="Could not load this case." />;
   }
 
-  const activeCompleteness = workflow?.status === "completed"
-    ? workflow.report.case_information_completeness
-    : workflow?.status === "followup"
-    ? workflow.completeness
-    : null;
+  const activeCompleteness = workflow?.completeness ?? null;
 
   return (
     <CaseStageShell activeStage="chat" caseData={loadedCase}>
@@ -118,7 +130,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2">
-            {workflow?.status === "completed" ? (
+            {workflow?.workflow_status === "report_generated" ? (
               <div className="border border-black/10 bg-white p-6 md:p-8 flex flex-col justify-between min-h-[480px]">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between border-b border-black pb-4">
@@ -148,14 +160,12 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
                     <div className="grid grid-cols-2 gap-4 text-xs border border-neutral-100 p-4 bg-neutral-50 rounded-sm">
                       <div>
                         <p className="text-[9px] font-bold text-neutral-400 uppercase">Report Type</p>
-                        <p className="font-bold text-neutral-800 capitalize">{workflow.report.report_type}</p>
+                        <p className="font-bold text-neutral-800 capitalize">{reportType}</p>
                       </div>
                       <div>
                         <p className="text-[9px] font-bold text-neutral-400 uppercase">Thai Legal Assessment</p>
                         <p className="font-bold text-neutral-800">
-                          {workflow.report.case_fact_pack?.legal_assessments && workflow.report.case_fact_pack.legal_assessments.length > 0
-                            ? "Enabled"
-                            : "Disabled"}
+                          {legal ? "Enabled" : "Disabled"}
                         </p>
                       </div>
                     </div>
@@ -182,9 +192,9 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
                 onReportTypeChange={setReportType}
                 onLegalChange={setLegal}
                 onFollowupAnswerChange={setFollowupAnswer}
-                onStartAnalysis={() => handleGenerate(false)}
+                onStartAnalysis={handleGenerate}
                 onSubmitFollowup={handleResume}
-                onForceGenerate={() => handleGenerate(true)}
+                onForceGenerate={handleGenerateReport}
               />
             )}
           </div>

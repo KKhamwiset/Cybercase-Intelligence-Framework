@@ -1,10 +1,10 @@
 import React from "react";
 import type { StructuredCase } from "@/lib/cases";
-import type { ReportWorkflowResponse, ReportType } from "@/lib/api";
+import type { CaseAnalysisResponse, ReportType } from "@/lib/api";
 
 interface CaseAnalysisAssistantPanelProps {
   caseData: StructuredCase;
-  workflow: ReportWorkflowResponse | null;
+  workflow: CaseAnalysisResponse | null;
   reportType: ReportType;
   legal: boolean;
   followupAnswer: string;
@@ -31,7 +31,11 @@ export default function CaseAnalysisAssistantPanel({
   onSubmitFollowup,
   onForceGenerate,
 }: CaseAnalysisAssistantPanelProps) {
-  const isFollowup = workflow?.status === "followup";
+  const status = workflow?.workflow_status ?? "case_saved";
+  const isFollowup = status === "needs_followup";
+  const isReady = status === "ready_for_report";
+  const isGenerated = status === "report_generated";
+  const isExpired = status === "context_expired" || status === "error";
 
   return (
     <div className="border border-black/10 bg-white p-6 md:p-8 flex flex-col h-full justify-between min-h-[480px]">
@@ -46,7 +50,7 @@ export default function CaseAnalysisAssistantPanel({
             </h3>
           </div>
           <span className="inline-flex border border-black/15 bg-neutral-50 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-neutral-600">
-            {isFollowup ? "Active Session" : "Ready"}
+            {isFollowup ? "Active Session" : isReady ? "Ready for Report" : isGenerated ? "Report Generated" : "Ready"}
           </span>
         </div>
 
@@ -63,7 +67,31 @@ export default function CaseAnalysisAssistantPanel({
           </div>
         </div>
 
-        {!isFollowup ? (
+        {isReady ? (
+          <div className="space-y-6">
+            <div className="border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-bold text-emerald-900 leading-relaxed">
+                The analysis session has enough case information for a preliminary report. Generate the report to reuse the latest retrieval context from this session.
+              </p>
+            </div>
+          </div>
+        ) : isGenerated ? (
+          <div className="space-y-6">
+            <div className="border border-black/5 bg-neutral-50 p-4">
+              <p className="text-xs font-bold text-neutral-700 leading-relaxed">
+                A report has already been generated for this case. You can continue reviewing it from the Report tab.
+              </p>
+            </div>
+          </div>
+        ) : isExpired ? (
+          <div className="space-y-6">
+            <div className="border border-amber-200 bg-amber-50 p-4">
+              <p className="text-xs font-bold text-amber-900 leading-relaxed">
+                The cached retrieval context is no longer available. Start analysis again to refresh the session.
+              </p>
+            </div>
+          </div>
+        ) : !isFollowup ? (
           /* Start State */
           <div className="space-y-6">
             <div className="border border-black/5 bg-neutral-50 p-4">
@@ -130,7 +158,7 @@ export default function CaseAnalysisAssistantPanel({
                     Follow-up Question from Case Assistant
                   </p>
                   <p className="font-bold text-neutral-900 leading-normal">
-                    {workflow.followup_question}
+                    {workflow?.followup_question}
                   </p>
                 </div>
               </div>
@@ -154,7 +182,15 @@ export default function CaseAnalysisAssistantPanel({
       </div>
 
       <div className="mt-8 pt-4 border-t border-black/5 flex flex-wrap gap-3 justify-end">
-        {!isFollowup ? (
+        {isReady ? (
+          <button
+            onClick={onForceGenerate}
+            disabled={isGenerating}
+            className="border border-black bg-black px-5 py-2.5 text-xs font-black text-white hover:bg-neutral-800 disabled:opacity-40 transition uppercase tracking-wider"
+          >
+            {isGenerating ? "Generating..." : "Generate Report"}
+          </button>
+        ) : isGenerated ? null : !isFollowup ? (
           <button
             onClick={onStartAnalysis}
             disabled={isGenerating}

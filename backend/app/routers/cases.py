@@ -10,7 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
-from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateCaseReportRequest, ReportResumeRequest
+from app.schemas.report import (
+    ReportViewModel,
+    ReportWorkflowResponse,
+    GenerateCaseReportRequest,
+    ReportResumeRequest,
+    CaseAnalysisStartRequest,
+    CaseAnalysisFollowUpRequest,
+    CaseAnalysisResponse,
+)
 from app.services.case_outputs import apply_case_intake_outputs
 from app.services.report_generator import (
     DeterministicReportGenerator,
@@ -170,3 +178,29 @@ async def get_case_report(
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResponse:
     return await service.get_latest_case_report(case_id)
+
+
+@router.post("/{case_id}/analysis/start", response_model=CaseAnalysisResponse)
+async def start_case_analysis(
+    case_id: str,
+    request: CaseAnalysisStartRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> CaseAnalysisResponse:
+    return await service.start_case_analysis(case_id, request)
+
+
+@router.get("/{case_id}/analysis", response_model=CaseAnalysisResponse)
+async def get_case_analysis(
+    case_id: str,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> CaseAnalysisResponse:
+    return await service.get_case_analysis(case_id)
+
+
+@router.post("/{case_id}/analysis/followup", response_model=CaseAnalysisResponse)
+async def submit_case_analysis_followup(
+    case_id: str,
+    request: CaseAnalysisFollowUpRequest,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> CaseAnalysisResponse:
+    return await service.submit_case_analysis_followup(case_id, request)

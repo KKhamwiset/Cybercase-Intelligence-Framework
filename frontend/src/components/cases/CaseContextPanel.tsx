@@ -1,10 +1,10 @@
 import React from "react";
 import type { StructuredCase } from "@/lib/cases";
-import type { ReportWorkflowResponse, CaseInformationCompleteness, ReportType } from "@/lib/api";
+import type { CaseAnalysisResponse, CaseInformationCompleteness, ReportType } from "@/lib/api";
 
 interface CaseContextPanelProps {
   caseData: StructuredCase;
-  workflow: ReportWorkflowResponse | null;
+  workflow: CaseAnalysisResponse | null;
   reportType: ReportType;
   legal: boolean;
   completeness: CaseInformationCompleteness | null;
@@ -17,7 +17,7 @@ export default function CaseContextPanel({
   legal,
   completeness,
 }: CaseContextPanelProps) {
-  const isFollowup = workflow?.status === "followup";
+  const isFollowup = workflow?.workflow_status === "needs_followup";
   const percentage = completeness?.percentage ?? 0;
   const missingFields = completeness?.missing_fields ?? [];
 

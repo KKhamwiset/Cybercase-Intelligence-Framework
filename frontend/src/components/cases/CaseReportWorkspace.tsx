@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
@@ -8,10 +8,10 @@ import { useCase } from "@/hooks/useCase";
 import { getRouteParam } from "@/lib/routeParams";
 import {
   generateCaseReport,
-  resumeCaseReport,
   getLatestCaseReport,
   updateReportReviewStatus,
   downloadReportExport,
+  getCaseAnalysis,
 } from "@/lib/api";
 import type {
   CyberCaseReport,
@@ -21,8 +21,6 @@ import type {
   ReportType,
 } from "@/lib/api";
 import ReportMarkdownView from "@/components/report/ReportMarkdownView";
-import CaseAnalysisAssistantPanel from "@/components/cases/CaseAnalysisAssistantPanel";
-import CaseContextPanel from "@/components/cases/CaseContextPanel";
 
 function statusClass(value: EvidenceStatus | ReviewStatus | string) {
   if (value === "confirmed" || value === "approved") {
@@ -68,8 +66,6 @@ function getHttpStatus(error: unknown): number | undefined {
   const response = (error as { response?: { status?: number } }).response;
   return response?.status;
 }
-
-
 
 function ReportPreview({
   report,
@@ -118,6 +114,7 @@ function ReportPreview({
 }
 
 export default function CaseReportWorkspace() {
+  const router = useRouter();
   const params = useParams();
   const caseId = getRouteParam(params.caseId);
   const caseQuery = useCase(caseId);
@@ -128,7 +125,6 @@ export default function CaseReportWorkspace() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExporting, setIsExporting] = useState<"md" | "pdf" | null>(null);
   const [retrievalContextId, setRetrievalContextId] = useState<string | undefined>(undefined);
-  const [followupAnswer, setFollowupAnswer] = useState("");
 
   function updateWorkflowAndContext(data: ReportWorkflowResponse) {
     setWorkflow(data);
@@ -138,6 +134,22 @@ export default function CaseReportWorkspace() {
       setRetrievalContextId(data.retrieval_context_id);
     }
   }
+
+  useEffect(() => {
+    if (!caseId) return;
+    const activeCaseId = caseId;
+    async function checkActiveAnalysis() {
+      try {
+        const data = await getCaseAnalysis(activeCaseId);
+        if (data.retrieval_context_id) {
+          setRetrievalContextId(data.retrieval_context_id);
+        }
+      } catch {
+        // Safe to ignore
+      }
+    }
+    checkActiveAnalysis();
+  }, [caseId]);
   const [reportType, setReportType] = useState<ReportType>("overview");
   const [legal, setLegal] = useState(false);
   const [error, setError] = useState("");
@@ -187,8 +199,6 @@ export default function CaseReportWorkspace() {
     loadLatestReport();
   }, [caseId]);
 
-
-
   async function handleGenerate(force: boolean = false) {
     if (!caseId) return;
 
@@ -200,23 +210,6 @@ export default function CaseReportWorkspace() {
     } catch (err: unknown) {
       console.error("Failed to generate case report:", err);
       setError("Failed to generate report. Make sure database and RAG systems are operational.");
-    } finally {
-      setIsGenerating(false);
-    }
-  }
-
-  async function handleResume() {
-    if (!caseId || workflow?.status !== "followup" || !workflow.session_id) return;
-
-    setIsGenerating(true);
-    setError("");
-    try {
-      const result = await resumeCaseReport(caseId, workflow.session_id, followupAnswer.trim());
-      updateWorkflowAndContext(result);
-      setFollowupAnswer("");
-    } catch (err: unknown) {
-      console.error("Failed to resume report generation:", err);
-      setError("Could not submit follow-up response.");
     } finally {
       setIsGenerating(false);
     }
@@ -251,11 +244,6 @@ export default function CaseReportWorkspace() {
   }
 
   const activeReport = workflow?.status === "completed" ? workflow.report : null;
-  const activeCompleteness = activeReport
-    ? (activeReport.case_information_completeness ?? activeReport.case_fact_pack?.completeness ?? null)
-    : workflow?.status === "followup"
-    ? workflow.completeness
-    : null;
 
   return (
     <CaseStageShell activeStage="report" caseData={caseQuery.data}>
@@ -353,31 +341,76 @@ export default function CaseReportWorkspace() {
             />
           </div>
         ) : (
-          <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2">
-              <CaseAnalysisAssistantPanel
-                caseData={caseQuery.data}
-                workflow={workflow}
-                reportType={reportType}
-                legal={legal}
-                followupAnswer={followupAnswer}
-                isGenerating={isGenerating}
-                onReportTypeChange={setReportType}
-                onLegalChange={setLegal}
-                onFollowupAnswerChange={setFollowupAnswer}
-                onStartAnalysis={() => handleGenerate(false)}
-                onSubmitFollowup={handleResume}
-                onForceGenerate={() => handleGenerate(true)}
-              />
+          <div className="mx-auto max-w-3xl border border-black/10 bg-white p-6 md:p-8 flex flex-col justify-between min-h-[380px]">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-black pb-4">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                    Incident Report Workspace
+                  </span>
+                  <h3 className="text-xl font-black text-black mt-1">
+                    No Report Generated Yet
+                  </h3>
+                </div>
+                <span className="inline-flex border border-amber-500/20 bg-amber-50 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-amber-700">
+                  Awaiting Analysis
+                </span>
+              </div>
+
+              <div className="border border-neutral-100 bg-neutral-50 p-5 rounded-sm">
+                <p className="text-xs font-semibold text-neutral-700 leading-relaxed">
+                  We highly recommend running the guided <strong>Case Analysis Assistant</strong> on the Chat tab first to identify missing information and verify MITRE mappings. Alternatively, you can generate a preliminary report directly using current case facts.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label htmlFor="report-type-select" className="text-[10px] font-black uppercase tracking-wider text-neutral-500 block mb-1">
+                    Report Type
+                  </label>
+                  <select
+                    id="report-type-select"
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value as ReportType)}
+                    className="w-full border border-black/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-black focus:outline-none focus:border-black"
+                  >
+                    <option value="overview">Case Overview</option>
+                    <option value="subject">Evidence & Indicators</option>
+                    <option value="timeline">Incident Timeline</option>
+                    <option value="vulnerability">Exposure & Risk</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col justify-end pb-1.5 pt-2">
+                  <label htmlFor="legal-assessment-checkbox" className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      id="legal-assessment-checkbox"
+                      type="checkbox"
+                      checked={legal}
+                      onChange={(e) => setLegal(e.target.checked)}
+                      className="accent-black h-4 w-4"
+                    />
+                    <span className="text-xs font-semibold text-neutral-800">
+                      Include Thai Legal Assessment
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
-            <div className="lg:col-span-1">
-              <CaseContextPanel
-                caseData={caseQuery.data}
-                workflow={workflow}
-                reportType={reportType}
-                legal={legal}
-                completeness={activeCompleteness}
-              />
+
+            <div className="mt-8 pt-6 border-t border-black/5 flex flex-col sm:flex-row justify-between gap-4">
+              <button
+                onClick={() => router.push(`/cases/${caseId}/chat`)}
+                className="border border-black bg-white px-6 py-3 text-xs font-black text-black hover:bg-neutral-50 transition uppercase tracking-wider text-center"
+              >
+                Start Case Analysis Assistant
+              </button>
+              <button
+                onClick={() => handleGenerate(false)}
+                className="border border-black bg-black px-6 py-3 text-xs font-black text-white hover:bg-neutral-800 transition uppercase tracking-wider text-center"
+              >
+                Generate Report Directly
+              </button>
             </div>
           </div>
         )}
