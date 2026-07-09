@@ -110,25 +110,23 @@ def verify_qdrant():
             print(f"[-] Skip: Collection '{QDRANT_COLLECTION_ENTITIES}' does not exist yet.")
             return None
 
-        # Scroll items matching attack_id == T1527
+        # Scroll all items and filter in Python to avoid payload index requirements
         scroll_result, _ = client.scroll(
             collection_name=QDRANT_COLLECTION_ENTITIES,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="attack_id",
-                        match=MatchValue(value="T1527")
-                    )
-                ]
-            ),
-            limit=10,
+            limit=10000,
             with_payload=True,
             with_vectors=False
         )
 
-        if scroll_result:
-            print(f"[-] FAILED: Qdrant contains {len(scroll_result)} vector(s) with attack_id == 'T1527'")
-            for point in scroll_result:
+        found_points = []
+        for point in scroll_result:
+            payload = point.payload or {}
+            if payload.get("attack_id") == "T1527":
+                found_points.append(point)
+
+        if found_points:
+            print(f"[-] FAILED: Qdrant contains {len(found_points)} vector(s) with attack_id == 'T1527'")
+            for point in found_points:
                 print(f"    Point ID: {point.id}, Payload: {point.payload}")
             return False
         else:
