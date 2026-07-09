@@ -57,15 +57,39 @@ from ..config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 @dataclass
 class GeneratedSample:
-    """A single generated evaluation sample."""
+    """A single generated evaluation sample.
+
+    Incident samples additionally carry:
+      - query_en        : English parallel of the Thai query (variants B/E
+                          of the generation benchmark need it)
+      - gold_attack_ids : ATT&CK IDs for generation ID-F1 scoring
+      - attack_steps    : ordered chronological steps, each
+                          {order, cue, cue_type: named|described,
+                           gold_attack_ids, gold_stix_ids} — retrieval is
+                          scored per step (step-coverage@k), mirroring how
+                          real Thai case files narrate attacks
+                          chronologically with English technical terms.
+    """
     query: str
     relevant_stix_ids: list[str]
-    reference_answer: str
+    reference_answer: str = ""
     language: str = "en"
     category: str = "general"
+    query_en: str = ""
+    gold_attack_ids: list[str] = field(default_factory=list)
+    attack_steps: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # Keep legacy lookup samples compact — only emit the new fields
+        # when they carry data.
+        if not self.query_en:
+            d.pop("query_en")
+        if not self.gold_attack_ids:
+            d.pop("gold_attack_ids")
+        if not self.attack_steps:
+            d.pop("attack_steps")
+        return d
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -161,10 +185,15 @@ class Neo4jGroundTruthBuilder:
         """, {"limit": limit})
 
     def get_techniques_by_attack_ids(self, attack_ids: list[str]) -> dict[str, str]:
-        """Return {attack_id: stix_id} for the given ATT&CK IDs (techniques + subtechniques)."""
+        """Return {attack_id: stix_id} for the given ATT&CK IDs (techniques + subtechniques).
+
+        Label-constrained: legacy ATT&CK mitigations reuse technique IDs
+        (e.g. a Mitigation node also carries attack_id T1064), so an
+        unconstrained match can silently return the wrong entity's STIX ID.
+        """
         results = self.run_query("""
             MATCH (n)
-            WHERE n.attack_id IN $ids
+            WHERE (n:Technique OR n:Subtechnique) AND n.attack_id IN $ids
             RETURN n.attack_id AS attack_id, n.stix_id AS stix_id
         """, {"ids": attack_ids})
         return {
@@ -334,10 +363,12 @@ class QueryTemplateRegistry:
         stix_id = group["stix_id"]
         name = group["name"]
 
+        # No LIMIT: ground truth must be complete ("the graph IS the ground
+        # truth"). Large gold sets are handled by capped recall@k, not by
+        # truncating the answer key.
         results = self.neo4j.run_query("""
             MATCH (g:Group {stix_id: $stix_id})-[:USES]->(t:Technique)
             RETURN t.stix_id AS stix_id, t.name AS name, t.attack_id AS attack_id
-            LIMIT 20
         """, {"stix_id": stix_id})
 
         if not results:
@@ -505,42 +536,6 @@ class QueryTemplateRegistry:
             ),
             language="en",
             category="technique_groups",
-        )
-
-    # ── 9. Software Type Query ────────────────────────────────────────────
-
-    def generate_software_type_query(self, software_type: str) -> GeneratedSample | None:
-        """'What software is classified as [malware/tool]?' → node property filter."""
-        results = self.neo4j.run_query("""
-            MATCH (s:Software)
-            WHERE s.software_type = $sw_type
-            RETURN s.stix_id AS stix_id, s.name AS name, s.attack_id AS attack_id
-        """, {"sw_type": software_type})
-
-        if not results:
-            return None
-
-        relevant_ids = [r["stix_id"] for r in results]
-        sw_names = ", ".join(
-            f"{r['name']} ({r['attack_id']})" for r in results[:15] if r.get("attack_id")
-        )
-        if not sw_names:
-            sw_names = ", ".join(r["name"] for r in results[:15])
-
-        total = len(results)
-        suffix = f" and {total - 15} more" if total > 15 else ""
-
-        label = "malware families" if software_type == "malware" else "tools"
-
-        return GeneratedSample(
-            query=f"What software is classified as {software_type} in MITRE ATT&CK?",
-            relevant_stix_ids=relevant_ids,
-            reference_answer=(
-                f"MITRE ATT&CK catalogs {total} {label}, including: "
-                f"{sw_names}{suffix}."
-            ),
-            language="en",
-            category="software_type_query",
         )
 
     # ── 10. Campaign Attribution ──────────────────────────────────────────
@@ -1208,7 +1203,8 @@ class IncidentScenarioGenerator:
         skipped = 0
 
         for sc in INCIDENT_SCENARIOS:
-            stix_ids = [id_map[tid] for tid in sc["technique_ids"] if tid in id_map]
+            found_ids = [tid for tid in sc["technique_ids"] if tid in id_map]
+            stix_ids = [id_map[tid] for tid in found_ids]
             if not stix_ids:
                 skipped += 1
                 continue
@@ -1221,6 +1217,8 @@ class IncidentScenarioGenerator:
                     reference_answer=sc["answer_th"],
                     language="th",
                     category="incident_analysis",
+                    query_en=sc.get("query_en", ""),
+                    gold_attack_ids=found_ids,
                 ))
                 # Also add English version of the same scenario
                 if sc.get("query_en") and sc.get("answer_en"):
@@ -1230,6 +1228,7 @@ class IncidentScenarioGenerator:
                         reference_answer=sc["answer_en"],
                         language="en",
                         category="incident_analysis",
+                        gold_attack_ids=found_ids,
                     ))
             elif sc.get("query_en") and sc.get("answer_en"):
                 # English-only scenario
@@ -1239,6 +1238,7 @@ class IncidentScenarioGenerator:
                     reference_answer=sc["answer_en"],
                     language="en",
                     category="incident_analysis",
+                    gold_attack_ids=found_ids,
                 ))
 
         if skipped:
@@ -1370,11 +1370,9 @@ class DatasetGenerator:
                 thai_candidates.append((s, t))
         print(f"  technique_groups: generated")
 
-        # 9. Software Type Query (malware + tool = 2 samples)
-        for sw_type in ["malware", "tool"]:
-            s = self.templates.generate_software_type_query(sw_type)
-            _add(s)
-        print(f"  software_type_query: generated")
+        # (software_type_query removed: pure enumeration over hundreds of
+        # gold IDs — a Cypher task, not a top-K retrieval task, and not a
+        # question the product's users ask.)
 
         # 10. Campaign Attribution
         for g in groups_with_campaigns:
@@ -1526,11 +1524,48 @@ class DatasetValidator:
             seen_queries.add(sample.query)
 
             # ── Rule 2: Answer mentions match relevant IDs ────────────────
-            # Check that the reference answer is not empty for English samples
-            if sample.language == "en" and not sample.reference_answer.strip():
+            # Reference answers are optional for incident samples (scored by
+            # gold_attack_ids, not reference text); still expected for
+            # English lookup samples.
+            if (
+                sample.language == "en"
+                and sample.category != "incident_analysis"
+                and not sample.reference_answer.strip()
+            ):
                 result.warnings.append(
                     f"Sample {i} has empty reference_answer: '{sample.query[:50]}...'"
                 )
+
+            # ── Rule 6: incident samples carry generation-eval fields ─────
+            if sample.category == "incident_analysis":
+                n_gold = len(sample.gold_attack_ids)
+                if not 3 <= n_gold <= 7:
+                    result.warnings.append(
+                        f"Sample {i} (incident) has {n_gold} gold_attack_ids "
+                        f"(target 3-7): '{sample.query[:50]}...'"
+                    )
+                if sample.language == "th" and not sample.query_en:
+                    result.warnings.append(
+                        f"Sample {i} (incident, th) missing query_en: "
+                        f"'{sample.query[:50]}...'"
+                    )
+
+            # ── Rule 7: attack_steps well-formed when present ──────────────
+            for j, step in enumerate(sample.attack_steps):
+                if step.get("cue_type") not in ("named", "described"):
+                    result.errors.append(
+                        f"Sample {i} step {j} has invalid cue_type "
+                        f"{step.get('cue_type')!r} (must be named|described)"
+                    )
+                    result.is_valid = False
+                if not (step.get("cue") or "").strip():
+                    result.errors.append(f"Sample {i} step {j} has empty cue")
+                    result.is_valid = False
+                if not step.get("gold_attack_ids"):
+                    result.errors.append(
+                        f"Sample {i} step {j} has no gold_attack_ids"
+                    )
+                    result.is_valid = False
 
         # ── Rule 4: Minimum dataset size ──────────────────────────────────
         if len(samples) < self.min_samples:
@@ -1590,6 +1625,9 @@ def load_dataset_for_validation(path: Path) -> list[GeneratedSample]:
             reference_answer=item.get("reference_answer", ""),
             language=item.get("language", "en"),
             category=item.get("category", "general"),
+            query_en=item.get("query_en", ""),
+            gold_attack_ids=item.get("gold_attack_ids", []),
+            attack_steps=item.get("attack_steps", []),
         )
         for item in data
     ]

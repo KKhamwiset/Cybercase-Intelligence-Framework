@@ -5,15 +5,27 @@ Pure functions for evaluating retrieval quality.
 
 Metrics:
   - Hit@K          : Did any relevant doc appear in top-K?
-  - Recall@K       : Fraction of relevant docs found in top-K
+  - Recall@K       : Capped recall — hits / min(|relevant|, K)
   - Precision@K    : Fraction of top-K that are relevant
   - MRR            : Mean Reciprocal Rank of first relevant result
   - NDCG@K         : Normalized Discounted Cumulative Gain
   - MAP            : Mean Average Precision
 
-All metric functions accept:
+Step-coverage metrics (for chronological incident samples where ground
+truth is an ordered list of attack steps, each with its own gold IDs):
+  - StepCoverage@K : Fraction of steps with >=1 gold ID in top-K.
+                     This is subtopic recall (S-recall@K, Zhai et al.,
+                     SIGIR 2003) with attack steps as subtopics.
+  - StrictStepCoverage@K : Fraction of steps with ALL gold IDs in top-K.
+  - step_best_rank : Rank of the first retrieved ID belonging to a step.
+
+All flat metric functions accept:
   - retrieved_ids : list[str] — ordered list of retrieved STIX IDs
   - relevant_ids  : set[str]  — set of ground-truth relevant STIX IDs
+
+Step metrics accept steps as list[dict] with keys:
+  - gold_ids : list[str] | set[str] — IDs that evidence this step
+  - cue_type : str (optional)       — "named" | "described"
 """
 
 from __future__ import annotations
@@ -37,11 +49,19 @@ def hit_at_k(retrieved_ids: list[str], relevant_ids: set[str], k: int) -> float:
 
 
 def recall_at_k(retrieved_ids: list[str], relevant_ids: set[str], k: int) -> float:
-    """Fraction of relevant docs found in top-K."""
-    if not relevant_ids:
+    """Capped recall: hits / min(|relevant|, K).
+
+    A plain hits/|relevant| denominator makes the score mathematically
+    capped at K/|relevant| for enumeration-style samples (e.g. a tactic
+    with 180 gold techniques at K=10 can never exceed 0.056 even for a
+    perfect retriever). Capping the denominator at K asks the answerable
+    question instead: of the K slots available, how many were filled
+    with relevant results. Samples with |relevant| <= K are unaffected.
+    """
+    if not relevant_ids or k <= 0:
         return 0.0
     top_k = set(retrieved_ids[:k])
-    return len(top_k & relevant_ids) / len(relevant_ids)
+    return len(top_k & relevant_ids) / min(len(relevant_ids), k)
 
 
 def precision_at_k(retrieved_ids: list[str], relevant_ids: set[str], k: int) -> float:
@@ -98,6 +118,75 @@ def average_precision(retrieved_ids: list[str], relevant_ids: set[str]) -> float
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Step-Coverage Metrics (chronological incident samples)
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Incident samples model the ground truth as an ordered list of attack
+# steps (e.g. SQL injection -> privilege escalation -> data destruction),
+# each step carrying the gold IDs that evidence it. Flat recall over the
+# union of IDs hides which step the retriever missed; these metrics score
+# coverage per step. StepCoverage@K is subtopic recall (S-recall@K,
+# Zhai, Cohen & Lafferty, SIGIR 2003) with attack steps as subtopics.
+
+def _step_gold_ids(step: dict) -> set[str]:
+    return set(step.get("gold_ids") or [])
+
+
+def step_coverage_at_k(retrieved_ids: list[str], steps: list[dict], k: int) -> float:
+    """Fraction of steps with at least one gold ID in top-K (S-recall@K)."""
+    if not steps or k <= 0:
+        return 0.0
+    top_k = set(retrieved_ids[:k])
+    covered = sum(1 for step in steps if top_k & _step_gold_ids(step))
+    return covered / len(steps)
+
+
+def strict_step_coverage_at_k(retrieved_ids: list[str], steps: list[dict], k: int) -> float:
+    """Fraction of steps whose gold IDs ALL appear in top-K."""
+    if not steps or k <= 0:
+        return 0.0
+    top_k = set(retrieved_ids[:k])
+    covered = sum(
+        1 for step in steps
+        if _step_gold_ids(step) and _step_gold_ids(step) <= top_k
+    )
+    return covered / len(steps)
+
+
+def step_best_rank(retrieved_ids: list[str], step: dict) -> Optional[int]:
+    """1-based rank of the first retrieved ID evidencing the step, else None.
+
+    Diagnostic companion to step_coverage_at_k: a step that is covered at
+    K=20 but not K=5 is a ranking problem (reranker), not a search problem.
+    """
+    gold = _step_gold_ids(step)
+    for i, rid in enumerate(retrieved_ids, 1):
+        if rid in gold:
+            return i
+    return None
+
+
+def step_coverage_by_cue_type(
+    retrieved_ids: list[str], steps: list[dict], k: int
+) -> dict[str, float]:
+    """StepCoverage@K broken down by cue_type ("named" vs "described").
+
+    Named cues (technique explicitly written in the case narrative) test
+    keyword matching; described cues (behaviour only) test whether the
+    pipeline maps behaviour to techniques — the two must be reported
+    separately or named-cue scores mask described-cue failures.
+    Steps without a cue_type are grouped under "unspecified".
+    """
+    by_type: dict[str, list[dict]] = {}
+    for step in steps:
+        by_type.setdefault(step.get("cue_type") or "unspecified", []).append(step)
+    return {
+        cue_type: step_coverage_at_k(retrieved_ids, type_steps, k)
+        for cue_type, type_steps in by_type.items()
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Result Container
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -138,7 +227,7 @@ class RetrieverEvalResult:
 
         for metric_name, metric_dict in [
             ("Hit", self.hit_at_k),
-            ("Recall", self.recall_at_k),
+            ("Recall (capped)", self.recall_at_k),
             ("Precision", self.precision_at_k),
             ("NDCG", self.ndcg_at_k),
         ]:
