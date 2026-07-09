@@ -4,15 +4,20 @@ Cross-Lingual Generation Benchmark
 Compares 5 generation-path variants over FROZEN retrieval contexts, so
 score differences are attributable to the generation stage only.
 
+Production truth (agent_graph.py, the path the API serves): the Thai
+query is NEVER translated — _node_prepare sets english_query = original
+("no input translation") and _node_retrieve decomposes the Thai incident
+into native-language sub-queries for quota retrieval. (chain.py still
+translates, but it is the legacy non-agent path.)
+
 Variants (all consume the same cached context per sample):
 
-  A  baseline   prompt shows Thai + machine-translated EN question,
-                reason in English -> translate to Thai (2 calls).
-                Mirrors production chain.py exactly.
-  B  thai-only  as A but the prompt shows ONLY the Thai question —
-                ablation: does showing the EN translation help reasoning?
-                (The translation itself is free here: retrieval already
-                required it, so A and B cost the same.)
+  A  baseline   production agent shape: prompt shows the Thai question
+                only, reason in English -> translate to Thai (2 calls).
+  B  +MT query  as A but the prompt also shows a machine translation of
+                the question (production would need +1 call for it, so
+                B is costed at 3 calls; the MT is cached from the
+                retrieve phase).
   C  single     one call with the production fast-mode prompt
                 (get_fast_system_prompt): reason internally, write Thai
                 directly (1 call — candidate for halving cost/latency).
@@ -123,14 +128,18 @@ def load_samples(dataset_path: Path, max_samples: int = 0) -> list[dict]:
 
 
 def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
-    """Translate + retrieve ONCE per sample; cache everything variants need.
+    """Retrieve ONCE per sample, mirroring the production agent path
+    (_node_retrieve): Thai incident -> decomposer -> native-language
+    sub-queries -> retrieve_multi_quota -> build_context(15/8).
 
-    The machine translation of the query is cached here too: production
-    retrieval requires it regardless (build_retrieval_queries), so variant
-    A/B cost accounting treats it as part of retrieval, not generation.
+    A machine translation of the query is ALSO cached here — production
+    does not need it, only variant B's prompt does (B is costed +1 call
+    for it at scoring time).
     """
+    from ..config import VECTOR_TOP_K
     from ..pipeline.context_builder import build_context
-    from ..pipeline.cross_lingual import CrossLingualLayer, build_retrieval_queries
+    from ..pipeline.cross_lingual import CrossLingualLayer
+    from ..pipeline.query_decomposer import QueryDecomposer
     from ..retrieval.hybrid_retriever import HybridRetriever
 
     existing: dict[str, dict] = {}
@@ -145,15 +154,25 @@ def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
         return
 
     translator = CrossLingualLayer(use_local=use_local)
+    decomposer = QueryDecomposer(use_local=use_local)
     retriever = HybridRetriever()
 
     try:
         for i, sample in enumerate(todo):
             t0 = time.perf_counter()
+            sub_queries = decomposer.decompose(
+                incident=sample["query"], verbose=False
+            )
+            all_queries: list[str] = []
+            for q in [sample["query"], *sub_queries]:
+                if q and q.strip() and q not in all_queries:
+                    all_queries.append(q)
+            result = retriever.retrieve_multi_quota(
+                all_queries, per_query_k=3, top_k=VECTOR_TOP_K,
+                max_vector=15, max_graph=8,
+            )
+            context = build_context(result, max_vector=15, max_graph=8)
             english_query = translator.translate_query(sample["query"])
-            queries = build_retrieval_queries(sample["query"], english_query)
-            result = retriever.retrieve_multi(queries)
-            context = build_context(result)
             latency_ms = (time.perf_counter() - t0) * 1000
 
             # Ordered retrieved ids (vector first, then graph) — enables
@@ -164,7 +183,7 @@ def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
                 if vr.stix_id not in seen:
                     retrieved_ids.append(vr.stix_id)
                     seen.add(vr.stix_id)
-            chunks = [vr.document for vr in result.vector_results[:5]]
+            chunks = [vr.document for vr in result.vector_results[:15]]
             for gr in result.graph_results:
                 if gr.center_node and gr.center_node.stix_id not in seen:
                     retrieved_ids.append(gr.center_node.stix_id)
@@ -182,6 +201,7 @@ def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
                 "query": sample["query"],
                 "query_en_dataset": sample["query_en"],
                 "english_query_mt": english_query,
+                "sub_queries": sub_queries,
                 "context": context,
                 "context_chunks": chunks,
                 "retrieved_stix_ids": retrieved_ids,
@@ -244,10 +264,11 @@ def run_variant(variant: str, ctx: dict, reasoning_llm, cheap_llm) -> dict:
 
     if variant in ("A", "B", "D"):
         # Two-stage: EN reasoning -> Thai translation.
-        # A/D show Thai + MT English question (production shape);
-        # B shows the Thai question only (english_query == original makes
-        # build_generation_prompt render a single "Question:" line).
-        english_shown = en_q_mt if variant in ("A", "D") else thai_q
+        # A/D mirror the production agent: english_query == original, so
+        # build_generation_prompt renders a single Thai "Question:" line.
+        # B additionally shows the machine-translated EN question — in
+        # production that would cost one extra LLM call, so B reports 3.
+        english_shown = en_q_mt if variant == "B" else thai_q
         user_prompt = build_generation_prompt(
             context=context, original_query=thai_q,
             english_query=english_shown, respond_in_thai=False,
@@ -260,13 +281,15 @@ def run_variant(variant: str, ctx: dict, reasoning_llm, cheap_llm) -> dict:
             translator, CrossLingualLayer.get_translation_system_prompt(),
             intermediate_en,
         )
-        usage, calls = _sum_usage(usage1, usage2), 2
+        usage = _sum_usage(usage1, usage2)
+        calls = 3 if variant == "B" else 2
 
     elif variant == "C":
-        # Single call: production fast-mode fold (reason internally, write Thai).
+        # Single call: production fast-mode fold (reason internally, write
+        # Thai). english_query == original, mirroring agent query_fast.
         user_prompt = build_generation_prompt(
             context=context, original_query=thai_q,
-            english_query=en_q_mt, respond_in_thai=True,
+            english_query=thai_q, respond_in_thai=True,
         )
         answer, usage = _invoke(
             reasoning_llm,
