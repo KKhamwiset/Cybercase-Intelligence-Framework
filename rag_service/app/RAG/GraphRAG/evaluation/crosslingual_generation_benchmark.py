@@ -391,6 +391,17 @@ def phase_generate(
         print(f"[GENERATE] Resume: {len(done)} rows already generated")
 
     def make_llm(model: str):
+        # "ollama:<name>" runs a local model (e.g. the MITRE fine-tune
+        # ollama:mitre-qwen3.5:4b-v5) over the same frozen contexts —
+        # model axis is orthogonal to the variant (pipeline-shape) axis.
+        if model.startswith("ollama:"):
+            from langchain_ollama import ChatOllama
+
+            from ..config import OLLAMA_BASE_URL
+            return ChatOllama(
+                model=model.split(":", 1)[1], base_url=OLLAMA_BASE_URL,
+                temperature=0, num_ctx=16384, num_predict=4096,
+            )
         return ChatAnthropic(  # type: ignore[call-arg]
             model=model, api_key=ANTHROPIC_API_KEY, temperature=0, max_tokens=4096,
         )
@@ -863,7 +874,17 @@ def main() -> None:
     parser.add_argument("--local", action="store_true",
                         help="Use local Ollama for the query-translation step "
                              "of the retrieve phase")
+    parser.add_argument("--run-tag", type=str, default="",
+                        help="Suffix for generations/report files — use one "
+                             "tag per model run (e.g. qwen_v5) so runs don't "
+                             "collide on the (sample, variant) resume key")
     args = parser.parse_args()
+
+    if args.run_tag:
+        global GENERATIONS_PATH, REPORT_PATH, MAPPING_REPORT_PATH
+        GENERATIONS_PATH = BENCH_DIR / f"generations_{args.run_tag}.jsonl"
+        REPORT_PATH = RESULTS_DIR / f"crosslingual_generation_report_{args.run_tag}.md"
+        MAPPING_REPORT_PATH = RESULTS_DIR / f"mapping_eval_report_{args.run_tag}.md"
 
     dataset_path = Path(args.dataset)
     variants = [v.strip().upper() for v in args.variants.split(",") if v.strip()]
