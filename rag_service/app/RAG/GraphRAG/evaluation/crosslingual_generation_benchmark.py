@@ -196,6 +196,45 @@ def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
                 if text:
                     chunks.append(text)
 
+            # Raw retrieval pieces the mapping module (build_mitre_table)
+            # consumes — cached so the mapping eval can replay the REAL
+            # production filter offline against any answer.
+            mapping_raw = {
+                "vector": [
+                    {
+                        "stix_id": vr.stix_id,
+                        "score": float(vr.score),
+                        "document": (vr.document or "")[:300],
+                        "metadata": {
+                            "entity_type": (vr.metadata or {}).get("entity_type", ""),
+                            "name": (vr.metadata or {}).get("name", ""),
+                            "node_label": (vr.metadata or {}).get("node_label", ""),
+                            "attack_id": (vr.metadata or {}).get("attack_id", ""),
+                        },
+                    }
+                    for vr in result.vector_results
+                ],
+                "graph_nodes": [
+                    [
+                        {
+                            "stix_id": n.stix_id,
+                            "name": n.name,
+                            "label": n.label,
+                            "attack_id": getattr(n, "attack_id", "") or "",
+                            "description": (getattr(n, "description", "") or "")[:300],
+                        }
+                        for n in filter(None, [gr.center_node, *gr.neighbors])
+                    ]
+                    for gr in result.graph_results
+                ],
+                "in_tactic_edges": [
+                    {"source_name": e.source_name, "target_name": e.target_name}
+                    for gr in result.graph_results
+                    for e in gr.edges
+                    if e.edge_label == "IN_TACTIC"
+                ],
+            }
+
             existing[sample["id"]] = {
                 "id": sample["id"],
                 "query": sample["query"],
@@ -206,6 +245,7 @@ def phase_retrieve(samples: list[dict], use_local: bool = False) -> None:
                 "context_chunks": chunks,
                 "retrieved_stix_ids": retrieved_ids,
                 "retrieval_latency_ms": latency_ms,
+                "mapping_raw": mapping_raw,
             }
             print(f"  [{i+1}/{len(todo)}] {sample['id']}: "
                   f"{len(retrieved_ids)} ids, {len(context)} chars, "
@@ -542,6 +582,184 @@ def phase_score(dataset_path: Path) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PHASE M — MAPPING MODULE EVAL (build_mitre_table output vs gold)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# The "mapping" half of the Knowledge Retrieval & Mapping module: the
+# structured MITRE table sent to the backend (pipeline/mitre_table.py,
+# answer-grounding + score-threshold noise filter). Scored against the
+# same per-sample gold_attack_ids, with the raw-retrieval ID set as the
+# no-filter baseline — quantifying exactly how much noise the filter
+# removes and what it costs in recall.
+
+MAPPING_REPORT_PATH = RESULTS_DIR / "mapping_eval_report.md"
+
+
+def _shim_rag_result(raw: dict):
+    """Rebuild a GraphRAGResult look-alike from cached mapping_raw so the
+    REAL production build_mitre_table runs offline — no logic duplication."""
+    from types import SimpleNamespace
+
+    vector_results = [SimpleNamespace(**v) for v in raw.get("vector", [])]
+    graph_results = []
+    for nodes in raw.get("graph_nodes", []):
+        ns = [SimpleNamespace(**n) for n in nodes]
+        graph_results.append(
+            SimpleNamespace(center_node=ns[0] if ns else None,
+                            neighbors=ns[1:], edges=[])
+        )
+    edges = [
+        SimpleNamespace(edge_label="IN_TACTIC", **e)
+        for e in raw.get("in_tactic_edges", [])
+    ]
+    if graph_results:
+        graph_results[0].edges = edges
+    elif edges:
+        graph_results.append(
+            SimpleNamespace(center_node=None, neighbors=[], edges=edges)
+        )
+    return SimpleNamespace(vector_results=vector_results, graph_results=graph_results)
+
+
+def _is_technique_label(label: str) -> bool:
+    return label in ("Technique", "Subtechnique")
+
+
+def _technique_ids_from_rows(rows) -> set[str]:
+    return {
+        r.technique_id.upper() for r in rows
+        if r.technique_id and _is_technique_label(r.entity_type)
+    }
+
+
+def _raw_retrieval_technique_ids(raw: dict) -> set[str]:
+    """The no-filter baseline: every technique ID retrieval dragged in."""
+    ids: set[str] = set()
+    for v in raw.get("vector", []):
+        md = v.get("metadata", {})
+        if _is_technique_label(md.get("node_label", "")) and md.get("attack_id"):
+            ids.add(md["attack_id"].upper())
+    for nodes in raw.get("graph_nodes", []):
+        for n in nodes:
+            if _is_technique_label(n.get("label", "")) and n.get("attack_id"):
+                ids.add(n["attack_id"].upper())
+    return ids
+
+
+def phase_score_mapping(dataset_path: Path, thresholds: list[float]) -> None:
+    from ..config import MITRE_TABLE_SCORE_THRESHOLD
+    from ..pipeline.mitre_table import build_mitre_table
+
+    samples = {s["id"]: s for s in load_samples(dataset_path)}
+    with open(CONTEXTS_PATH, "r", encoding="utf-8") as f:
+        contexts = {c["id"]: c for c in json.load(f)}
+
+    rows = []
+    with open(GENERATIONS_PATH, "r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                rows.append(json.loads(line))
+
+    skipped_no_raw = 0
+    # variant -> sample_id -> scores ; raw baseline is variant-independent
+    mapped: dict[str, dict[str, dict]] = {}
+    raw_scores: dict[str, dict] = {}
+
+    for row in rows:
+        sample = samples.get(row["sample_id"])
+        ctx = contexts.get(row["sample_id"])
+        if sample is None or ctx is None:
+            continue
+        raw = ctx.get("mapping_raw")
+        if not raw:
+            skipped_no_raw += 1
+            continue
+        gold = set(sample["gold_attack_ids"])
+
+        if row["sample_id"] not in raw_scores:
+            raw_ids = _raw_retrieval_technique_ids(raw)
+            s = technique_set_score(raw_ids, gold)
+            s["n_ids"] = len(raw_ids)
+            raw_scores[row["sample_id"]] = s
+
+        table = build_mitre_table(_shim_rag_result(raw), row["answer"])
+        pred = _technique_ids_from_rows(table)
+        s = technique_set_score(pred, gold)
+        s["n_ids"] = len(pred)
+        mapped.setdefault(row["variant"], {})[row["sample_id"]] = s
+
+    if not mapped:
+        print("[MAP] Nothing to score — contexts lack mapping_raw "
+              "(re-run --phase retrieve with the current harness)")
+        return
+
+    def _mean(dicts: list[dict], key: str) -> float:
+        vals = [d[key] for d in dicts]
+        return sum(vals) / len(vals) if vals else 0.0
+
+    variants = [v for v in VARIANTS if v in mapped]
+    lines = [
+        "# Mapping Module Evaluation — build_mitre_table vs gold",
+        "",
+        f"Config threshold: {MITRE_TABLE_SCORE_THRESHOLD}  |  "
+        f"Samples: {len(raw_scores)}",
+        "",
+        "| Source | precision | recall | F1 | avg IDs/sample |",
+        "|--------|-----------|--------|----|----------------|",
+    ]
+    raw_list = list(raw_scores.values())
+    lines.append(
+        f"| raw retrieval (no filter) | {_mean(raw_list, 'precision'):.3f} "
+        f"| {_mean(raw_list, 'recall'):.3f} | {_mean(raw_list, 'f1'):.3f} "
+        f"| {_mean(raw_list, 'n_ids'):.1f} |"
+    )
+    for v in variants:
+        vl = list(mapped[v].values())
+        lines.append(
+            f"| mapped table (answer {v}) | {_mean(vl, 'precision'):.3f} "
+            f"| {_mean(vl, 'recall'):.3f} | {_mean(vl, 'f1'):.3f} "
+            f"| {_mean(vl, 'n_ids'):.1f} |"
+        )
+
+    # ── Threshold sweep on baseline-A answers ──────────────────────────────
+    a_rows = {r["sample_id"]: r for r in rows if r["variant"] == "A"}
+    if a_rows and thresholds:
+        lines += ["", "## Threshold sweep (variant A answers)", "",
+                  "| threshold | precision | recall | F1 | avg IDs |",
+                  "|-----------|-----------|--------|----|---------|"]
+        for t in thresholds:
+            per = []
+            for sid, row in a_rows.items():
+                ctx = contexts.get(sid)
+                sample = samples.get(sid)
+                if not ctx or not ctx.get("mapping_raw") or not sample:
+                    continue
+                table = build_mitre_table(
+                    _shim_rag_result(ctx["mapping_raw"]), row["answer"],
+                    score_threshold=t,
+                )
+                pred = _technique_ids_from_rows(table)
+                s = technique_set_score(pred, set(sample["gold_attack_ids"]))
+                s["n_ids"] = len(pred)
+                per.append(s)
+            marker = " ←config" if abs(t - MITRE_TABLE_SCORE_THRESHOLD) < 1e-9 else ""
+            lines.append(
+                f"| {t:.2f}{marker} | {_mean(per, 'precision'):.3f} "
+                f"| {_mean(per, 'recall'):.3f} | {_mean(per, 'f1'):.3f} "
+                f"| {_mean(per, 'n_ids'):.1f} |"
+            )
+
+    if skipped_no_raw:
+        lines += ["", f"_{skipped_no_raw} generation rows skipped (no mapping_raw in cache)_"]
+
+    report = "\n".join(lines) + "\n"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    MAPPING_REPORT_PATH.write_text(report, encoding="utf-8")
+    print(report)
+    print(f"[MAP] Report saved to {MAPPING_REPORT_PATH}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CLI
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -550,8 +768,13 @@ def main() -> None:
     from ..config import LLM_MODEL
 
     parser = argparse.ArgumentParser(description="Cross-lingual generation benchmark")
-    parser.add_argument("--phase", choices=["retrieve", "generate", "score", "all"],
+    parser.add_argument("--phase",
+                        choices=["retrieve", "generate", "score",
+                                 "score-mapping", "all"],
                         required=True)
+    parser.add_argument("--thresholds", type=str,
+                        default="0.0,0.3,0.4,0.5,0.55,0.6,0.7",
+                        help="Threshold sweep values for score-mapping")
     parser.add_argument("--dataset", type=str, default=str(DEFAULT_DATASET))
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--variants", type=str, default=",".join(VARIANTS))
@@ -576,6 +799,9 @@ def main() -> None:
                        args.max_samples)
     if args.phase in ("score", "all"):
         phase_score(dataset_path)
+    if args.phase in ("score-mapping", "all"):
+        thresholds = [float(t) for t in args.thresholds.split(",") if t.strip()]
+        phase_score_mapping(dataset_path, thresholds)
 
 
 if __name__ == "__main__":
