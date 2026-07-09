@@ -582,6 +582,84 @@ def phase_score(dataset_path: Path) -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PHASE T — RETRIEVAL STEP-COVERAGE (from the frozen Phase R cache, free)
+# ══════════════════════════════════════════════════════════════════════════════
+
+RETRIEVAL_REPORT_PATH = RESULTS_DIR / "retrieval_step_coverage_report.md"
+
+
+def phase_score_retrieval(
+    dataset_path: Path, k_values: tuple[int, ...] = (5, 10, 15, 20)
+) -> None:
+    """Step-coverage@k of the production retrieval path, per cue_type.
+
+    Consumes retrieved_stix_ids already cached by --phase retrieve (ordered
+    vector-first, then graph expansion), so this costs nothing to run.
+    """
+    from .retriever_metrics import (
+        step_coverage_at_k,
+        step_coverage_by_cue_type,
+        strict_step_coverage_at_k,
+    )
+
+    samples = {s["id"]: s for s in load_samples(dataset_path)}
+    with open(CONTEXTS_PATH, "r", encoding="utf-8") as f:
+        contexts = json.load(f)
+
+    rows = []
+    for ctx in contexts:
+        sample = samples.get(ctx["id"])
+        if sample is None or not sample.get("attack_steps"):
+            continue
+        steps = [
+            {"gold_ids": st.get("gold_stix_ids", []), "cue_type": st.get("cue_type")}
+            for st in sample["attack_steps"]
+        ]
+        rows.append((ctx["retrieved_stix_ids"], steps))
+
+    if not rows:
+        print("[RET] No samples with attack_steps found in cache")
+        return
+
+    def mean(vals: list[float]) -> float:
+        return sum(vals) / len(vals) if vals else 0.0
+
+    lines = [
+        "# Retrieval Step-Coverage (production agent path, frozen contexts)",
+        "",
+        f"Samples: {len(rows)}",
+        "",
+        "| k | coverage | strict | named | described |",
+        "|---|----------|--------|-------|-----------|",
+    ]
+    for k in k_values:
+        cov = mean([step_coverage_at_k(r, s, k) for r, s in rows])
+        strict = mean([strict_step_coverage_at_k(r, s, k) for r, s in rows])
+        by_type: dict[str, list[float]] = {}
+        for r, s in rows:
+            for cue_type, v in step_coverage_by_cue_type(r, s, k).items():
+                by_type.setdefault(cue_type, []).append(v)
+        named = mean(by_type.get("named", []))
+        described = mean(by_type.get("described", []))
+        lines.append(
+            f"| {k} | {cov:.3f} | {strict:.3f} | {named:.3f} | {described:.3f} |"
+        )
+
+    lines += [
+        "",
+        "_coverage: fraction of chronological attack steps with >=1 gold ID "
+        "in top-k retrieved (S-recall@k). Low described vs named = the "
+        "retriever finds keyword-named techniques but misses "
+        "behaviour-described ones._",
+    ]
+    report = "\n".join(lines) + "\n"
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    RETRIEVAL_REPORT_PATH.write_text(report, encoding="utf-8")
+    print(report)
+    print(f"[RET] Report saved to {RETRIEVAL_REPORT_PATH}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PHASE M — MAPPING MODULE EVAL (build_mitre_table output vs gold)
 # ══════════════════════════════════════════════════════════════════════════════
 #
@@ -770,7 +848,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Cross-lingual generation benchmark")
     parser.add_argument("--phase",
                         choices=["retrieve", "generate", "score",
-                                 "score-mapping", "all"],
+                                 "score-mapping", "score-retrieval", "all"],
                         required=True)
     parser.add_argument("--thresholds", type=str,
                         default="0.0,0.3,0.4,0.5,0.55,0.6,0.7",
@@ -802,6 +880,8 @@ def main() -> None:
     if args.phase in ("score-mapping", "all"):
         thresholds = [float(t) for t in args.thresholds.split(",") if t.strip()]
         phase_score_mapping(dataset_path, thresholds)
+    if args.phase in ("score-retrieval", "all"):
+        phase_score_retrieval(dataset_path)
 
 
 if __name__ == "__main__":
