@@ -252,7 +252,7 @@ def test_case_owned_report_accepts_body_without_query(
 
     response = client.post(
         f"/api/v1/cases/{case_id}/report",
-        json={"report_type": "overview", "legal": False, "force_generate": True, "retrieval_context_id": "ctx-http"},
+        json={"report_type": "overview", "legal": False, "force_generate": True},
     )
 
     assert response.status_code == 200

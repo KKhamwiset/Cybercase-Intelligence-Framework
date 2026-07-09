@@ -74,6 +74,7 @@ class _FakeDb:
 class _RagClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
+        self.contexts_fetched: list[str] = []
 
     async def post_json(self, path: str, payload: dict):
         self.calls.append((path, payload))
@@ -82,6 +83,16 @@ class _RagClient:
             "answer": "Grounded investigation response",
             "retrieval_context_id": "ctx-current",
         }
+
+    async def get_json(self, path: str):
+        self.contexts_fetched.append(path)
+        return {"retrieval_context_id": "ctx-current", "context": "Current context"}
+
+
+class _ExpiredContextRagClient(_RagClient):
+    async def get_json(self, path: str):
+        self.contexts_fetched.append(path)
+        raise HTTPException(status_code=404, detail="Retrieval context not found")
 
 
 class _ExpiredFollowupRagClient:
@@ -206,6 +217,166 @@ def test_explicit_analyze_builds_backend_prompt_and_persists_turns() -> None:
     assert "Finance received a phishing message." in rag.calls[0][1]["query"]
     assert rag.calls[0][1]["use_agent"] is True
     assert state.latest_retrieval_context_id == "ctx-current"
+
+
+def test_readiness_exposes_current_analysis_and_validates_context_without_query() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_analysis_turn_id = "CCT-analysis"
+    state.latest_retrieval_context_id = "ctx-current"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    rag = _RagClient()
+
+    readiness = asyncio.run(
+        CaseChatService(db=db, client=rag).get_report_readiness(case.case_id)
+    )
+
+    assert readiness.analysis_status == "completed"
+    assert readiness.reason == "ready"
+    assert readiness.report_eligible is True
+    assert readiness.latest_analysis_turn_id == "CCT-analysis"
+    assert readiness.latest_retrieval_context_id == "ctx-current"
+    assert rag.contexts_fetched == ["/retrieval-contexts/ctx-current"]
+    assert rag.calls == []
+
+
+@pytest.mark.parametrize(
+    ("state_status", "requires_followup", "analysis_status", "reason"),
+    [
+        ("idle", False, "missing", "analysis_required"),
+        ("pending", False, "pending", "analysis_pending"),
+        ("completed", True, "pending", "analysis_pending"),
+        ("failed", False, "failed", "analysis_failed"),
+        ("stale", False, "stale", "analysis_stale"),
+        ("expired", False, "expired", "context_expired"),
+    ],
+)
+def test_readiness_maps_non_ready_states(
+    state_status: str,
+    requires_followup: bool,
+    analysis_status: str,
+    reason: str,
+) -> None:
+    case, state = _case_and_state()
+    state.status = state_status
+    state.requires_followup = requires_followup
+    if state_status != "idle":
+        state.analysis_case_version = case.case_version
+        state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    rag = _RagClient()
+
+    readiness = asyncio.run(
+        CaseChatService(db=db, client=rag).get_report_readiness(case.case_id)
+    )
+
+    assert readiness.analysis_status == analysis_status
+    assert readiness.reason == reason
+    assert readiness.report_eligible is False
+    assert readiness.latest_retrieval_context_id is None
+    assert rag.calls == []
+    assert rag.contexts_fetched == []
+
+
+def test_readiness_marks_missing_retrieval_context_expired_without_query() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_retrieval_context_id = "ctx-current"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    rag = _ExpiredContextRagClient()
+
+    readiness = asyncio.run(
+        CaseChatService(db=db, client=rag).get_report_readiness(case.case_id)
+    )
+
+    assert readiness.analysis_status == "expired"
+    assert readiness.reason == "context_expired"
+    assert readiness.report_eligible is False
+    assert state.status == "expired"
+    assert state.latest_retrieval_context_id is None
+    assert rag.calls == []
+
+
+def test_current_analyze_is_rejected_but_explicit_refresh_replaces_analysis() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_retrieval_context_id = "ctx-current"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    rag = _RagClient()
+    service = CaseChatService(db=db, client=rag)
+
+    with pytest.raises(HTTPException) as duplicate:
+        asyncio.run(
+            service.send_message(
+                case.case_id,
+                CaseChatMessageRequest(action="analyze"),
+                idempotency_key="duplicate-analyze",
+            )
+        )
+    assert duplicate.value.status_code == 409
+    assert rag.calls == []
+
+    response = asyncio.run(
+        service.send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="refresh_analysis"),
+            idempotency_key="explicit-refresh",
+        )
+    )
+
+    assert response.status == "completed"
+    assert db.turns[-2].content == "Refresh analysis"
+    assert rag.calls[0][0] == "/query"
+
+
+def test_active_followup_blocks_new_analysis_actions_without_rag() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.requires_followup = True
+    state.active_session_id = "session-active"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    rag = _RagClient()
+
+    with pytest.raises(HTTPException) as blocked:
+        asyncio.run(
+            CaseChatService(db=db, client=rag).send_message(
+                case.case_id,
+                CaseChatMessageRequest(action="refresh_analysis"),
+                idempotency_key="blocked-refresh",
+            )
+        )
+
+    assert blocked.value.status_code == 409
+    assert rag.calls == []
+
+
+def test_case_edit_marks_current_analysis_stale_and_clears_report_eligibility() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_retrieval_context_id = "ctx-current"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+    service = CaseChatService(db=db, client=_RagClient())
+
+    case.case_version = 2
+    case.case_snapshot_hash = "b" * 64
+    asyncio.run(service.invalidate_for_case_update(case))
+
+    readiness = service._report_readiness(case, state)
+    assert state.status == "stale"
+    assert state.latest_retrieval_context_id is None
+    assert readiness.analysis_status == "stale"
+    assert readiness.report_eligible is False
+    assert readiness.reason == "analysis_stale"
 
 
 def test_idempotency_conflict_and_busy_action_do_not_duplicate_rag_calls() -> None:

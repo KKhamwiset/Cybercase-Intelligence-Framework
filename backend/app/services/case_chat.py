@@ -24,6 +24,7 @@ from app.schemas.case_chat import (
     CaseChatAttackCandidate,
     CaseChatMessageRequest,
     CaseChatMessageResponse,
+    CaseReportReadiness,
     CaseChatTurnView,
     CaseChatWorkspaceView,
 )
@@ -84,11 +85,15 @@ class CaseChatService:
 
     @staticmethod
     def _turn_type(action: str) -> str:
-        return "analysis" if action == "analyze" else action
+        return "analysis" if action in {"analyze", "refresh_analysis"} else action
 
     @staticmethod
     def _visible_message(request: CaseChatMessageRequest) -> str:
-        return "Analyze saved case" if request.action == "analyze" else request.message
+        if request.action == "analyze":
+            return "Analyze saved case"
+        if request.action == "refresh_analysis":
+            return "Refresh analysis"
+        return request.message
 
     @staticmethod
     def _context_summary(case: CaseRecord) -> CaseChatContextSummary:
@@ -144,6 +149,70 @@ class CaseChatService:
             and state.latest_retrieval_context_id
             and state.analysis_case_version == case.case_version
             and state.analysis_snapshot_hash == case.case_snapshot_hash
+        )
+
+    @staticmethod
+    def _report_readiness(case: CaseRecord, state: CaseChatState) -> CaseReportReadiness:
+        common = {
+            "case_id": case.case_id,
+            "current_case_version": case.case_version,
+            "current_case_snapshot_hash": case.case_snapshot_hash,
+            "latest_analysis_turn_id": state.latest_analysis_turn_id,
+        }
+        analysis_is_current = (
+            state.analysis_case_version == case.case_version
+            and state.analysis_snapshot_hash == case.case_snapshot_hash
+        )
+        if state.status == "stale" or (
+            state.analysis_case_version is not None and not analysis_is_current
+        ):
+            return CaseReportReadiness(
+                **common,
+                analysis_status="stale",
+                report_eligible=False,
+                reason="analysis_stale",
+            )
+        if state.status == "pending" or state.requires_followup:
+            return CaseReportReadiness(
+                **common,
+                analysis_status="pending",
+                report_eligible=False,
+                reason="analysis_pending",
+            )
+        if state.status == "failed":
+            return CaseReportReadiness(
+                **common,
+                analysis_status="failed",
+                report_eligible=False,
+                reason="analysis_failed",
+            )
+        if state.status == "expired":
+            return CaseReportReadiness(
+                **common,
+                analysis_status="expired",
+                report_eligible=False,
+                reason="context_expired",
+            )
+        if state.status == "completed" and analysis_is_current:
+            if not state.latest_retrieval_context_id:
+                return CaseReportReadiness(
+                    **common,
+                    analysis_status="expired",
+                    report_eligible=False,
+                    reason="context_expired",
+                )
+            return CaseReportReadiness(
+                **common,
+                analysis_status="completed",
+                report_eligible=True,
+                reason="ready",
+                latest_retrieval_context_id=state.latest_retrieval_context_id,
+            )
+        return CaseReportReadiness(
+            **common,
+            analysis_status="missing",
+            report_eligible=False,
+            reason="analysis_required",
         )
 
     async def _load_case(self, case_id: str, *, for_update: bool = False) -> CaseRecord:
@@ -263,6 +332,49 @@ class CaseChatService:
         await self.db.commit()
         return await self._workspace(case, state)
 
+    async def get_report_readiness(self, case_id: str) -> CaseReportReadiness:
+        """Return backend-owned report eligibility without starting retrieval."""
+        case = await self._load_case(case_id, for_update=True)
+        self.ensure_case_snapshot(case)
+        state = await self._get_or_create_state(case, for_update=True)
+        self._sync_state_to_case(case, state)
+        await self._expire_pending_if_needed(state)
+        readiness = self._report_readiness(case, state)
+        await self.db.commit()
+
+        context_id = readiness.latest_retrieval_context_id
+        if not readiness.report_eligible or not context_id:
+            return readiness
+
+        try:
+            snapshot = await self.client.get_json(f"/retrieval-contexts/{context_id}")
+            if not snapshot or "context" not in snapshot:
+                raise HTTPException(status_code=404, detail="Retrieval context not found")
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            return await self._mark_readiness_context_expired(case_id, context_id)
+        return readiness
+
+    async def _mark_readiness_context_expired(
+        self, case_id: str, context_id: str
+    ) -> CaseReportReadiness:
+        case = await self._load_case(case_id, for_update=True)
+        state = await self._get_or_create_state(case, for_update=True)
+        if (
+            state.status == "completed"
+            and state.latest_retrieval_context_id == context_id
+            and state.analysis_case_version == case.case_version
+            and state.analysis_snapshot_hash == case.case_snapshot_hash
+        ):
+            state.status = "expired"
+            state.latest_retrieval_context_id = None
+            state.active_session_id = None
+            state.requires_followup = False
+        readiness = self._report_readiness(case, state)
+        await self.db.commit()
+        return readiness
+
     async def invalidate_for_case_update(self, case: CaseRecord) -> None:
         """Invalidate only existing chat state after canonical case data changes."""
         result = await self.db.execute(
@@ -367,6 +479,20 @@ class CaseChatService:
                 message="Another case analysis is already in progress.",
                 case_version=case.case_version,
                 case_snapshot_hash=case.case_snapshot_hash,
+            )
+        if state.requires_followup and request.action != "followup":
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail="Complete the active analysis follow-up before starting another action.",
+            )
+        if request.action == "analyze" and self._is_report_eligible(case, state):
+            await self.db.commit()
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "A current analysis already exists. Use refresh_analysis to rerun it intentionally."
+                ),
             )
         if request.action == "followup" and (
             not state.requires_followup or not state.active_session_id

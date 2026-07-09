@@ -6,10 +6,19 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-CaseChatAction = Literal["analyze", "question", "followup"]
+CaseChatAction = Literal["analyze", "refresh_analysis", "question", "followup"]
 CaseChatTurnType = Literal["analysis", "question", "followup"]
 CaseChatTurnStatus = Literal["pending", "completed", "failed", "expired", "stale"]
 CaseChatWorkspaceStatus = Literal["idle", "pending", "completed", "failed", "expired", "stale"]
+CaseAnalysisStatus = Literal["missing", "pending", "completed", "stale", "expired", "failed"]
+CaseReportReadinessReason = Literal[
+    "analysis_required",
+    "analysis_pending",
+    "analysis_stale",
+    "context_expired",
+    "analysis_failed",
+    "ready",
+]
 
 
 class CaseChatMessageRequest(BaseModel):
@@ -87,8 +96,20 @@ class CaseChatMessageResponse(BaseModel):
     idempotent: bool = False
 
 
+class CaseReportReadiness(BaseModel):
+    case_id: str
+    current_case_version: int
+    current_case_snapshot_hash: str
+    analysis_status: CaseAnalysisStatus
+    report_eligible: bool
+    reason: CaseReportReadinessReason
+    latest_analysis_turn_id: str | None = None
+    latest_retrieval_context_id: str | None = None
+
+
 __all__ = [
     "CaseChatAction",
+    "CaseAnalysisStatus",
     "CaseChatAttackCandidate",
     "CaseChatContextSummary",
     "CaseChatMessageRequest",
@@ -98,4 +119,6 @@ __all__ = [
     "CaseChatTurnView",
     "CaseChatWorkspaceStatus",
     "CaseChatWorkspaceView",
+    "CaseReportReadiness",
+    "CaseReportReadinessReason",
 ]

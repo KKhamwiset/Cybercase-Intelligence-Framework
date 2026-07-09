@@ -2,10 +2,34 @@ import axios from "axios";
 
 import { getApiBaseUrl } from "./api";
 
-export type CaseChatAction = "analyze" | "question" | "followup";
+export type CaseChatAction = "analyze" | "refresh_analysis" | "question" | "followup";
 export type CaseChatTurnType = "analysis" | "question" | "followup";
 export type CaseChatTurnStatus = "pending" | "completed" | "failed" | "expired" | "stale";
 export type CaseChatWorkspaceStatus = "idle" | "pending" | "completed" | "failed" | "expired" | "stale";
+export type CaseAnalysisStatus = "missing" | "pending" | "completed" | "stale" | "expired" | "failed";
+export type ReportReadinessReason =
+  | "analysis_required"
+  | "analysis_pending"
+  | "analysis_stale"
+  | "context_expired"
+  | "analysis_failed"
+  | "ready";
+
+export interface CaseReportReadiness {
+  case_id: string;
+  current_case_version: number;
+  current_case_snapshot_hash: string;
+  analysis_status: CaseAnalysisStatus;
+  report_eligible: boolean;
+  reason: ReportReadinessReason;
+  latest_analysis_turn_id?: string | null;
+  latest_retrieval_context_id?: string | null;
+}
+
+export const caseAnalysisKeys = {
+  workspace: (caseId: string) => ["cases", caseId, "chat"] as const,
+  readiness: (caseId: string) => ["cases", caseId, "report-readiness"] as const,
+};
 
 export interface CaseChatTurn {
   turn_id: string;
@@ -70,6 +94,17 @@ export async function getCaseChat(
 ): Promise<CaseChatWorkspace> {
   const response = await axios.get<CaseChatWorkspace>(
     `${getApiBaseUrl()}/cases/${encodeURIComponent(caseId)}/chat`,
+    { signal },
+  );
+  return response.data;
+}
+
+export async function getCaseReportReadiness(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<CaseReportReadiness> {
+  const response = await axios.get<CaseReportReadiness>(
+    `${getApiBaseUrl()}/cases/${encodeURIComponent(caseId)}/report/readiness`,
     { signal },
   );
   return response.data;

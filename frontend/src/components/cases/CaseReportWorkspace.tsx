@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
 import { useCase } from "@/hooks/useCase";
@@ -11,8 +12,12 @@ import {
   getLatestCaseReport,
   updateReportReviewStatus,
   downloadReportExport,
-  getCaseAnalysis,
 } from "@/lib/api";
+import {
+  caseAnalysisKeys,
+  getCaseReportReadiness,
+  type CaseReportReadiness,
+} from "@/lib/case-chat";
 import type {
   CyberCaseReport,
   EvidenceStatus,
@@ -67,6 +72,41 @@ function getHttpStatus(error: unknown): number | undefined {
   return response?.status;
 }
 
+function readinessPresentation(readiness: CaseReportReadiness) {
+  switch (readiness.analysis_status) {
+    case "stale":
+      return {
+        title: "Analysis stale",
+        headline: "Case changed after the last analysis",
+        description: "Refresh analysis before generating a report.",
+      };
+    case "expired":
+      return {
+        title: "Analysis context expired",
+        headline: "Analysis context expired",
+        description: "Refresh analysis before generating a report.",
+      };
+    case "pending":
+      return {
+        title: "Analysis in progress",
+        headline: "Analysis in progress",
+        description: "Report generation is unavailable until the current investigation analysis completes.",
+      };
+    case "failed":
+      return {
+        title: "Analysis failed",
+        headline: "Analysis required before report generation",
+        description: "The last analysis did not complete. Refresh analysis to try again.",
+      };
+    default:
+      return {
+        title: "Analysis required",
+        headline: "Analysis required before report generation",
+        description: "No current investigation analysis exists for this case version.",
+      };
+  }
+}
+
 function ReportPreview({
   report,
   answer,
@@ -115,6 +155,7 @@ function ReportPreview({
 
 export default function CaseReportWorkspace() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useParams();
   const caseId = getRouteParam(params.caseId);
   const caseQuery = useCase(caseId);
@@ -124,32 +165,22 @@ export default function CaseReportWorkspace() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExporting, setIsExporting] = useState<"md" | "pdf" | null>(null);
-  const [retrievalContextId, setRetrievalContextId] = useState<string | undefined>(undefined);
 
-  function updateWorkflowAndContext(data: ReportWorkflowResponse) {
+  function updateWorkflow(data: ReportWorkflowResponse) {
     setWorkflow(data);
-    if (data.status === "followup" && data.retrieval_context_id) {
-      setRetrievalContextId(data.retrieval_context_id);
-    } else if (data.status === "completed" && data.retrieval_context_id) {
-      setRetrievalContextId(data.retrieval_context_id);
-    }
   }
 
-  useEffect(() => {
-    if (!caseId) return;
-    const activeCaseId = caseId;
-    async function checkActiveAnalysis() {
-      try {
-        const data = await getCaseAnalysis(activeCaseId);
-        if (data.retrieval_context_id) {
-          setRetrievalContextId(data.retrieval_context_id);
-        }
-      } catch {
-        // Safe to ignore
-      }
-    }
-    checkActiveAnalysis();
-  }, [caseId]);
+  const readinessQuery = useQuery({
+    queryKey: caseId
+      ? caseAnalysisKeys.readiness(caseId)
+      : ["cases", "missing", "report-readiness"],
+    queryFn: ({ signal }) => {
+      if (!caseId) throw new Error("caseId is required");
+      return getCaseReportReadiness(caseId, signal);
+    },
+    enabled: Boolean(caseId),
+    retry: 1,
+  });
   const [reportType, setReportType] = useState<ReportType>("overview");
   const [legal, setLegal] = useState(false);
   const [error, setError] = useState("");
@@ -185,7 +216,7 @@ export default function CaseReportWorkspace() {
       setError("");
       try {
         const data = await getLatestCaseReport(activeCaseId);
-        updateWorkflowAndContext(data);
+        updateWorkflow(data);
       } catch (err: unknown) {
         // If 404, it means no report has been generated yet, which is expected
         if (getHttpStatus(err) !== 404) {
@@ -200,13 +231,14 @@ export default function CaseReportWorkspace() {
   }, [caseId]);
 
   async function handleGenerate(force: boolean = false) {
-    if (!caseId) return;
+    if (!caseId || !readinessQuery.data?.report_eligible) return;
 
     setIsGenerating(true);
     setError("");
     try {
-      const result = await generateCaseReport(caseId, reportType, legal, force, retrievalContextId);
-      updateWorkflowAndContext(result);
+      const result = await generateCaseReport(caseId, reportType, legal, force);
+      updateWorkflow(result);
+      await queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(caseId) });
     } catch (err: unknown) {
       console.error("Failed to generate case report:", err);
       setError("Failed to generate report. Make sure database and RAG systems are operational.");
@@ -222,7 +254,7 @@ export default function CaseReportWorkspace() {
     setError("");
     try {
       const result = await updateReportReviewStatus(workflow.report_id, status);
-      updateWorkflowAndContext(result);
+      updateWorkflow(result);
     } catch (err) {
       console.error("Failed to update review status:", err);
       setError("Could not update review status.");
@@ -235,15 +267,18 @@ export default function CaseReportWorkspace() {
     return <CaseRouteState title="Case Report" message="No case ID provided." />;
   }
 
-  if (caseQuery.isLoading) {
+  if (caseQuery.isLoading || readinessQuery.isLoading) {
     return <CaseRouteState title="Case Report" message={`Loading case ${caseId}...`} />;
   }
 
-  if (!caseQuery.data) {
+  if (caseQuery.error || readinessQuery.error || !caseQuery.data || !readinessQuery.data) {
     return <CaseRouteState title="Case Report" message="Could not load this case." />;
   }
 
+  const readiness = readinessQuery.data;
+  const prerequisite = readinessPresentation(readiness);
   const activeReport = workflow?.status === "completed" ? workflow.report : null;
+  const workflowError = workflow && "message" in workflow ? workflow : null;
 
   return (
     <CaseStageShell activeStage="report" caseData={caseQuery.data}>
@@ -265,16 +300,38 @@ export default function CaseReportWorkspace() {
           <div className="flex flex-col items-center justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-black border-t-transparent" />
             <p className="mt-4 text-xs font-black uppercase tracking-widest text-neutral">
-              Orchestrating internal RAG retrieval and generating CyberCase report...
+              Generating the CyberCase report from the current investigation analysis...
             </p>
           </div>
-        ) : workflow?.status === "error" || workflow?.status === "context_expired" ? (
+        ) : !readiness.report_eligible ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="mx-auto max-w-2xl border border-black/15 bg-white p-6 md:p-8"
+          >
+            <p className="mono-label">{prerequisite.title}</p>
+            <h2 className="mt-3 text-2xl font-black text-black">{prerequisite.headline}</h2>
+            <p className="mt-3 text-sm font-semibold leading-6 text-neutral-800">
+              {prerequisite.description}
+            </p>
+            <p className="mt-3 text-xs font-semibold text-neutral">
+              Current case version: {readiness.current_case_version}
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(`/cases/${caseId}/chat`)}
+              className="btn-primary mt-6"
+            >
+              Open investigation chat
+            </button>
+          </div>
+        ) : workflowError ? (
           <div className="mx-auto max-w-2xl border border-red-200 bg-white p-6 text-center">
             <h3 className="text-base font-black text-red-800">
               Report generation could not complete
             </h3>
             <p className="mt-3 text-sm leading-6 text-red-700">
-              {workflow.message}
+              {workflowError.message}
             </p>
           </div>
         ) : workflow?.status === "completed" && activeReport ? (
@@ -349,17 +406,17 @@ export default function CaseReportWorkspace() {
                     Incident Report Workspace
                   </span>
                   <h3 className="text-xl font-black text-black mt-1">
-                    No Report Generated Yet
+                    Analysis current
                   </h3>
                 </div>
-                <span className="inline-flex border border-amber-500/20 bg-amber-50 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-amber-700">
-                  Awaiting Analysis
+                <span className="inline-flex border border-black bg-black px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white">
+                  Ready for report
                 </span>
               </div>
 
               <div className="border border-neutral-100 bg-neutral-50 p-5 rounded-sm">
                 <p className="text-xs font-semibold text-neutral-700 leading-relaxed">
-                  We highly recommend running the guided <strong>Case Analysis Assistant</strong> on the Chat tab first to identify missing information and verify MITRE mappings. Alternatively, you can generate a preliminary report directly using current case facts.
+                  A completed investigation analysis is available for case version {readiness.current_case_version}. Generate the preliminary report from that backend-selected analysis context.
                 </p>
               </div>
 
@@ -398,18 +455,12 @@ export default function CaseReportWorkspace() {
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-black/5 flex flex-col sm:flex-row justify-between gap-4">
-              <button
-                onClick={() => router.push(`/cases/${caseId}/chat`)}
-                className="border border-black bg-white px-6 py-3 text-xs font-black text-black hover:bg-neutral-50 transition uppercase tracking-wider text-center"
-              >
-                Start Case Analysis Assistant
-              </button>
+            <div className="mt-8 pt-6 border-t border-black/5 flex flex-col sm:flex-row justify-end gap-4">
               <button
                 onClick={() => handleGenerate(false)}
                 className="border border-black bg-black px-6 py-3 text-xs font-black text-white hover:bg-neutral-800 transition uppercase tracking-wider text-center"
               >
-                Generate Report Directly
+                Generate preliminary report
               </button>
             </div>
           </div>

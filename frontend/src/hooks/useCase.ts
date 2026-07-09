@@ -12,6 +12,7 @@ import {
   StructuredCase,
   updateCase,
 } from "@/lib/cases";
+import { caseAnalysisKeys } from "@/lib/case-chat";
 
 export const caseKeys = {
   all: ["cases"] as const,
@@ -76,6 +77,8 @@ export function useUpdateCase(caseId: string) {
     onSuccess: (savedCase) => {
       queryClient.setQueryData(caseKeys.detail(caseId), savedCase);
       void queryClient.invalidateQueries({ queryKey: caseKeys.lists() });
+      void queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(caseId) });
+      void queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(caseId) });
     },
   });
 }

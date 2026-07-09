@@ -8,13 +8,13 @@ import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
 import { isNotFound, useCase } from "@/hooks/useCase";
 import {
+  caseAnalysisKeys,
   CaseChatAction,
   getCaseChat,
+  getCaseReportReadiness,
   postCaseChatMessage,
 } from "@/lib/case-chat";
 import { generateCaseReport } from "@/lib/api";
-
-const chatKey = (caseId: string) => ["cases", caseId, "chat"] as const;
 
 function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -33,10 +33,21 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const chatQuery = useQuery({
-    queryKey: caseId ? chatKey(caseId) : ["cases", "missing", "chat"],
+    queryKey: caseId ? caseAnalysisKeys.workspace(caseId) : ["cases", "missing", "chat"],
     queryFn: ({ signal }) => {
       if (!caseId) throw new Error("caseId is required");
       return getCaseChat(caseId, signal);
+    },
+    enabled: Boolean(caseId),
+    retry: 1,
+  });
+  const readinessQuery = useQuery({
+    queryKey: caseId
+      ? caseAnalysisKeys.readiness(caseId)
+      : ["cases", "missing", "report-readiness"],
+    queryFn: ({ signal }) => {
+      if (!caseId) throw new Error("caseId is required");
+      return getCaseReportReadiness(caseId, signal);
     },
     enabled: Boolean(caseId),
     retry: 1,
@@ -45,20 +56,29 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   if (!caseId) {
     return <CaseRouteState title="Case Chat" message="No case ID was provided." />;
   }
-  if (caseQuery.isLoading || chatQuery.isLoading) {
+  if (caseQuery.isLoading || chatQuery.isLoading || readinessQuery.isLoading) {
     return <CaseRouteState title="Case Chat" message={`Loading case ${caseId}.`} />;
   }
-  if (isNotFound(caseQuery.error) || isNotFound(chatQuery.error)) {
+  if (isNotFound(caseQuery.error) || isNotFound(chatQuery.error) || isNotFound(readinessQuery.error)) {
     return <CaseRouteState title="Case Chat" message={`Case ${caseId} was not found.`} />;
   }
-  if (caseQuery.error || chatQuery.error || !caseQuery.data || !chatQuery.data) {
+  if (
+    caseQuery.error ||
+    chatQuery.error ||
+    readinessQuery.error ||
+    !caseQuery.data ||
+    !chatQuery.data ||
+    !readinessQuery.data
+  ) {
     return <CaseRouteState title="Case Chat" message="Could not load this case chat." />;
   }
 
   const workspace = chatQuery.data;
+  const readiness = readinessQuery.data;
   const activeCaseId = caseId;
   const hasSavedIntake = Boolean(workspace.context.incident_summary.trim());
   const isPending = isSending || workspace.status === "pending";
+  const isCurrent = readiness.report_eligible && readiness.analysis_status === "completed";
 
   async function send(action: CaseChatAction, visibleMessage = "") {
     if (isPending) return;
@@ -71,7 +91,10 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
         newIdempotencyKey(),
       );
       setMessage("");
-      await queryClient.invalidateQueries({ queryKey: chatKey(activeCaseId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
+        queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+      ]);
     } catch {
       setRequestError("Could not submit the case-chat action. Refresh analysis and try again.");
     } finally {
@@ -87,16 +110,26 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   }
 
   async function generateReport() {
-    const contextId = workspace.latest_retrieval_context_id;
-    if (!workspace.report_eligible || !contextId) return;
+    if (!readiness.report_eligible) return;
     setIsGeneratingReport(true);
     setRequestError("");
     try {
-      await generateCaseReport(activeCaseId, "overview", false, false, contextId);
+      const result = await generateCaseReport(activeCaseId, "overview", false, false);
+      if (result.status !== "completed" && result.status !== "followup") {
+        setRequestError(result.message);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
+          queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+        ]);
+        return;
+      }
       router.push(`/cases/${activeCaseId}/report`);
     } catch {
       setRequestError("The report could not start. Refresh analysis if the retrieval context has expired.");
-      await queryClient.invalidateQueries({ queryKey: chatKey(activeCaseId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
+        queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+      ]);
     } finally {
       setIsGeneratingReport(false);
     }
@@ -111,16 +144,38 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
           </div>
         ) : null}
 
-        {workspace.status === "stale" ? (
-          <div className="border border-amber-500/30 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-            This analysis completed against an older case version. Refresh analysis before generating a report.
-          </div>
-        ) : null}
-        {workspace.status === "expired" ? (
-          <div className="border border-amber-500/30 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-            The RAG session or retrieval context expired. Refresh analysis explicitly to continue.
-          </div>
-        ) : null}
+        <div role="status" aria-live="polite" className="border border-black/15 bg-white p-4">
+          <p className="mono-label">
+            {isCurrent
+              ? "Analysis current"
+              : readiness.analysis_status === "stale"
+                ? "Refresh analysis required"
+                : readiness.analysis_status === "expired"
+                  ? "Analysis context expired"
+                  : readiness.analysis_status === "failed"
+                    ? "Analysis failed"
+                    : readiness.analysis_status === "pending"
+                      ? workspace.requires_followup
+                        ? "Analysis awaiting follow-up"
+                        : "Analysis in progress"
+                      : "Analysis required"}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-neutral-900">
+            {isCurrent
+              ? `Current investigation analysis is available for case version ${readiness.current_case_version}.`
+              : readiness.analysis_status === "stale"
+                ? "Case changed after the last analysis. Refresh analysis before generating a report."
+                : readiness.analysis_status === "expired"
+                  ? "The saved analysis context is no longer available. Refresh analysis."
+                  : readiness.analysis_status === "failed"
+                    ? "The last analysis did not complete. Refresh analysis to try again."
+                    : readiness.analysis_status === "pending"
+                      ? workspace.requires_followup
+                        ? "Provide the requested follow-up information before report generation."
+                        : "Analysis is running. Report generation is unavailable until it completes."
+                      : "Analyze the saved case before generating a preliminary report."}
+          </p>
+        </div>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <main className="min-w-0 border border-black/10 bg-white">
@@ -162,22 +217,46 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
 
             <div className="border-t border-black/10 p-5">
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => void send("analyze")}
-                  disabled={!hasSavedIntake || isPending}
-                  className="btn-primary"
-                >
-                  {workspace.status === "stale" || workspace.status === "expired" ? "Refresh analysis" : "Analyze saved case"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void generateReport()}
-                  disabled={!workspace.report_eligible || isGeneratingReport || isPending}
-                  className="border border-black px-4 py-2 text-xs font-black uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-40"
-                >
+                {isCurrent ? null : readiness.analysis_status === "pending" ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {workspace.requires_followup ? "Complete follow-up" : "Analysis in progress"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void send(
+                      readiness.analysis_status === "missing" ? "analyze" : "refresh_analysis",
+                    )}
+                    disabled={!hasSavedIntake || isPending}
+                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {readiness.analysis_status === "missing" ? "Analyze saved case" : "Refresh analysis"}
+                  </button>
+                )}
+                {isCurrent ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void generateReport()}
+                      disabled={isGeneratingReport || isPending}
+                      className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    >
                   {isGeneratingReport ? "Starting report…" : "Generate preliminary report"}
-                </button>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void send("refresh_analysis")}
+                      disabled={isPending}
+                      className="border border-black px-4 py-2 text-xs font-black uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Refresh analysis
+                    </button>
+                  </>
+                ) : null}
               </div>
 
               <form onSubmit={onSubmit} className="mt-4 flex gap-3">

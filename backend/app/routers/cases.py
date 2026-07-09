@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
-from app.schemas.case_chat import CaseChatMessageRequest, CaseChatMessageResponse, CaseChatWorkspaceView
+from app.schemas.case_chat import (
+    CaseChatMessageRequest,
+    CaseChatMessageResponse,
+    CaseChatWorkspaceView,
+    CaseReportReadiness,
+)
 from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateCaseReportRequest, ReportResumeRequest
 from app.services.case_outputs import apply_case_intake_outputs
 from app.services.case_chat import CaseChatService
@@ -180,6 +185,14 @@ async def post_case_chat_message(
     return await CaseChatService(db=db).send_message(
         case_id, request, idempotency_key=idempotency_key
     )
+
+
+@router.get("/{case_id}/report/readiness", response_model=CaseReportReadiness)
+async def get_case_report_readiness(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> CaseReportReadiness:
+    return await CaseChatService(db=db).get_report_readiness(case_id)
 
 
 @router.post("/{case_id}/report", response_model=ReportWorkflowResponse)

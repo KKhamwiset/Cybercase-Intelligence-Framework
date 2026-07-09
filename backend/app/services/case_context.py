@@ -143,12 +143,12 @@ class CaseContextService:
             "Analyze the saved cyber incident case. Separate reported facts, "
             "candidate inferences, and missing information. Ground MITRE ATT&CK "
             "mappings in the supplied evidence."
-            if action == "analyze"
+            if action in {"analyze", "refresh_analysis"}
             else "Answer the analyst's visible question using the saved case context. "
             "Separate reported facts, candidate inferences, and missing information."
         )
         parts = [instruction, "Canonical saved case context:", cls.canonical_json(payload)]
-        if visible_message.strip() and action != "analyze":
+        if visible_message.strip() and action not in {"analyze", "refresh_analysis"}:
             parts.extend(["Analyst question:", cls._normalise(visible_message)])
         return "\n\n".join(parts)
 

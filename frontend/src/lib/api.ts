@@ -340,7 +340,6 @@ export const generateCaseReport = async (
   reportType: ReportType = "overview",
   legal: boolean = false,
   forceGenerate: boolean = false,
-  retrievalContextId?: string,
 ): Promise<ReportWorkflowResponse> => {
   const baseUrl = getApiBaseUrl();
   try {
@@ -350,7 +349,6 @@ export const generateCaseReport = async (
         report_type: reportType,
         legal,
         force_generate: forceGenerate,
-        retrieval_context_id: retrievalContextId || undefined,
       },
       {
         headers: {

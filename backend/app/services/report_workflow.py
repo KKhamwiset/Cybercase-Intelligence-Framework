@@ -202,11 +202,38 @@ class ReportWorkflowService:
             select(CaseChatState).where(CaseChatState.case_id == case.case_id)
         )
         state = result.scalars().first()
-        if not isinstance(state, CaseChatState) or state.status in {"idle", "pending", "failed"}:
+        if not isinstance(state, CaseChatState) or state.status == "idle":
             return ReportErrorResponse(
                 status="analysis_required",
                 error_code="analysis_required",
                 message="Run and complete a current case chat analysis before generating a report.",
+            )
+        if (
+            state.status == "stale"
+            or (
+                state.analysis_case_version is not None
+                and (
+                    state.analysis_case_version != case_version
+                    or state.analysis_snapshot_hash != case_hash
+                )
+            )
+        ):
+            return ReportErrorResponse(
+                status="analysis_stale",
+                error_code="analysis_stale",
+                message="The available analysis does not match the current case. Refresh analysis before reporting.",
+            )
+        if state.status == "pending" or state.requires_followup:
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_pending",
+                message="Case analysis is still in progress. Wait for it to complete before reporting.",
+            )
+        if state.status == "failed":
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_failed",
+                message="The latest case analysis failed. Refresh analysis before reporting.",
             )
         if state.status == "expired":
             return ReportErrorResponse(
@@ -214,25 +241,20 @@ class ReportWorkflowService:
                 error_code="context_expired",
                 message="The case chat retrieval context expired. Refresh analysis before reporting.",
             )
-        if (
-            state.status == "stale"
-            or state.requires_followup
-            or state.analysis_case_version != case_version
-            or state.analysis_snapshot_hash != case_hash
-        ):
+        if state.analysis_case_version is None:
             return ReportErrorResponse(
-                status="analysis_stale",
-                error_code="analysis_stale",
-                message="The available analysis does not match the current case. Refresh analysis before reporting.",
+                status="analysis_required",
+                error_code="analysis_required",
+                message="Run and complete a current case chat analysis before generating a report.",
             )
         context_id = state.latest_retrieval_context_id
         if not context_id:
             return ReportErrorResponse(
-                status="analysis_required",
-                error_code="analysis_required",
-                message="A completed case chat analysis is required before reporting.",
+                status="context_expired",
+                error_code="context_expired",
+                message="The case chat retrieval context expired. Refresh analysis before reporting.",
             )
-        if request.retrieval_context_id != context_id:
+        if request.retrieval_context_id and request.retrieval_context_id != context_id:
             return ReportErrorResponse(
                 status="analysis_stale",
                 error_code="retrieval_context_mismatch",
