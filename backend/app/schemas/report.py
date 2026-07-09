@@ -242,7 +242,7 @@ class ReportFollowUpResponse(BaseModel):
 
 
 class ReportErrorResponse(BaseModel):
-    status: Literal["error", "context_expired"]
+    status: Literal["error", "context_expired", "analysis_required", "analysis_stale"]
     error_code: str
     message: str
 

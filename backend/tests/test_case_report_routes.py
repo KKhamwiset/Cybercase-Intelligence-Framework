@@ -197,10 +197,10 @@ def test_generate_case_report() -> None:
     req = GenerateCaseReportRequest(report_type="overview")
     response = asyncio.run(generate_case_report("CASE-123", req, service=service))
 
-    assert response.status == "completed"
-    assert response.report_id == "rep-123"
-    assert len(db.added) == 1
-    assert db.commits == 1
+    assert response.status == "analysis_required"
+    assert response.error_code == "analysis_required"
+    assert len(db.added) == 0
+    assert db.commits == 0
 
 
 def test_get_case_report_not_found() -> None:

@@ -230,6 +230,12 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
                         Save notes before moving into another stage.
                       </p>
                     ) : null}
+                    <Link
+                      href={`/cases/${loadedCase.case_id}/chat`}
+                      className="border border-black px-4 py-2 text-xs font-black uppercase tracking-wider hover:bg-black hover:text-white"
+                    >
+                      Open investigation chat
+                    </Link>
                   </div>
                 </div>
               </div>

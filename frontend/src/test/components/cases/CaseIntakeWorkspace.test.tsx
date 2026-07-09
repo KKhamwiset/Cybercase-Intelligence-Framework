@@ -127,6 +127,9 @@ describe("CaseIntakeWorkspace", () => {
     ).toBe(true);
     expect(screen.getByText("1 candidate mapping(s)")).toBeInTheDocument();
     expect(screen.getByText("Validate payments")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open investigation chat" })).toHaveAttribute(
+      "href", "/cases/CASE-INTAKE/chat",
+    );
   });
 
   it("loads a saved backend narrative into the editable draft when no tab draft exists", async () => {

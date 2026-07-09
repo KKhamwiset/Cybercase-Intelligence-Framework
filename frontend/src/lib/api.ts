@@ -194,7 +194,7 @@ export interface ReportFollowUpResponse {
 }
 
 export interface ReportErrorResponse {
-  status: "error" | "context_expired";
+  status: "error" | "context_expired" | "analysis_required" | "analysis_stale";
   error_code: string;
   message: string;
 }

@@ -3,23 +3,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.case import CaseRecord
 from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
-from app.schemas.report import (
-    ReportViewModel,
-    ReportWorkflowResponse,
-    GenerateCaseReportRequest,
-    ReportResumeRequest,
-    CaseAnalysisStartRequest,
-    CaseAnalysisFollowUpRequest,
-    CaseAnalysisResponse,
-)
+from app.schemas.case_chat import CaseChatMessageRequest, CaseChatMessageResponse, CaseChatWorkspaceView
+from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateCaseReportRequest, ReportResumeRequest
 from app.services.case_outputs import apply_case_intake_outputs
+from app.services.case_chat import CaseChatService
+from app.services.case_context import CaseContextService
 from app.services.report_generator import (
     DeterministicReportGenerator,
     structured_case_from_record_data,
@@ -30,8 +25,13 @@ from app.dependencies import get_report_workflow_service
 router = APIRouter(prefix="/cases", tags=["cases"])
 
 
-async def _load_case_record(case_id: str, db: AsyncSession) -> CaseRecord:
-    result = await db.execute(select(CaseRecord).where(CaseRecord.case_id == case_id))
+async def _load_case_record(
+    case_id: str, db: AsyncSession, *, for_update: bool = False
+) -> CaseRecord:
+    stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    result = await db.execute(stmt)
     case = result.scalars().first()
     if case is None:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -97,7 +97,9 @@ async def create_case(
         status=request.status,
         severity=request.severity,
         data=payload,
+        case_version=1,
     )
+    case.case_snapshot_hash = CaseContextService.hash_for_case(case)
     db.add(case)
     await db.commit()
     await db.refresh(case)
@@ -135,7 +137,8 @@ async def update_case(
     request: CaseUpdate,
     db: AsyncSession = Depends(get_db),
 ) -> StructuredCase:
-    case = await _load_case_record(case_id, db)
+    case = await _load_case_record(case_id, db, for_update=True)
+    previous_hash = case.case_snapshot_hash or ""
     updates = request.model_dump(exclude_unset=True, mode="json")
     payload = dict(case.data or {})
     payload.update(updates)
@@ -149,9 +152,34 @@ async def update_case(
     case.status = validated.status
     case.severity = validated.severity
     case.data = validated.model_dump(mode="json")
+    changed = CaseChatService(db=db).update_case_snapshot(case, previous_hash)
+    if changed:
+        await CaseChatService(db=db).invalidate_for_case_update(case)
     await db.commit()
     await db.refresh(case)
     return _structured_case_from_record(case)
+
+
+@router.get("/{case_id}/chat", response_model=CaseChatWorkspaceView)
+async def get_case_chat(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> CaseChatWorkspaceView:
+    return await CaseChatService(db=db).get_workspace(case_id)
+
+
+@router.post("/{case_id}/chat/messages", response_model=CaseChatMessageResponse)
+async def post_case_chat_message(
+    case_id: str,
+    request: CaseChatMessageRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> CaseChatMessageResponse:
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key is required")
+    return await CaseChatService(db=db).send_message(
+        case_id, request, idempotency_key=idempotency_key
+    )
 
 
 @router.post("/{case_id}/report", response_model=ReportWorkflowResponse)
@@ -178,29 +206,3 @@ async def get_case_report(
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResponse:
     return await service.get_latest_case_report(case_id)
-
-
-@router.post("/{case_id}/analysis/start", response_model=CaseAnalysisResponse)
-async def start_case_analysis(
-    case_id: str,
-    request: CaseAnalysisStartRequest,
-    service: ReportWorkflowService = Depends(get_report_workflow_service),
-) -> CaseAnalysisResponse:
-    return await service.start_case_analysis(case_id, request)
-
-
-@router.get("/{case_id}/analysis", response_model=CaseAnalysisResponse)
-async def get_case_analysis(
-    case_id: str,
-    service: ReportWorkflowService = Depends(get_report_workflow_service),
-) -> CaseAnalysisResponse:
-    return await service.get_case_analysis(case_id)
-
-
-@router.post("/{case_id}/analysis/followup", response_model=CaseAnalysisResponse)
-async def submit_case_analysis_followup(
-    case_id: str,
-    request: CaseAnalysisFollowUpRequest,
-    service: ReportWorkflowService = Depends(get_report_workflow_service),
-) -> CaseAnalysisResponse:
-    return await service.submit_case_analysis_followup(case_id, request)
