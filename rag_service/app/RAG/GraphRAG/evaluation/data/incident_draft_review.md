@@ -519,3 +519,200 @@
 | 6 | named | T1048 ? | ข้อมูลที่ละเอียดอ่อนจำนวนมากได้ถูกส่งออกไปจากเครือข่ายโดยใช้ DNS tunneling protocol |
 
 - [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_034  (source group: FIN8 G0061)
+
+**AUTO-FLAGS: step 2: described cue names the technique (Windows Management Instrumentation)**
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพได้แจ้งความว่าระบบเซิร์ฟเวอร์ของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต ผู้โจมตีใช้ Valid Accounts ที่ได้มาจากการรั่วไหลของข้อมูลเข้าสู่ระบบเครือข่ายภายใน จากการตรวจสอบ log พบว่าผู้โจมตีได้ทำการเรียกใช้ script ผ่าน Windows Management Instrumentation เพื่อดำเนินการคำสั่งต่างๆ บนระบบที่ถูกบุกรุก ต่อมาผู้โจมตีได้ทำการแก้ไขค่าต่างๆ ในฐานข้อมูลระบบ registry เพื่อเพิ่มความคงอยู่ของ malware และหลีกเลี่ยงการตรวจจับ จากนั้นผู้โจมตีได้นำเสนอความเสี่ยงจากช่องโหว่ที่ยังไม่ได้รับการแก้ไขในระบบเพื่อเพิ่มสิทธิการเข้าถึง จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่าผู้โจมตีได้ทำการ Ingress Tool Transfer โดยส่งเครื่องมือโจมตีเพิ่มเติมเข้าสู่ระบบเพื่อเตรียมการแพร่กระจายไปยังเครื่องอื่นๆ ในเครือข่าย
+
+*EN:* On 22 February 2569, a private information technology company in Bangkok reported that its server system was accessed without authorization. The attacker used Valid Accounts obtained from a data breach to access the internal network. From log examination, the attacker was found to have executed scripts via Windows Management Instrumentation to perform commands on the compromised system. Subsequently, the attacker modified various values in the system registry database to ensure malware persistence and evade detection. The attacker then exploited an unpatched system vulnerability to elevate privileges. Digital evidence examination revealed that the attacker performed Ingress Tool Transfer by uploading additional attack tools into the system to prepare for propagation to other machines on the network.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1078 Valid Accounts | ผู้โจมตีใช้ Valid Accounts ที่ได้มาจากการรั่วไหลของข้อมูลเข้าสู่ระบบเครือข่ายภายใน |
+| 2 | described | T1047 Windows Management Instrumentation | ผู้โจมตีได้ทำการเรียกใช้ script ผ่าน Windows Management Instrumentation เพื่อดำเนินการคำสั่งต่างๆ บนระบบที่ถูกบุกรุก |
+| 3 | described | T1112 Modify Registry | ผู้โจมตีได้ทำการแก้ไขค่าต่างๆ ในฐานข้อมูลระบบ registry เพื่อเพิ่มความคงอยู่ของ malware และหลีกเลี่ยงการตรวจจับ |
+| 4 | named | T1068 Exploitation for Privilege Escalation | ผู้โจมตีได้นำเสนอความเสี่ยงจากช่องโหว่ที่ยังไม่ได้รับการแก้ไขในระบบเพื่อเพิ่มสิทธิการเข้าถึง |
+| 5 | named | T1105 Ingress Tool Transfer | ผู้โจมตีได้ทำการ Ingress Tool Transfer โดยส่งเครื่องมือโจมตีเพิ่มเติมเข้าสู่ระบบเพื่อเตรียมการแพร่กระจายไปยังเครื่องอื่นๆ ในเครือข่าย |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_035  (source group: Tropic Trooper G0081)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการจัดการสินค้าคงคลังแห่งหนึ่งในจังหวัดสมุทรปราการได้แจ้งความว่าระบบคอมพิวเตอร์ของพนักงานสายการบัญชีถูกติดเชื้อ โดยผู้เสียหายรายงานว่าพบ USB flash drive ที่ไม่รู้จักอยู่บนโต๊ะทำงาน และหลังจากที่เสียบเข้าไปเพื่อตรวจสอบ ไฟล์ที่ซ่อนอยู่ได้ทำการ replication through removable media ไปยังเครื่องอื่น ๆ ในเครือข่าย จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่า malware ได้ใช้ Windows API calls โดยตรงเพื่อสร้างกระบวนการใหม่และเรียกใช้ executable file ที่ฝังตัวอยู่ในหน่วยความจำ ต่อมาจากการวิเคราะห์ event log พบการสแกนหลายครั้งของรายการ running processes ผ่านการเรียกใช้ tasklist command และการอ่านข้อมูล registry keys เพื่อเก็บรวบรวมข้อมูลเกี่ยวกับแอปพลิเคชันที่ติดตั้ง จากนั้นอีกไม่นานพบการเชื่อมต่อเครือข่ายขาออกไปยังเซิร์ฟเวอร์ต่างประเทศผ่านช่องทาง HTTPS encrypted session ซึ่งแม้จะเข้ารหัสแล้ว แต่จากการวิเคราะห์ metadata ของแพ็กเก็ตสามารถติดตามการสื่อสารแบบ command-and-control ได้
+
+*EN:* On 22 February 2569, a private logistics and inventory management company in Samut Prakan Province reported that an accounting department employee's computer had been infected. The victim reported finding an unknown USB flash drive on the work desk, and after connecting it for inspection, files performed replication through removable media to other machines on the network. Digital forensic examination revealed that malware used Windows API calls directly to create new processes and execute embedded executable files in memory. Subsequently, event log analysis identified multiple scans of running processes via tasklist command invocations and registry key reads to gather information about installed applications. Shortly after, outbound network connections to foreign servers were detected through encrypted HTTPS sessions which, despite encryption, allowed command-and-control communication to be tracked via packet metadata analysis.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1091 Replication Through Removable Media | ไฟล์ที่ซ่อนอยู่ได้ทำการ replication through removable media ไปยังเครื่องอื่น ๆ ในเครือข่าย |
+| 2 | described | T1106 Native API | malware ได้ใช้ Windows API calls โดยตรงเพื่อสร้างกระบวนการใหม่และเรียกใช้ executable file ที่ฝังตัวอยู่ในหน่วยความจำ |
+| 3 | described | T1057 Process Discovery | การสแกนหลายครั้งของรายการ running processes ผ่านการเรียกใช้ tasklist command และการอ่านข้อมูล registry keys เพื่อเก็บรวบรวมข้อมูลเกี่ยวกับแอปพลิเคชันที่ติดตั้ง |
+| 4 | described | T1573 Encrypted Channel | การเชื่อมต่อเครือข่ายขาออกไปยังเซิร์ฟเวอร์ต่างประเทศผ่านช่องทาง HTTPS encrypted session |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_036  (source group: FIN13 G1016)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทบริหารสินทรัพย์ดิจิทัลแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้รับแจ้งเบาะแสจากผู้ดูแลระบบว่าพบกิจกรรมผิดปกติในเซิร์ฟเวอร์ Active Directory จากการตรวจสอบ log พบว่าผู้โจมตีได้ทำการ Modify Authentication Process โดยเพิ่มบัญชีผู้ใช้งานเสมือนจริงเข้าไปในกลุ่มผู้ดูแลระบบ เพื่อรักษาการเข้าถึงระบบในระยะยาว ต่อมาผู้โจมตีได้ทำการ Deobfuscate/Decode Files or Information บนเซิร์ฟเวอร์ระดับกลาง โดยถอดรหัส PowerShell scripts ที่ถูกเข้ารหัสด้วย Base64 เพื่อเตรียมเครื่องมือสำหรับขั้นตอนต่อไป จากนั้นทำการ Ingress Tool Transfer ส่งโปรแกรม remote access tool ชื่อว่า RemoteAdmin.exe ไปยังเซิร์ฟเวอร์ฐานข้อมูล ผ่านทางช่องทาง SMB ที่ไม่ได้รับการป้องกัน สุดท้ายจากการวิเคราะห์ network traffic พบว่ามีการส่งข้อมูลผ่านช่องทาง HTTPS ที่ปกติ แต่ภายในนั้นมีการห่อหุ้มข้อมูลควบคุมคำสั่งด้วยโปรโตคอลที่ไม่ได้รับการตรวจสอบ ซึ่งเป็นการสร้างอุโมงค์การสื่อสารแบบซ่อนตัว และสิ้นสุดด้วยการ Financial Theft เมื่อผู้โจมตีดึงเงินจากบัญชีลูกค้า 47 บัญชี รวมมูลค่า 8.3 ล้านบาท
+
+*EN:* On 22 February 2569, a digital asset management company in Bangkok received a tip from a system administrator about suspicious activity in the Active Directory server. Upon examination of logs, investigators found that the attacker had performed Modify Authentication Process by adding a virtual user account to the administrator group to maintain long-term system access. Subsequently, the attacker performed Deobfuscate/Decode Files or Information on the intermediate server by decoding Base64-encrypted PowerShell scripts to prepare tools for the next phase. The attacker then conducted Ingress Tool Transfer by sending a remote access tool called RemoteAdmin.exe to the database server through an unprotected SMB channel. Finally, network traffic analysis revealed data being sent through normal HTTPS channels but with command-control information wrapped in an unmonitored protocol, establishing a covert communication tunnel. The attack concluded with Financial Theft when the attacker withdrew funds from 47 customer accounts totaling 8.3 million baht.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1556 Modify Authentication Process | ผู้โจมตีได้ทำการ Modify Authentication Process โดยเพิ่มบัญชีผู้ใช้งานเสมือนจริงเข้าไปในกลุ่มผู้ดูแลระบบ |
+| 2 | named | T1140 Deobfuscate/Decode Files or Information | ผู้โจมตีได้ทำการ Deobfuscate/Decode Files or Information บนเซิร์ฟเวอร์ระดับกลาง โดยถอดรหัส PowerShell scripts ที่ถูกเข้ารหัสด้วย Base64 |
+| 3 | named | T1105 Ingress Tool Transfer | ทำการ Ingress Tool Transfer ส่งโปรแกรม remote access tool ชื่อว่า RemoteAdmin.exe ไปยังเซิร์ฟเวอร์ฐานข้อมูล |
+| 4 | described | T1572 Protocol Tunneling | มีการส่งข้อมูลผ่านช่องทาง HTTPS ที่ปกติ แต่ภายในนั้นมีการห่อหุ้มข้อมูลควบคุมคำสั่งด้วยโปรโตคอลที่ไม่ได้รับการตรวจสอบ |
+| 5 | named | T1657 Financial Theft | การ Financial Theft เมื่อผู้โจมตีดึงเงินจากบัญชีลูกค้า 47 บัญชี รวมมูลค่า 8.3 ล้านบาท |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_037  (source group: Leviathan G0065)
+
+**AUTO-FLAGS: step 2: described cue names the technique (BITS Jobs)**
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานครแจ้งความว่าระบบเซิร์ฟเวอร์ของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีใช้บัญชีพนักงานที่ยังคงมีสิทธิ์การเข้าถึงระบบอยู่ เพื่อเข้าสู่เครื่องคอมพิวเตอร์เซิร์ฟเวอร์หลัก ต่อมาผู้โจมตีสร้าง BITS Jobs เพื่อดาวน์โหลดไฟล์ payload ขนาดเล็กจากเซิร์ฟเวอร์ภายนอกในช่วงเวลาที่ปกติไม่มีใครสังเกตเห็น จากนั้นทำการ OS Credential Dumping ด้วยเครื่องมือพิเศษเพื่อขโมยรหัสผ่านของผู้ใช้งานอื่น ๆ ในระบบ สุดท้ายผู้โจมตีส่ง Internal Spearphishing ไปยังพนักงานบัญชีเพื่อให้คลิกลิงก์และได้มาซึ่งข้อมูลประจำตัวเพิ่มเติม หลังจากนั้นทำการ Archive Collected Data โดยบีบอัดไฟล์ข้อมูลลูกค้า ระเบียนการโอนเงิน และเอกสารภายในไว้ในไฟล์ RAR ที่เข้ารหัส สุดท้ายทำการ Exfiltration Over C2 Channel ส่งไฟล์บีบอัดออกไปยังเซิร์ฟเวอร์ Command and Control ที่อยู่ในต่างประเทศผ่านการเชื่อมต่อ HTTPS ที่ซ่อนอยู่ในการสื่อสารปกติ
+
+*EN:* On 22 February 2569, a financial services company in Bangkok reported unauthorized access to its server system. From log examination, investigators found that the attacker used an active employee account with valid access privileges to enter the primary server computer. Subsequently, the attacker created BITS Jobs to download small payload files from an external server during off-hours when unnoticed. The attacker then performed OS Credential Dumping using specialized tools to steal passwords of other system users. The attacker subsequently sent Internal Spearphishing to accounting staff to click links and obtain additional credentials. The attacker then performed Archive Collected Data by compressing customer information files, fund transfer records, and internal documents into an encrypted RAR file. Finally, the attacker performed Exfiltration Over C2 Channel, sending the compressed file to a Command and Control server located overseas via HTTPS connection hidden within normal communications.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | described | T1078 Valid Accounts | ใช้บัญชีพนักงานที่ยังคงมีสิทธิ์การเข้าถึงระบบอยู่ เพื่อเข้าสู่เครื่องคอมพิวเตอร์เซิร์ฟเวอร์หลัก |
+| 2 | described | T1197 BITS Jobs | สร้าง BITS Jobs เพื่อดาวน์โหลดไฟล์ payload ขนาดเล็กจากเซิร์ฟเวอร์ภายนอกในช่วงเวลาที่ปกติไม่มีใครสังเกตเห็น |
+| 3 | named | T1003 OS Credential Dumping | ทำการ OS Credential Dumping ด้วยเครื่องมือพิเศษเพื่อขโมยรหัสผ่านของผู้ใช้งานอื่น ๆ ในระบบ |
+| 4 | named | T1534 Internal Spearphishing | ส่ง Internal Spearphishing ไปยังพนักงานบัญชีเพื่อให้คลิกลิงก์และได้มาซึ่งข้อมูลประจำตัวเพิ่มเติม |
+| 5 | named | T1560 Archive Collected Data | ทำการ Archive Collected Data โดยบีบอัดไฟล์ข้อมูลลูกค้า ระเบียนการโอนเงิน และเอกสารภายในไว้ในไฟล์ RAR ที่เข้ารหัส |
+| 6 | named | T1041 Exfiltration Over C2 Channel | ทำการ Exfiltration Over C2 Channel ส่งไฟล์บีบอัดออกไปยังเซิร์ฟเวอร์ Command and Control ที่อยู่ในต่างประเทศผ่านการเชื่อมต่อ HTTPS |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_038  (source group: HAFNIUM G0125)
+
+> เมื่อวันที่ 12 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินดิจิทัลแห่งหนึ่งในกรุงเทพมหานคร ได้แจ้งความว่าระบบเซิร์ฟเวอร์หลักของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log และระบบ IDS พบว่าผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ในแอปพลิเคชัน web server เพื่อให้ได้สิทธิ์การเข้าถึงระดับสูงขึ้นบนเซิร์ฟเวอร์ ต่อมาผู้โจมตีได้ทำการสแกนและรวบรวมข้อมูลเกี่ยวกับการตั้งค่าเครือข่าย ระบบ DNS routing และรายชื่อ IP address ของเซิร์ฟเวอร์ภายในองค์กร จากนั้นผู้โจมตีได้ดำเนินการเข้าถึงข้อมูลจาก Cloud Storage ซึ่งเป็นที่เก็บข้อมูลลูกค้าและข้อมูลการทำธุรกรรมจำนวนประมาณ 2.3 ล้านเรคคอร์ด สุดท้ายทีมวิเคราะห์พบการส่งข้อมูลออกจากระบบไปยังเซิร์ฟเวอร์ภายนอกประเทศ
+
+*EN:* On 12 February 2569, a digital financial services company in Bangkok reported unauthorized access to its primary server system. Investigation of logs and IDS systems revealed that the attacker exploited a vulnerability in the web server application to obtain elevated access privileges on the server. Subsequently, the attacker scanned and gathered information regarding network configuration, DNS routing settings, and a list of internal organizational IP addresses. The attacker then accessed data from Cloud Storage containing customer information and transaction records totaling approximately 2.3 million records. Finally, the analysis team identified data exfiltration to external servers located outside the country.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | described | T1068 Exploitation for Privilege Escalation | ผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ในแอปพลิเคชัน web server เพื่อให้ได้สิทธิ์การเข้าถึงระดับสูงขึ้นบนเซิร์ฟเวอร์ |
+| 2 | described | T1016 System Network Configuration Discovery | ผู้โจมตีได้ทำการสแกนและรวบรวมข้อมูลเกี่ยวกับการตั้งค่าเครือข่าย ระบบ DNS routing และรายชื่อ IP address ของเซิร์ฟเวอร์ภายในองค์กร |
+| 3 | named | T1530 Data from Cloud Storage | ผู้โจมตีได้ดำเนินการเข้าถึงข้อมูลจาก Cloud Storage ซึ่งเป็นที่เก็บข้อมูลลูกค้าและข้อมูลการทำธุรกรรมจำนวนประมาณ 2.3 ล้านเรคคอร์ด |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_039  (source group: Ember Bear G1003)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพได้รับแจ้งเบาะแสจากฝ่ายเทคนิคว่ามีการเข้าถึงระบบเซิร์ฟเวอร์ VPN ที่ไม่ได้รับอนุญาต โดยผู้โจมตีใช้ External Remote Services เพื่อทำการเชื่อมต่อจากระยะไกล จากการตรวจสอบ log ของเซิร์ฟเวอร์ VPN พบว่ามีการพยายามเข้าถึงบัญชีผู้ใช้งานหลายครั้งติดต่อกันด้วยการส่งรหัสผ่านต่างๆ เป็นจำนวนมากจนกระทั่งสำเร็จในการเข้าสู่ระบบ ต่อมา จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่าผู้โจมตีได้ทำการค้นหาและรวบรวมข้อมูลเกี่ยวกับบริการเครือข่ายต่างๆ ที่ทำงานอยู่ในเครือข่ายภายในของบริษัท รวมถึงพอร์ตและเวอร์ชันของแอปพลิเคชันที่ใช้งาน ซึ่งทั้งหมดนี้บ่งชี้ถึงการเตรียมการสำหรับการโจมตีในลำดับต่อไป
+
+*EN:* On 22 February 2569, a private information technology company in Bangkok received notification from the technical division that unauthorized access to the VPN server had occurred. The attacker used External Remote Services to establish remote connections. Upon examination of the VPN server logs, multiple sequential login attempts were discovered using various passwords until successful authentication was achieved. Subsequently, digital forensic examination revealed that the attacker conducted reconnaissance of network services operating within the company's internal network, including port and application version enumeration. These findings indicated preparation for subsequent attack phases.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1133 External Remote Services | ผู้โจมตีใช้ External Remote Services เพื่อทำการเชื่อมต่อจากระยะไกล |
+| 2 | described | T1110 Brute Force | มีการพยายามเข้าถึงบัญชีผู้ใช้งานหลายครั้งติดต่อกันด้วยการส่งรหัสผ่านต่างๆ เป็นจำนวนมากจนกระทั่งสำเร็จในการเข้าสู่ระบบ |
+| 3 | described | T1046 Network Service Discovery | ผู้โจมตีได้ทำการค้นหาและรวบรวมข้อมูลเกี่ยวกับบริการเครือข่ายต่างๆ ที่ทำงานอยู่ในเครือข่ายภายในของบริษัท รวมถึงพอร์ตและเวอร์ชันของแอปพลิเคชันที่ใช้งาน |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_040  (source group: BRONZE BUTLER G0060)
+
+**AUTO-FLAGS: step 3: cue not found verbatim in narrative**
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้แจ้งความว่าพบการเข้าถึงข้อมูลโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีใช้ drive-by compromise ผ่านการเยี่ยมชมเว็บไซต์ที่ถูกบุกรุกแล้ว ซึ่งส่งผลให้เกิดการติดตั้ง malware ลงในเครื่องของพนักงาน ต่อมาผู้โจมตีได้รันสคริปต์ PowerShell เพื่อดำเนินการเบื้องต้นบนระบบ และทำการปลอมตัวเป็น masquerading process ที่คล้ายกับบริการระบบที่ช合ท่อ เพื่อหลีกเลี่ยงการตรวจจับ จากนั้นได้ทำการค้นหาและแจกแจงบริการต่าง ๆ ที่ทำงานอยู่บนระบบ สุดท้ายผู้โจมตีได้ปนเปื้อน shared folder ที่ใช้ร่วมกันระหว่างพนักงาน และดึงข้อมูลประวัติการทำธุรกรรมลูกค้าจากฐานข้อมูลท้องถิ่นของเครื่องคอมพิวเตอร์
+
+*EN:* On 22 February 2569, a private financial services company in Bangkok reported unauthorized data access. Investigation of system logs revealed that the attacker used drive-by compromise via a compromised website, resulting in malware installation on an employee's machine. Subsequently, the attacker executed PowerShell scripts to perform initial operations on the system, and engaged in masquerading by spoofing a legitimate system service process to evade detection. The attacker then enumerated and discovered running services on the target system. Finally, the attacker tainted shared network folders used by staff and extracted customer transaction history data from the local system database.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1189 Drive-by Compromise | ใช้ drive-by compromise ผ่านการเยี่ยมชมเว็บไซต์ที่ถูกบุกรุกแล้ว |
+| 2 | described | T1059 Command and Scripting Interpreter | ได้รันสคริปต์ PowerShell เพื่อดำเนินการเบื้องต้นบนระบบ |
+| 3 | named | T1036 Masquerading | ทำการปลอมตัวเป็น masquerading process ที่คล้ายกับบริการระบบที่ชอบท่อ |
+| 4 | described | T1007 System Service Discovery | ได้ทำการค้นหาและแจกแจงบริการต่าง ๆ ที่ทำงานอยู่บนระบบ |
+| 5 | named | T1080 Taint Shared Content | ปนเปื้อน shared folder ที่ใช้ร่วมกันระหว่างพนักงาน |
+| 6 | described | T1005 Data from Local System | ดึงข้อมูลประวัติการทำธุรกรรมลูกค้าจากฐานข้อมูลท้องถิ่นของเครื่องคอมพิวเตอร์ |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_041  (source group: INC Ransom G1032)
+
+**AUTO-FLAGS: step 1: cue not found verbatim in narrative**
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพฯ ได้รับแจ้งว่าพนักงานแผนกบัญชีคนหนึ่งได้รับจดหมายอีเมลที่ดูเหมือนมาจากแผนกบุคคลกรรม พร้อมไฟล์แนบซึ่งเมื่อเปิดขึ้นมาได้โปรแกรมที่ซ่อนตัวอยู่ในพื้นหลัง จากการตรวจสอบ log ระบบพบว่า ผู้โจมตีได้ใช้ Windows Management Instrumentation เพื่อเรียกใช้คำสั่ง PowerShell ที่ซ่อนอยู่ในหน่วยความจำ ต่อมาผู้โจมตีได้นำข้อมูลประจำตัวของพนักงานปกติคนหนึ่งมาใช้เข้าถึงระบบแฟ้มเซิร์ฟเวอร์และฐานข้อมูลลูกค้า โดยไม่ถูกตรวจจับเป็นเวลาหลายสัปดาห์ สุดท้ายจากการวิเคราะห์ cloud storage logs พบว่า ข้อมูลลูกค้าจำนวนมากได้ถูก Transfer Data to Cloud Account ไปยังบัญชี Google Drive ภายนอกซึ่งควบคุมโดยผู้โจมตี
+
+*EN:* On 22 February 2569, a private financial company in Bangkok received notification that an accounting department employee had received an email appearing to originate from the human resources department, with an attachment that, when opened, deployed hidden malware in the background. From system log examination, it was determined that the attacker had used Windows Management Instrumentation to invoke hidden PowerShell commands residing in memory. Subsequently, the attacker utilized the credentials of one regular employee to access the file server and customer database without detection for several weeks. Finally, analysis of cloud storage logs revealed that a large volume of customer data had been transferred to an external Google Drive account controlled by the attacker.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | described | T1566 Phishing | ได้รับจดหมายอีเมลที่ดูเหมือนมาจากแผนกบุคคล พร้อมไฟล์แนบซึ่งเมื่อเปิดขึ้นมาได้โปรแกรมที่ซ่อนตัวอยู่ในพื้นหลัง |
+| 2 | named | T1047 Windows Management Instrumentation | ผู้โจมตีได้ใช้ Windows Management Instrumentation เพื่อเรียกใช้คำสั่ง PowerShell ที่ซ่อนอยู่ในหน่วยความจำ |
+| 3 | named | T1078 Valid Accounts | ผู้โจมตีได้นำข้อมูลประจำตัวของพนักงานปกติคนหนึ่งมาใช้เข้าถึงระบบแฟ้มเซิร์ฟเวอร์และฐานข้อมูลลูกค้า |
+| 4 | named | T1537 Transfer Data to Cloud Account | ข้อมูลลูกค้าจำนวนมากได้ถูก Transfer Data to Cloud Account ไปยังบัญชี Google Drive ภายนอก |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_042  (source group: MuddyWater G0069)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้แจ้งความว่าระบบคอมพิวเตอร์ของพนักงานหลายคนถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log ของเซิร์ฟเวอร์พบว่าผู้โจมตีทำการ deobfuscate/decode files ที่ฝังอยู่ในอีเมลแนบที่ส่งมาเพื่อให้เห็นโค้ดที่ซ่อนไว้ จากนั้นผู้โจมตีทำการสำรวจและค้นหา software ที่ติดตั้งในระบบเครือข่าย เพื่อหาจุดอ่อน ต่อมาผู้โจมตีส่งอีเมลหลอกลวงภายในองค์กรไปยังพนักงานในแผนกอื่นๆ โดยอ้างว่าเป็นจากฝ่ายไอที เพื่อให้คลิกลิงก์และเปิดไฟล์ที่มีความเสี่ยง จากการตรวจสอบหลักฐานดิจิทัลพบว่ามีการบันทึก screenshot ของหน้าจอเครื่องคอมพิวเตอร์เหล่านั้น รวมถึงข้อมูลที่แสดงบนจอภาพ สุดท้ายจากการวิเคราะห์ network traffic พบว่าข้อมูลที่ถูกเก็บรวบรวมได้ถูกส่งออกไปยังเซิร์ฟเวอร์ภายนอกผ่านทาง non-standard port 8843 และการเชื่อมต่อนั้นใช้ช่องทาง command-and-control ที่สร้างขึ้นมาเพื่อการโจมตีนี้โดยเฉพาะ
+
+*EN:* On 22 February 2569, a financial services company in Bangkok reported unauthorized access to employee computers. Log analysis of the server revealed that the attacker performed deobfuscate/decode files embedded in email attachments to reveal hidden code. The attacker then conducted software discovery to identify installed applications and network vulnerabilities. Subsequently, the attacker sent phishing emails internally to employees in other departments, impersonating the IT department, to trick them into clicking links and opening risky files. Digital forensics found screenshots of those computer screens and displayed data had been captured. Finally, network traffic analysis showed that collected data was exfiltrated to external servers via non-standard port 8843 using a command-and-control channel established specifically for this attack.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1140 Deobfuscate/Decode Files or Information | ผู้โจมตีทำการ deobfuscate/decode files ที่ฝังอยู่ในอีเมลแนบ |
+| 2 | named | T1518 Software Discovery | ผู้โจมตีทำการสำรวจและค้นหา software ที่ติดตั้งในระบบเครือข่าย |
+| 3 | described | T1534 Internal Spearphishing | ผู้โจมตีส่งอีเมลหลอกลวงภายในองค์กรไปยังพนักงานในแผนกอื่นๆ โดยอ้างว่าเป็นจากฝ่ายไอที |
+| 4 | described | T1113 Screen Capture | มีการบันทึก screenshot ของหน้าจอเครื่องคอมพิวเตอร์เหล่านั้น รวมถึงข้อมูลที่แสดงบนจอภาพ |
+| 5 | named | T1571 Non-Standard Port | ข้อมูลที่ถูกเก็บรวบรวมได้ถูกส่งออกไปยังเซิร์ฟเวอร์ภายนอกผ่านทาง non-standard port 8843 |
+| 6 | described | T1041 Exfiltration Over C2 Channel | การเชื่อมต่อนั้นใช้ช่องทาง command-and-control ที่สร้างขึ้นมาเพื่อการโจมตีนี้โดยเฉพาะ |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_043  (source group: menuPass G0045)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพฯ ได้รับแจ้งเบาะแสจากฝ่ายเทคนิคว่าพบกิจกรรมที่ผิดปกติบนเซิร์ฟเวอร์ระบบจัดเก็บข้อมูล จากการตรวจสอบ log พบว่าผู้โจมตีได้ใช้ Valid Accounts ของพนักงานเดิมที่ออกจากงานแล้ว เพื่อเข้าถึงระบบจากระยะไกล ต่อมาผู้โจมตีทำการ Masquerading โดยแปลงตัวเองเป็นบัญชีผู้ดูแลระบบ เพื่อหลีกเลี่ยงการตรวจสอบ จากนั้นจากการตรวจสอบ filesystem logs พบรอยทีละเอียดของการค้นหาและแสดงรายการไดเรกทอรี่ระบบไฟล์เพื่อค้นหาข้อมูลที่มีค่า ต่อมาผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service บนเซิร์ฟเวอร์อื่นที่เชื่อมต่อกับเครือข่ายเดียวกัน เพื่อขยายการเข้าถึง สุดท้ายพบว่าผู้โจมตีได้ดำเนินการ Ingress Tool Transfer โดยส่งไฟล์ executable ขนาดใหญ่เข้าสู่ระบบผ่าน HTTP protocol เพื่อติดตั้ง backdoor สำหรับการควบคุมระยะไกล
+
+*EN:* On 22 February 2569, an information technology services company in Bangkok received notification from the technical department of suspicious activity detected on the data storage server. Log examination revealed that the attacker used Valid Accounts belonging to a former employee who had already left the organization to access the system remotely. Subsequently, the attacker performed Masquerading by impersonating an administrator account to evade detection. Filesystem logs then showed detailed traces of directory enumeration and file listing operations to search for valuable data. The attacker then exploited a vulnerability in the RDP service on another server connected to the same network to expand access. Finally, evidence indicated that the attacker conducted Ingress Tool Transfer by uploading a large executable file into the system via HTTP protocol to install a backdoor for remote command and control.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | named | T1078 Valid Accounts | ผู้โจมตีได้ใช้ Valid Accounts ของพนักงานเดิมที่ออกจากงานแล้ว |
+| 2 | named | T1036 Masquerading | ผู้โจมตีทำการ Masquerading โดยแปลงตัวเองเป็นบัญชีผู้ดูแลระบบ |
+| 3 | described | T1083 File and Directory Discovery | พบรอยทีละเอียดของการค้นหาและแสดงรายการไดเรกทอรี่ระบบไฟล์เพื่อค้นหาข้อมูลที่มีค่า |
+| 4 | described | T1210 Exploitation of Remote Services | ผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service บนเซิร์ฟเวอร์อื่นที่เชื่อมต่อกับเครือข่ายเดียวกัน |
+| 5 | named | T1105 Ingress Tool Transfer | ผู้โจมตีได้ดำเนินการ Ingress Tool Transfer โดยส่งไฟล์ executable ขนาดใหญ่เข้าสู่ระบบผ่าน HTTP protocol |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_044  (source group: Sandworm Team G0034)
+
+**AUTO-FLAGS: step 1: described cue names the technique (Proxy)**
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพมหานคร แจ้งความว่าระบบเซิร์ฟเวอร์หลักของบริษัทถูกโจมตีและทำให้บริการหยุดชะงัก จากการตรวจสอบ log และการวิเคราะห์ traffic พบว่าผู้โจมตีเข้าใช้เครือข่ายจากที่อยู่ IP ที่ซ่อนตัวผ่านบริการ proxy และ VPN ในหลายชั้น เพื่อปกปิดต้นทางที่แท้จริง ต่อมาผู้โจมตีได้ทำการสแกนและเก็บข้อมูลเกี่ยวกับการเชื่อมต่อเครือข่ายภายในของบริษัท รวมถึงการแมปพอร์ตที่เปิดอยู่ และบริการต่างๆ ที่ทำงานบนระบบเครือข่ายนั้น จากนั้นผู้โจมตีได้ส่งแพ็กเก็ต ICMP flood และ UDP flood ขนาดใหญ่เข้ามายังเซิร์ฟเวอร์ทำให้ทรัพยากรของระบบหมดสิ้นและไม่สามารถให้บริการแก่ผู้ใช้งานได้เป็นเวลา 8 ชั่วโมง
+
+*EN:* On 22 February 2569, a private information technology company in Bangkok reported that its main server system was attacked and service became unavailable. From examination of logs and traffic analysis, it was found that the attacker accessed the network from an IP address concealed through layered proxy and VPN services to hide the true source. Subsequently, the attacker scanned and gathered information about the company's internal network connections, including open ports and services running on the network systems. The attacker then sent large volumes of ICMP flood and UDP flood packets to the servers, exhausting system resources and rendering the service unavailable to users for 8 hours.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | described | T1090 Proxy | ผู้โจมตีเข้าใช้เครือข่ายจากที่อยู่ IP ที่ซ่อนตัวผ่านบริการ proxy และ VPN ในหลายชั้น เพื่อปกปิดต้นทางที่แท้จริง |
+| 2 | described | T1049 System Network Connections Discovery | ผู้โจมตีได้ทำการสแกนและเก็บข้อมูลเกี่ยวกับการเชื่อมต่อเครือข่ายภายในของบริษัท รวมถึงการแมปพอร์ตที่เปิดอยู่ และบริการต่างๆ ที่ทำงานบนระบบเครือข่ายนั้น |
+| 3 | described | T1499 Endpoint Denial of Service | ผู้โจมตีได้ส่งแพ็กเก็ต ICMP flood และ UDP flood ขนาดใหญ่เข้ามายังเซิร์ฟเวอร์ทำให้ทรัพยากรของระบบหมดสิ้นและไม่สามารถให้บริการแก่ผู้ใช้งานได้ |
+
+- [ ] ผ่าน / แก้แล้ว
+
+## inc_auto_045  (source group: Fox Kitten G0117)
+
+> เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการโลจิสติกส์แห่งหนึ่งในจังหวัดสมุทรปราการได้รับแจ้งความจากผู้บริหารว่าระบบจัดการสินค้าคงคลังออนไลน์ถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีได้ส่งคำขอ HTTP ที่มีข้อมูล payload ผิดปกติไปยังช่อง API ของแอปพลิเคชันเว็บสาธารณะ ซึ่งมีช่องโหว่ที่ยังไม่ได้รับการแก้ไข ต่อมาผู้โจมตีได้นำข้อมูลประจำตัวที่ค้นพบมาใช้เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบที่ถูกต้องตามกฎ จากนั้นผู้โจมตีได้ใช้ประโยชน์จาก Web Service ที่ทำงานในเบื้องหลังเพื่อหลีกเลี่ยงระบบตรวจสอบ จากการตรวจสอบ credential log ต่อไปพบว่าผู้โจมตีได้ทำการ brute force บัญชีผู้ใช้งานอื่น ๆ อย่างต่อเนื่องเป็นระยะเวลานาน สุดท้ายผู้โจมตีได้ถ่ายโอนเครื่องมือ malware ต่าง ๆ ไปยังเซิร์ฟเวอร์ภายในเครือข่ายเพื่อขยายการควบคุมไปยังระบบอื่น
+
+*EN:* On 22 February 2569, a logistics service company in Samut Prakan Province received a report from management that the online inventory management system had been accessed without authorization. Upon examination of logs, it was found that the attacker had sent HTTP requests with abnormal payload data to the public-facing web application API, which contained an unpatched vulnerability. Subsequently, the attacker used discovered credentials to log in with a valid administrator account according to proper authentication rules. The attacker then exploited a Web Service running in the background to evade detection systems. Further examination of credential logs revealed that the attacker had continuously performed brute force attacks against other user accounts over an extended period. Finally, the attacker transferred malware tools to internal network servers to expand control to other systems.
+
+| # | cue_type | technique | cue |
+|---|----------|-----------|-----|
+| 1 | described | T1190 Exploit Public-Facing Application | ผู้โจมตีได้ส่งคำขอ HTTP ที่มีข้อมูล payload ผิดปกติไปยังช่อง API ของแอปพลิเคชันเว็บสาธารณะ ซึ่งมีช่องโหว่ที่ยังไม่ได้รับการแก้ไข |
+| 2 | described | T1078 Valid Accounts | ผู้โจมตีได้นำข้อมูลประจำตัวที่ค้นพบมาใช้เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบที่ถูกต้องตามกฎ |
+| 3 | named | T1102 Web Service | ผู้โจมตีได้ใช้ประโยชน์จาก Web Service ที่ทำงานในเบื้องหลังเพื่อหลีกเลี่ยงระบบตรวจสอบ |
+| 4 | named | T1110 Brute Force | ผู้โจมตีได้ทำการ brute force บัญชีผู้ใช้งานอื่น ๆ อย่างต่อเนื่องเป็นระยะเวลานาน |
+| 5 | described | T1105 Ingress Tool Transfer | ผู้โจมตีได้ถ่ายโอนเครื่องมือ malware ต่าง ๆ ไปยังเซิร์ฟเวอร์ภายในเครือข่าย |
+
+- [ ] ผ่าน / แก้แล้ว

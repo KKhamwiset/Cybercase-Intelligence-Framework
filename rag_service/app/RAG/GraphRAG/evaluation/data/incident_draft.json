@@ -2222,5 +2222,900 @@
         ]
       }
     ]
+  },
+  {
+    "id": "inc_auto_034",
+    "source_group": "FIN8",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพได้แจ้งความว่าระบบเซิร์ฟเวอร์ของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต ผู้โจมตีใช้ Valid Accounts ที่ได้มาจากการรั่วไหลของข้อมูลเข้าสู่ระบบเครือข่ายภายใน จากการตรวจสอบ log พบว่าผู้โจมตีได้ทำการเรียกใช้ script ผ่าน Windows Management Instrumentation เพื่อดำเนินการคำสั่งต่างๆ บนระบบที่ถูกบุกรุก ต่อมาผู้โจมตีได้ทำการแก้ไขค่าต่างๆ ในฐานข้อมูลระบบ registry เพื่อเพิ่มความคงอยู่ของ malware และหลีกเลี่ยงการตรวจจับ จากนั้นผู้โจมตีได้นำเสนอความเสี่ยงจากช่องโหว่ที่ยังไม่ได้รับการแก้ไขในระบบเพื่อเพิ่มสิทธิการเข้าถึง จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่าผู้โจมตีได้ทำการ Ingress Tool Transfer โดยส่งเครื่องมือโจมตีเพิ่มเติมเข้าสู่ระบบเพื่อเตรียมการแพร่กระจายไปยังเครื่องอื่นๆ ในเครือข่าย",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055",
+      "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4",
+      "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private information technology company in Bangkok reported that its server system was accessed without authorization. The attacker used Valid Accounts obtained from a data breach to access the internal network. From log examination, the attacker was found to have executed scripts via Windows Management Instrumentation to perform commands on the compromised system. Subsequently, the attacker modified various values in the system registry database to ensure malware persistence and evade detection. The attacker then exploited an unpatched system vulnerability to elevate privileges. Digital evidence examination revealed that the attacker performed Ingress Tool Transfer by uploading additional attack tools into the system to prepare for propagation to other machines on the network.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1047",
+      "T1112",
+      "T1068",
+      "T1105"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีใช้ Valid Accounts ที่ได้มาจากการรั่วไหลของข้อมูลเข้าสู่ระบบเครือข่ายภายใน",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ทำการเรียกใช้ script ผ่าน Windows Management Instrumentation เพื่อดำเนินการคำสั่งต่างๆ บนระบบที่ถูกบุกรุก",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1047"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ทำการแก้ไขค่าต่างๆ ในฐานข้อมูลระบบ registry เพื่อเพิ่มความคงอยู่ของ malware และหลีกเลี่ยงการตรวจจับ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1112"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--57340c81-c025-4189-8fa0-fc7ede51bae4"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้นำเสนอความเสี่ยงจากช่องโหว่ที่ยังไม่ได้รับการแก้ไขในระบบเพื่อเพิ่มสิทธิการเข้าถึง",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1068"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ผู้โจมตีได้ทำการ Ingress Tool Transfer โดยส่งเครื่องมือโจมตีเพิ่มเติมเข้าสู่ระบบเพื่อเตรียมการแพร่กระจายไปยังเครื่องอื่นๆ ในเครือข่าย",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_035",
+    "source_group": "Tropic Trooper",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการจัดการสินค้าคงคลังแห่งหนึ่งในจังหวัดสมุทรปราการได้แจ้งความว่าระบบคอมพิวเตอร์ของพนักงานสายการบัญชีถูกติดเชื้อ โดยผู้เสียหายรายงานว่าพบ USB flash drive ที่ไม่รู้จักอยู่บนโต๊ะทำงาน และหลังจากที่เสียบเข้าไปเพื่อตรวจสอบ ไฟล์ที่ซ่อนอยู่ได้ทำการ replication through removable media ไปยังเครื่องอื่น ๆ ในเครือข่าย จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่า malware ได้ใช้ Windows API calls โดยตรงเพื่อสร้างกระบวนการใหม่และเรียกใช้ executable file ที่ฝังตัวอยู่ในหน่วยความจำ ต่อมาจากการวิเคราะห์ event log พบการสแกนหลายครั้งของรายการ running processes ผ่านการเรียกใช้ tasklist command และการอ่านข้อมูล registry keys เพื่อเก็บรวบรวมข้อมูลเกี่ยวกับแอปพลิเคชันที่ติดตั้ง จากนั้นอีกไม่นานพบการเชื่อมต่อเครือข่ายขาออกไปยังเซิร์ฟเวอร์ต่างประเทศผ่านช่องทาง HTTPS encrypted session ซึ่งแม้จะเข้ารหัสแล้ว แต่จากการวิเคราะห์ metadata ของแพ็กเก็ตสามารถติดตามการสื่อสารแบบ command-and-control ได้",
+    "relevant_stix_ids": [
+      "attack-pattern--3b744087-9945-4a6f-91e8-9dbceda417a4",
+      "attack-pattern--391d824f-0ef1-47a0-b0ee-c59a75e27670",
+      "attack-pattern--8f4a33ec-8b1f-4b80-a2f6-642b2e479580",
+      "attack-pattern--b8902400-e6c5-4ba2-95aa-2d35b442b118"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private logistics and inventory management company in Samut Prakan Province reported that an accounting department employee's computer had been infected. The victim reported finding an unknown USB flash drive on the work desk, and after connecting it for inspection, files performed replication through removable media to other machines on the network. Digital forensic examination revealed that malware used Windows API calls directly to create new processes and execute embedded executable files in memory. Subsequently, event log analysis identified multiple scans of running processes via tasklist command invocations and registry key reads to gather information about installed applications. Shortly after, outbound network connections to foreign servers were detected through encrypted HTTPS sessions which, despite encryption, allowed command-and-control communication to be tracked via packet metadata analysis.",
+    "gold_attack_ids": [
+      "T1091",
+      "T1106",
+      "T1057",
+      "T1573"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ไฟล์ที่ซ่อนอยู่ได้ทำการ replication through removable media ไปยังเครื่องอื่น ๆ ในเครือข่าย",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1091"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3b744087-9945-4a6f-91e8-9dbceda417a4"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "malware ได้ใช้ Windows API calls โดยตรงเพื่อสร้างกระบวนการใหม่และเรียกใช้ executable file ที่ฝังตัวอยู่ในหน่วยความจำ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1106"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--391d824f-0ef1-47a0-b0ee-c59a75e27670"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "การสแกนหลายครั้งของรายการ running processes ผ่านการเรียกใช้ tasklist command และการอ่านข้อมูล registry keys เพื่อเก็บรวบรวมข้อมูลเกี่ยวกับแอปพลิเคชันที่ติดตั้ง",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1057"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--8f4a33ec-8b1f-4b80-a2f6-642b2e479580"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "การเชื่อมต่อเครือข่ายขาออกไปยังเซิร์ฟเวอร์ต่างประเทศผ่านช่องทาง HTTPS encrypted session",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1573"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b8902400-e6c5-4ba2-95aa-2d35b442b118"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_036",
+    "source_group": "FIN13",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทบริหารสินทรัพย์ดิจิทัลแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้รับแจ้งเบาะแสจากผู้ดูแลระบบว่าพบกิจกรรมผิดปกติในเซิร์ฟเวอร์ Active Directory จากการตรวจสอบ log พบว่าผู้โจมตีได้ทำการ Modify Authentication Process โดยเพิ่มบัญชีผู้ใช้งานเสมือนจริงเข้าไปในกลุ่มผู้ดูแลระบบ เพื่อรักษาการเข้าถึงระบบในระยะยาว ต่อมาผู้โจมตีได้ทำการ Deobfuscate/Decode Files or Information บนเซิร์ฟเวอร์ระดับกลาง โดยถอดรหัส PowerShell scripts ที่ถูกเข้ารหัสด้วย Base64 เพื่อเตรียมเครื่องมือสำหรับขั้นตอนต่อไป จากนั้นทำการ Ingress Tool Transfer ส่งโปรแกรม remote access tool ชื่อว่า RemoteAdmin.exe ไปยังเซิร์ฟเวอร์ฐานข้อมูล ผ่านทางช่องทาง SMB ที่ไม่ได้รับการป้องกัน สุดท้ายจากการวิเคราะห์ network traffic พบว่ามีการส่งข้อมูลผ่านช่องทาง HTTPS ที่ปกติ แต่ภายในนั้นมีการห่อหุ้มข้อมูลควบคุมคำสั่งด้วยโปรโตคอลที่ไม่ได้รับการตรวจสอบ ซึ่งเป็นการสร้างอุโมงค์การสื่อสารแบบซ่อนตัว และสิ้นสุดด้วยการ Financial Theft เมื่อผู้โจมตีดึงเงินจากบัญชีลูกค้า 47 บัญชี รวมมูลค่า 8.3 ล้านบาท",
+    "relevant_stix_ids": [
+      "attack-pattern--f4c1826f-a322-41cd-9557-562100848c84",
+      "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add",
+      "attack-pattern--4fe28b27-b13c-453e-a386-c2ef362a573b",
+      "attack-pattern--851e071f-208d-4c79-adc6-5974c85c78f3"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a digital asset management company in Bangkok received a tip from a system administrator about suspicious activity in the Active Directory server. Upon examination of logs, investigators found that the attacker had performed Modify Authentication Process by adding a virtual user account to the administrator group to maintain long-term system access. Subsequently, the attacker performed Deobfuscate/Decode Files or Information on the intermediate server by decoding Base64-encrypted PowerShell scripts to prepare tools for the next phase. The attacker then conducted Ingress Tool Transfer by sending a remote access tool called RemoteAdmin.exe to the database server through an unprotected SMB channel. Finally, network traffic analysis revealed data being sent through normal HTTPS channels but with command-control information wrapped in an unmonitored protocol, establishing a covert communication tunnel. The attack concluded with Financial Theft when the attacker withdrew funds from 47 customer accounts totaling 8.3 million baht.",
+    "gold_attack_ids": [
+      "T1556",
+      "T1140",
+      "T1105",
+      "T1572",
+      "T1657"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีได้ทำการ Modify Authentication Process โดยเพิ่มบัญชีผู้ใช้งานเสมือนจริงเข้าไปในกลุ่มผู้ดูแลระบบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1556"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--f4c1826f-a322-41cd-9557-562100848c84"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ทำการ Deobfuscate/Decode Files or Information บนเซิร์ฟเวอร์ระดับกลาง โดยถอดรหัส PowerShell scripts ที่ถูกเข้ารหัสด้วย Base64",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1140"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ทำการ Ingress Tool Transfer ส่งโปรแกรม remote access tool ชื่อว่า RemoteAdmin.exe ไปยังเซิร์ฟเวอร์ฐานข้อมูล",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "มีการส่งข้อมูลผ่านช่องทาง HTTPS ที่ปกติ แต่ภายในนั้นมีการห่อหุ้มข้อมูลควบคุมคำสั่งด้วยโปรโตคอลที่ไม่ได้รับการตรวจสอบ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1572"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--4fe28b27-b13c-453e-a386-c2ef362a573b"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "การ Financial Theft เมื่อผู้โจมตีดึงเงินจากบัญชีลูกค้า 47 บัญชี รวมมูลค่า 8.3 ล้านบาท",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1657"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--851e071f-208d-4c79-adc6-5974c85c78f3"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_037",
+    "source_group": "Leviathan",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานครแจ้งความว่าระบบเซิร์ฟเวอร์ของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีใช้บัญชีพนักงานที่ยังคงมีสิทธิ์การเข้าถึงระบบอยู่ เพื่อเข้าสู่เครื่องคอมพิวเตอร์เซิร์ฟเวอร์หลัก ต่อมาผู้โจมตีสร้าง BITS Jobs เพื่อดาวน์โหลดไฟล์ payload ขนาดเล็กจากเซิร์ฟเวอร์ภายนอกในช่วงเวลาที่ปกติไม่มีใครสังเกตเห็น จากนั้นทำการ OS Credential Dumping ด้วยเครื่องมือพิเศษเพื่อขโมยรหัสผ่านของผู้ใช้งานอื่น ๆ ในระบบ สุดท้ายผู้โจมตีส่ง Internal Spearphishing ไปยังพนักงานบัญชีเพื่อให้คลิกลิงก์และได้มาซึ่งข้อมูลประจำตัวเพิ่มเติม หลังจากนั้นทำการ Archive Collected Data โดยบีบอัดไฟล์ข้อมูลลูกค้า ระเบียนการโอนเงิน และเอกสารภายในไว้ในไฟล์ RAR ที่เข้ารหัส สุดท้ายทำการ Exfiltration Over C2 Channel ส่งไฟล์บีบอัดออกไปยังเซิร์ฟเวอร์ Command and Control ที่อยู่ในต่างประเทศผ่านการเชื่อมต่อ HTTPS ที่ซ่อนอยู่ในการสื่อสารปกติ",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--c8e87b83-edbb-48d4-9295-4974897525b7",
+      "attack-pattern--0a3ead4e-6d47-4ccb-854c-a6a4f9d96b22",
+      "attack-pattern--9e7452df-5144-4b6e-b04a-b66dd4016747",
+      "attack-pattern--53ac20cd-aca3-406e-9aa0-9fc7fdc60a5a",
+      "attack-pattern--92d7da27-2d91-488e-a00c-059dc162766d"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a financial services company in Bangkok reported unauthorized access to its server system. From log examination, investigators found that the attacker used an active employee account with valid access privileges to enter the primary server computer. Subsequently, the attacker created BITS Jobs to download small payload files from an external server during off-hours when unnoticed. The attacker then performed OS Credential Dumping using specialized tools to steal passwords of other system users. The attacker subsequently sent Internal Spearphishing to accounting staff to click links and obtain additional credentials. The attacker then performed Archive Collected Data by compressing customer information files, fund transfer records, and internal documents into an encrypted RAR file. Finally, the attacker performed Exfiltration Over C2 Channel, sending the compressed file to a Command and Control server located overseas via HTTPS connection hidden within normal communications.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1197",
+      "T1003",
+      "T1534",
+      "T1560",
+      "T1041"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ใช้บัญชีพนักงานที่ยังคงมีสิทธิ์การเข้าถึงระบบอยู่ เพื่อเข้าสู่เครื่องคอมพิวเตอร์เซิร์ฟเวอร์หลัก",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "สร้าง BITS Jobs เพื่อดาวน์โหลดไฟล์ payload ขนาดเล็กจากเซิร์ฟเวอร์ภายนอกในช่วงเวลาที่ปกติไม่มีใครสังเกตเห็น",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1197"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--c8e87b83-edbb-48d4-9295-4974897525b7"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ทำการ OS Credential Dumping ด้วยเครื่องมือพิเศษเพื่อขโมยรหัสผ่านของผู้ใช้งานอื่น ๆ ในระบบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1003"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--0a3ead4e-6d47-4ccb-854c-a6a4f9d96b22"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ส่ง Internal Spearphishing ไปยังพนักงานบัญชีเพื่อให้คลิกลิงก์และได้มาซึ่งข้อมูลประจำตัวเพิ่มเติม",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1534"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9e7452df-5144-4b6e-b04a-b66dd4016747"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ทำการ Archive Collected Data โดยบีบอัดไฟล์ข้อมูลลูกค้า ระเบียนการโอนเงิน และเอกสารภายในไว้ในไฟล์ RAR ที่เข้ารหัส",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1560"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--53ac20cd-aca3-406e-9aa0-9fc7fdc60a5a"
+        ]
+      },
+      {
+        "order": 6,
+        "cue": "ทำการ Exfiltration Over C2 Channel ส่งไฟล์บีบอัดออกไปยังเซิร์ฟเวอร์ Command and Control ที่อยู่ในต่างประเทศผ่านการเชื่อมต่อ HTTPS",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1041"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--92d7da27-2d91-488e-a00c-059dc162766d"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_038",
+    "source_group": "HAFNIUM",
+    "query": "เมื่อวันที่ 12 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินดิจิทัลแห่งหนึ่งในกรุงเทพมหานคร ได้แจ้งความว่าระบบเซิร์ฟเวอร์หลักของพวกเขาถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log และระบบ IDS พบว่าผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ในแอปพลิเคชัน web server เพื่อให้ได้สิทธิ์การเข้าถึงระดับสูงขึ้นบนเซิร์ฟเวอร์ ต่อมาผู้โจมตีได้ทำการสแกนและรวบรวมข้อมูลเกี่ยวกับการตั้งค่าเครือข่าย ระบบ DNS routing และรายชื่อ IP address ของเซิร์ฟเวอร์ภายในองค์กร จากนั้นผู้โจมตีได้ดำเนินการเข้าถึงข้อมูลจาก Cloud Storage ซึ่งเป็นที่เก็บข้อมูลลูกค้าและข้อมูลการทำธุรกรรมจำนวนประมาณ 2.3 ล้านเรคคอร์ด สุดท้ายทีมวิเคราะห์พบการส่งข้อมูลออกจากระบบไปยังเซิร์ฟเวอร์ภายนอกประเทศ",
+    "relevant_stix_ids": [
+      "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839",
+      "attack-pattern--707399d6-ab3e-4963-9315-d9d3818cd6a0",
+      "attack-pattern--3298ce88-1628-43b1-87d9-0b5336b193d7"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 12 February 2569, a digital financial services company in Bangkok reported unauthorized access to its primary server system. Investigation of logs and IDS systems revealed that the attacker exploited a vulnerability in the web server application to obtain elevated access privileges on the server. Subsequently, the attacker scanned and gathered information regarding network configuration, DNS routing settings, and a list of internal organizational IP addresses. The attacker then accessed data from Cloud Storage containing customer information and transaction records totaling approximately 2.3 million records. Finally, the analysis team identified data exfiltration to external servers located outside the country.",
+    "gold_attack_ids": [
+      "T1068",
+      "T1016",
+      "T1530"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ในแอปพลิเคชัน web server เพื่อให้ได้สิทธิ์การเข้าถึงระดับสูงขึ้นบนเซิร์ฟเวอร์",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1068"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b21c3b2d-02e6-45b1-980b-e69051040839"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ทำการสแกนและรวบรวมข้อมูลเกี่ยวกับการตั้งค่าเครือข่าย ระบบ DNS routing และรายชื่อ IP address ของเซิร์ฟเวอร์ภายในองค์กร",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1016"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--707399d6-ab3e-4963-9315-d9d3818cd6a0"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ดำเนินการเข้าถึงข้อมูลจาก Cloud Storage ซึ่งเป็นที่เก็บข้อมูลลูกค้าและข้อมูลการทำธุรกรรมจำนวนประมาณ 2.3 ล้านเรคคอร์ด",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1530"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3298ce88-1628-43b1-87d9-0b5336b193d7"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_039",
+    "source_group": "Ember Bear",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพได้รับแจ้งเบาะแสจากฝ่ายเทคนิคว่ามีการเข้าถึงระบบเซิร์ฟเวอร์ VPN ที่ไม่ได้รับอนุญาต โดยผู้โจมตีใช้ External Remote Services เพื่อทำการเชื่อมต่อจากระยะไกล จากการตรวจสอบ log ของเซิร์ฟเวอร์ VPN พบว่ามีการพยายามเข้าถึงบัญชีผู้ใช้งานหลายครั้งติดต่อกันด้วยการส่งรหัสผ่านต่างๆ เป็นจำนวนมากจนกระทั่งสำเร็จในการเข้าสู่ระบบ ต่อมา จากการตรวจสอบพยานหลักฐานดิจิทัลพบว่าผู้โจมตีได้ทำการค้นหาและรวบรวมข้อมูลเกี่ยวกับบริการเครือข่ายต่างๆ ที่ทำงานอยู่ในเครือข่ายภายในของบริษัท รวมถึงพอร์ตและเวอร์ชันของแอปพลิเคชันที่ใช้งาน ซึ่งทั้งหมดนี้บ่งชี้ถึงการเตรียมการสำหรับการโจมตีในลำดับต่อไป",
+    "relevant_stix_ids": [
+      "attack-pattern--10d51417-ee35-4589-b1ff-b6df1c334e8d",
+      "attack-pattern--a93494bb-4b80-4ea1-8695-3236a49916fd",
+      "attack-pattern--e3a12395-188d-4051-9a16-ea8e14d07b88"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private information technology company in Bangkok received notification from the technical division that unauthorized access to the VPN server had occurred. The attacker used External Remote Services to establish remote connections. Upon examination of the VPN server logs, multiple sequential login attempts were discovered using various passwords until successful authentication was achieved. Subsequently, digital forensic examination revealed that the attacker conducted reconnaissance of network services operating within the company's internal network, including port and application version enumeration. These findings indicated preparation for subsequent attack phases.",
+    "gold_attack_ids": [
+      "T1133",
+      "T1110",
+      "T1046"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีใช้ External Remote Services เพื่อทำการเชื่อมต่อจากระยะไกล",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1133"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--10d51417-ee35-4589-b1ff-b6df1c334e8d"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "มีการพยายามเข้าถึงบัญชีผู้ใช้งานหลายครั้งติดต่อกันด้วยการส่งรหัสผ่านต่างๆ เป็นจำนวนมากจนกระทั่งสำเร็จในการเข้าสู่ระบบ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1110"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--a93494bb-4b80-4ea1-8695-3236a49916fd"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ทำการค้นหาและรวบรวมข้อมูลเกี่ยวกับบริการเครือข่ายต่างๆ ที่ทำงานอยู่ในเครือข่ายภายในของบริษัท รวมถึงพอร์ตและเวอร์ชันของแอปพลิเคชันที่ใช้งาน",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1046"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e3a12395-188d-4051-9a16-ea8e14d07b88"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_040",
+    "source_group": "BRONZE BUTLER",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้แจ้งความว่าพบการเข้าถึงข้อมูลโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีใช้ drive-by compromise ผ่านการเยี่ยมชมเว็บไซต์ที่ถูกบุกรุกแล้ว ซึ่งส่งผลให้เกิดการติดตั้ง malware ลงในเครื่องของพนักงาน ต่อมาผู้โจมตีได้รันสคริปต์ PowerShell เพื่อดำเนินการเบื้องต้นบนระบบ และทำการปลอมตัวเป็น masquerading process ที่คล้ายกับบริการระบบที่ช合ท่อ เพื่อหลีกเลี่ยงการตรวจจับ จากนั้นได้ทำการค้นหาและแจกแจงบริการต่าง ๆ ที่ทำงานอยู่บนระบบ สุดท้ายผู้โจมตีได้ปนเปื้อน shared folder ที่ใช้ร่วมกันระหว่างพนักงาน และดึงข้อมูลประวัติการทำธุรกรรมลูกค้าจากฐานข้อมูลท้องถิ่นของเครื่องคอมพิวเตอร์",
+    "relevant_stix_ids": [
+      "attack-pattern--d742a578-d70e-4d0e-96a6-02a9c30204e6",
+      "attack-pattern--7385dfaf-6886-4229-9ecd-6fd678040830",
+      "attack-pattern--42e8de7b-37b2-4258-905a-6897815e58e0",
+      "attack-pattern--322bad5a-1c49-4d23-ab79-76d641794afa",
+      "attack-pattern--246fd3c7-f5e3-466d-8787-4c13d9e3b61c",
+      "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private financial services company in Bangkok reported unauthorized data access. Investigation of system logs revealed that the attacker used drive-by compromise via a compromised website, resulting in malware installation on an employee's machine. Subsequently, the attacker executed PowerShell scripts to perform initial operations on the system, and engaged in masquerading by spoofing a legitimate system service process to evade detection. The attacker then enumerated and discovered running services on the target system. Finally, the attacker tainted shared network folders used by staff and extracted customer transaction history data from the local system database.",
+    "gold_attack_ids": [
+      "T1189",
+      "T1059",
+      "T1036",
+      "T1007",
+      "T1080",
+      "T1005"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ใช้ drive-by compromise ผ่านการเยี่ยมชมเว็บไซต์ที่ถูกบุกรุกแล้ว",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1189"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--d742a578-d70e-4d0e-96a6-02a9c30204e6"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ได้รันสคริปต์ PowerShell เพื่อดำเนินการเบื้องต้นบนระบบ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1059"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--7385dfaf-6886-4229-9ecd-6fd678040830"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ทำการปลอมตัวเป็น masquerading process ที่คล้ายกับบริการระบบที่ชอบท่อ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1036"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--42e8de7b-37b2-4258-905a-6897815e58e0"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ได้ทำการค้นหาและแจกแจงบริการต่าง ๆ ที่ทำงานอยู่บนระบบ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1007"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--322bad5a-1c49-4d23-ab79-76d641794afa"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ปนเปื้อน shared folder ที่ใช้ร่วมกันระหว่างพนักงาน",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1080"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--246fd3c7-f5e3-466d-8787-4c13d9e3b61c"
+        ]
+      },
+      {
+        "order": 6,
+        "cue": "ดึงข้อมูลประวัติการทำธุรกรรมลูกค้าจากฐานข้อมูลท้องถิ่นของเครื่องคอมพิวเตอร์",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1005"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3c4a2599-71ee-4405-ba1e-0e28414b4bc5"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_041",
+    "source_group": "INC Ransom",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพฯ ได้รับแจ้งว่าพนักงานแผนกบัญชีคนหนึ่งได้รับจดหมายอีเมลที่ดูเหมือนมาจากแผนกบุคคลกรรม พร้อมไฟล์แนบซึ่งเมื่อเปิดขึ้นมาได้โปรแกรมที่ซ่อนตัวอยู่ในพื้นหลัง จากการตรวจสอบ log ระบบพบว่า ผู้โจมตีได้ใช้ Windows Management Instrumentation เพื่อเรียกใช้คำสั่ง PowerShell ที่ซ่อนอยู่ในหน่วยความจำ ต่อมาผู้โจมตีได้นำข้อมูลประจำตัวของพนักงานปกติคนหนึ่งมาใช้เข้าถึงระบบแฟ้มเซิร์ฟเวอร์และฐานข้อมูลลูกค้า โดยไม่ถูกตรวจจับเป็นเวลาหลายสัปดาห์ สุดท้ายจากการวิเคราะห์ cloud storage logs พบว่า ข้อมูลลูกค้าจำนวนมากได้ถูก Transfer Data to Cloud Account ไปยังบัญชี Google Drive ภายนอกซึ่งควบคุมโดยผู้โจมตี",
+    "relevant_stix_ids": [
+      "attack-pattern--a62a8db3-f23a-4d8f-afd6-9dbc77e7813b",
+      "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055",
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--d4bdbdea-eaec-4071-b4f9-5105e12ea4b6"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private financial company in Bangkok received notification that an accounting department employee had received an email appearing to originate from the human resources department, with an attachment that, when opened, deployed hidden malware in the background. From system log examination, it was determined that the attacker had used Windows Management Instrumentation to invoke hidden PowerShell commands residing in memory. Subsequently, the attacker utilized the credentials of one regular employee to access the file server and customer database without detection for several weeks. Finally, analysis of cloud storage logs revealed that a large volume of customer data had been transferred to an external Google Drive account controlled by the attacker.",
+    "gold_attack_ids": [
+      "T1566",
+      "T1047",
+      "T1078",
+      "T1537"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ได้รับจดหมายอีเมลที่ดูเหมือนมาจากแผนกบุคคล พร้อมไฟล์แนบซึ่งเมื่อเปิดขึ้นมาได้โปรแกรมที่ซ่อนตัวอยู่ในพื้นหลัง",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1566"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--a62a8db3-f23a-4d8f-afd6-9dbc77e7813b"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ใช้ Windows Management Instrumentation เพื่อเรียกใช้คำสั่ง PowerShell ที่ซ่อนอยู่ในหน่วยความจำ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1047"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--01a5a209-b94c-450b-b7f9-946497d91055"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้นำข้อมูลประจำตัวของพนักงานปกติคนหนึ่งมาใช้เข้าถึงระบบแฟ้มเซิร์ฟเวอร์และฐานข้อมูลลูกค้า",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ข้อมูลลูกค้าจำนวนมากได้ถูก Transfer Data to Cloud Account ไปยังบัญชี Google Drive ภายนอก",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1537"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--d4bdbdea-eaec-4071-b4f9-5105e12ea4b6"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_042",
+    "source_group": "MuddyWater",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการด้านการเงินแห่งหนึ่งในจังหวัดกรุงเทพมหานคร ได้แจ้งความว่าระบบคอมพิวเตอร์ของพนักงานหลายคนถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log ของเซิร์ฟเวอร์พบว่าผู้โจมตีทำการ deobfuscate/decode files ที่ฝังอยู่ในอีเมลแนบที่ส่งมาเพื่อให้เห็นโค้ดที่ซ่อนไว้ จากนั้นผู้โจมตีทำการสำรวจและค้นหา software ที่ติดตั้งในระบบเครือข่าย เพื่อหาจุดอ่อน ต่อมาผู้โจมตีส่งอีเมลหลอกลวงภายในองค์กรไปยังพนักงานในแผนกอื่นๆ โดยอ้างว่าเป็นจากฝ่ายไอที เพื่อให้คลิกลิงก์และเปิดไฟล์ที่มีความเสี่ยง จากการตรวจสอบหลักฐานดิจิทัลพบว่ามีการบันทึก screenshot ของหน้าจอเครื่องคอมพิวเตอร์เหล่านั้น รวมถึงข้อมูลที่แสดงบนจอภาพ สุดท้ายจากการวิเคราะห์ network traffic พบว่าข้อมูลที่ถูกเก็บรวบรวมได้ถูกส่งออกไปยังเซิร์ฟเวอร์ภายนอกผ่านทาง non-standard port 8843 และการเชื่อมต่อนั้นใช้ช่องทาง command-and-control ที่สร้างขึ้นมาเพื่อการโจมตีนี้โดยเฉพาะ",
+    "relevant_stix_ids": [
+      "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c",
+      "attack-pattern--e3b6daca-e963-4a69-aee6-ed4fd653ad58",
+      "attack-pattern--9e7452df-5144-4b6e-b04a-b66dd4016747",
+      "attack-pattern--0259baeb-9f63-4c69-bf10-eb038c390688",
+      "attack-pattern--b18eae87-b469-4e14-b454-b171b416bc18",
+      "attack-pattern--92d7da27-2d91-488e-a00c-059dc162766d"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a financial services company in Bangkok reported unauthorized access to employee computers. Log analysis of the server revealed that the attacker performed deobfuscate/decode files embedded in email attachments to reveal hidden code. The attacker then conducted software discovery to identify installed applications and network vulnerabilities. Subsequently, the attacker sent phishing emails internally to employees in other departments, impersonating the IT department, to trick them into clicking links and opening risky files. Digital forensics found screenshots of those computer screens and displayed data had been captured. Finally, network traffic analysis showed that collected data was exfiltrated to external servers via non-standard port 8843 using a command-and-control channel established specifically for this attack.",
+    "gold_attack_ids": [
+      "T1140",
+      "T1518",
+      "T1534",
+      "T1113",
+      "T1571",
+      "T1041"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีทำการ deobfuscate/decode files ที่ฝังอยู่ในอีเมลแนบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1140"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3ccef7ae-cb5e-48f6-8302-897105fbf55c"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีทำการสำรวจและค้นหา software ที่ติดตั้งในระบบเครือข่าย",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1518"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e3b6daca-e963-4a69-aee6-ed4fd653ad58"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีส่งอีเมลหลอกลวงภายในองค์กรไปยังพนักงานในแผนกอื่นๆ โดยอ้างว่าเป็นจากฝ่ายไอที",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1534"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9e7452df-5144-4b6e-b04a-b66dd4016747"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "มีการบันทึก screenshot ของหน้าจอเครื่องคอมพิวเตอร์เหล่านั้น รวมถึงข้อมูลที่แสดงบนจอภาพ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1113"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--0259baeb-9f63-4c69-bf10-eb038c390688"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ข้อมูลที่ถูกเก็บรวบรวมได้ถูกส่งออกไปยังเซิร์ฟเวอร์ภายนอกผ่านทาง non-standard port 8843",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1571"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b18eae87-b469-4e14-b454-b171b416bc18"
+        ]
+      },
+      {
+        "order": 6,
+        "cue": "การเชื่อมต่อนั้นใช้ช่องทาง command-and-control ที่สร้างขึ้นมาเพื่อการโจมตีนี้โดยเฉพาะ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1041"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--92d7da27-2d91-488e-a00c-059dc162766d"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_043",
+    "source_group": "menuPass",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพฯ ได้รับแจ้งเบาะแสจากฝ่ายเทคนิคว่าพบกิจกรรมที่ผิดปกติบนเซิร์ฟเวอร์ระบบจัดเก็บข้อมูล จากการตรวจสอบ log พบว่าผู้โจมตีได้ใช้ Valid Accounts ของพนักงานเดิมที่ออกจากงานแล้ว เพื่อเข้าถึงระบบจากระยะไกล ต่อมาผู้โจมตีทำการ Masquerading โดยแปลงตัวเองเป็นบัญชีผู้ดูแลระบบ เพื่อหลีกเลี่ยงการตรวจสอบ จากนั้นจากการตรวจสอบ filesystem logs พบรอยทีละเอียดของการค้นหาและแสดงรายการไดเรกทอรี่ระบบไฟล์เพื่อค้นหาข้อมูลที่มีค่า ต่อมาผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service บนเซิร์ฟเวอร์อื่นที่เชื่อมต่อกับเครือข่ายเดียวกัน เพื่อขยายการเข้าถึง สุดท้ายพบว่าผู้โจมตีได้ดำเนินการ Ingress Tool Transfer โดยส่งไฟล์ executable ขนาดใหญ่เข้าสู่ระบบผ่าน HTTP protocol เพื่อติดตั้ง backdoor สำหรับการควบคุมระยะไกล",
+    "relevant_stix_ids": [
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--42e8de7b-37b2-4258-905a-6897815e58e0",
+      "attack-pattern--7bc57495-ea59-4380-be31-a64af124ef18",
+      "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, an information technology services company in Bangkok received notification from the technical department of suspicious activity detected on the data storage server. Log examination revealed that the attacker used Valid Accounts belonging to a former employee who had already left the organization to access the system remotely. Subsequently, the attacker performed Masquerading by impersonating an administrator account to evade detection. Filesystem logs then showed detailed traces of directory enumeration and file listing operations to search for valuable data. The attacker then exploited a vulnerability in the RDP service on another server connected to the same network to expand access. Finally, evidence indicated that the attacker conducted Ingress Tool Transfer by uploading a large executable file into the system via HTTP protocol to install a backdoor for remote command and control.",
+    "gold_attack_ids": [
+      "T1078",
+      "T1036",
+      "T1083",
+      "T1210",
+      "T1105"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีได้ใช้ Valid Accounts ของพนักงานเดิมที่ออกจากงานแล้ว",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีทำการ Masquerading โดยแปลงตัวเองเป็นบัญชีผู้ดูแลระบบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1036"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--42e8de7b-37b2-4258-905a-6897815e58e0"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "พบรอยทีละเอียดของการค้นหาและแสดงรายการไดเรกทอรี่ระบบไฟล์เพื่อค้นหาข้อมูลที่มีค่า",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1083"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--7bc57495-ea59-4380-be31-a64af124ef18"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ใช้ประโยชน์จากช่องโหว่ใน RDP service บนเซิร์ฟเวอร์อื่นที่เชื่อมต่อกับเครือข่ายเดียวกัน",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1210"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--9db0cf3a-a3c9-4012-8268-123b9db6fd82"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ผู้โจมตีได้ดำเนินการ Ingress Tool Transfer โดยส่งไฟล์ executable ขนาดใหญ่เข้าสู่ระบบผ่าน HTTP protocol",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_044",
+    "source_group": "Sandworm Team",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทเอกชนด้านเทคโนโลยีสารสนเทศแห่งหนึ่งในจังหวัดกรุงเทพมหานคร แจ้งความว่าระบบเซิร์ฟเวอร์หลักของบริษัทถูกโจมตีและทำให้บริการหยุดชะงัก จากการตรวจสอบ log และการวิเคราะห์ traffic พบว่าผู้โจมตีเข้าใช้เครือข่ายจากที่อยู่ IP ที่ซ่อนตัวผ่านบริการ proxy และ VPN ในหลายชั้น เพื่อปกปิดต้นทางที่แท้จริง ต่อมาผู้โจมตีได้ทำการสแกนและเก็บข้อมูลเกี่ยวกับการเชื่อมต่อเครือข่ายภายในของบริษัท รวมถึงการแมปพอร์ตที่เปิดอยู่ และบริการต่างๆ ที่ทำงานบนระบบเครือข่ายนั้น จากนั้นผู้โจมตีได้ส่งแพ็กเก็ต ICMP flood และ UDP flood ขนาดใหญ่เข้ามายังเซิร์ฟเวอร์ทำให้ทรัพยากรของระบบหมดสิ้นและไม่สามารถให้บริการแก่ผู้ใช้งานได้เป็นเวลา 8 ชั่วโมง",
+    "relevant_stix_ids": [
+      "attack-pattern--731f4f55-b6d0-41d1-a7a9-072a66389aea",
+      "attack-pattern--7e150503-88e7-4861-866b-ff1ac82c4475",
+      "attack-pattern--c675646d-e204-4aa8-978d-e3d6d65885c4"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a private information technology company in Bangkok reported that its main server system was attacked and service became unavailable. From examination of logs and traffic analysis, it was found that the attacker accessed the network from an IP address concealed through layered proxy and VPN services to hide the true source. Subsequently, the attacker scanned and gathered information about the company's internal network connections, including open ports and services running on the network systems. The attacker then sent large volumes of ICMP flood and UDP flood packets to the servers, exhausting system resources and rendering the service unavailable to users for 8 hours.",
+    "gold_attack_ids": [
+      "T1090",
+      "T1049",
+      "T1499"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีเข้าใช้เครือข่ายจากที่อยู่ IP ที่ซ่อนตัวผ่านบริการ proxy และ VPN ในหลายชั้น เพื่อปกปิดต้นทางที่แท้จริง",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1090"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--731f4f55-b6d0-41d1-a7a9-072a66389aea"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้ทำการสแกนและเก็บข้อมูลเกี่ยวกับการเชื่อมต่อเครือข่ายภายในของบริษัท รวมถึงการแมปพอร์ตที่เปิดอยู่ และบริการต่างๆ ที่ทำงานบนระบบเครือข่ายนั้น",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1049"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--7e150503-88e7-4861-866b-ff1ac82c4475"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ส่งแพ็กเก็ต ICMP flood และ UDP flood ขนาดใหญ่เข้ามายังเซิร์ฟเวอร์ทำให้ทรัพยากรของระบบหมดสิ้นและไม่สามารถให้บริการแก่ผู้ใช้งานได้",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1499"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--c675646d-e204-4aa8-978d-e3d6d65885c4"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "inc_auto_045",
+    "source_group": "Fox Kitten",
+    "query": "เมื่อวันที่ 22 กุมภาพันธ์ 2569 บริษัทให้บริการโลจิสติกส์แห่งหนึ่งในจังหวัดสมุทรปราการได้รับแจ้งความจากผู้บริหารว่าระบบจัดการสินค้าคงคลังออนไลน์ถูกเข้าถึงโดยไม่ได้รับอนุญาต จากการตรวจสอบ log พบว่าผู้โจมตีได้ส่งคำขอ HTTP ที่มีข้อมูล payload ผิดปกติไปยังช่อง API ของแอปพลิเคชันเว็บสาธารณะ ซึ่งมีช่องโหว่ที่ยังไม่ได้รับการแก้ไข ต่อมาผู้โจมตีได้นำข้อมูลประจำตัวที่ค้นพบมาใช้เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบที่ถูกต้องตามกฎ จากนั้นผู้โจมตีได้ใช้ประโยชน์จาก Web Service ที่ทำงานในเบื้องหลังเพื่อหลีกเลี่ยงระบบตรวจสอบ จากการตรวจสอบ credential log ต่อไปพบว่าผู้โจมตีได้ทำการ brute force บัญชีผู้ใช้งานอื่น ๆ อย่างต่อเนื่องเป็นระยะเวลานาน สุดท้ายผู้โจมตีได้ถ่ายโอนเครื่องมือ malware ต่าง ๆ ไปยังเซิร์ฟเวอร์ภายในเครือข่ายเพื่อขยายการควบคุมไปยังระบบอื่น",
+    "relevant_stix_ids": [
+      "attack-pattern--3f886f2a-874f-4333-b794-aa6075009b1c",
+      "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81",
+      "attack-pattern--830c9528-df21-472c-8c14-a036bf17d665",
+      "attack-pattern--a93494bb-4b80-4ea1-8695-3236a49916fd",
+      "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+    ],
+    "reference_answer": "",
+    "language": "th",
+    "category": "incident_analysis",
+    "query_en": "On 22 February 2569, a logistics service company in Samut Prakan Province received a report from management that the online inventory management system had been accessed without authorization. Upon examination of logs, it was found that the attacker had sent HTTP requests with abnormal payload data to the public-facing web application API, which contained an unpatched vulnerability. Subsequently, the attacker used discovered credentials to log in with a valid administrator account according to proper authentication rules. The attacker then exploited a Web Service running in the background to evade detection systems. Further examination of credential logs revealed that the attacker had continuously performed brute force attacks against other user accounts over an extended period. Finally, the attacker transferred malware tools to internal network servers to expand control to other systems.",
+    "gold_attack_ids": [
+      "T1190",
+      "T1078",
+      "T1102",
+      "T1110",
+      "T1105"
+    ],
+    "attack_steps": [
+      {
+        "order": 1,
+        "cue": "ผู้โจมตีได้ส่งคำขอ HTTP ที่มีข้อมูล payload ผิดปกติไปยังช่อง API ของแอปพลิเคชันเว็บสาธารณะ ซึ่งมีช่องโหว่ที่ยังไม่ได้รับการแก้ไข",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1190"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--3f886f2a-874f-4333-b794-aa6075009b1c"
+        ]
+      },
+      {
+        "order": 2,
+        "cue": "ผู้โจมตีได้นำข้อมูลประจำตัวที่ค้นพบมาใช้เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบที่ถูกต้องตามกฎ",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1078"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--b17a1a56-e99c-403c-8948-561df0cffe81"
+        ]
+      },
+      {
+        "order": 3,
+        "cue": "ผู้โจมตีได้ใช้ประโยชน์จาก Web Service ที่ทำงานในเบื้องหลังเพื่อหลีกเลี่ยงระบบตรวจสอบ",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1102"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--830c9528-df21-472c-8c14-a036bf17d665"
+        ]
+      },
+      {
+        "order": 4,
+        "cue": "ผู้โจมตีได้ทำการ brute force บัญชีผู้ใช้งานอื่น ๆ อย่างต่อเนื่องเป็นระยะเวลานาน",
+        "cue_type": "named",
+        "gold_attack_ids": [
+          "T1110"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--a93494bb-4b80-4ea1-8695-3236a49916fd"
+        ]
+      },
+      {
+        "order": 5,
+        "cue": "ผู้โจมตีได้ถ่ายโอนเครื่องมือ malware ต่าง ๆ ไปยังเซิร์ฟเวอร์ภายในเครือข่าย",
+        "cue_type": "described",
+        "gold_attack_ids": [
+          "T1105"
+        ],
+        "gold_stix_ids": [
+          "attack-pattern--e6919abc-99f9-4c6c-95a5-14761e7b2add"
+        ]
+      }
+    ]
   }
 ]
