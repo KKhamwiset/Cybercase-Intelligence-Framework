@@ -34,8 +34,11 @@ class CaseRecord(Base):
         onupdate=func.now(),
     )
 
-    reports: Mapped[list[ReportRecord]] = relationship(
-        "ReportRecord", back_populates="case", cascade="all, delete-orphan"
+    report: Mapped[ReportRecord | None] = relationship(
+        "ReportRecord",
+        back_populates="case",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
     report_sessions: Mapped[list[ReportSessionRecord]] = relationship(
         "ReportSessionRecord", back_populates="case", cascade="all, delete-orphan"

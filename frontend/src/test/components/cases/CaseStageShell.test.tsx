@@ -1,12 +1,18 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import CaseStageShell from "@/components/cases/CaseStageShell";
 import type { StructuredCase } from "@/lib/cases";
+import { renderWithQueryClient } from "@/test/renderWithQueryClient";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 function makeCase(): StructuredCase {
   return {
     case_id: "CASE-NAV",
+    case_version: 1,
     title: "Navigation case",
     case_type: "incident",
     status: "new",
@@ -27,7 +33,7 @@ function makeCase(): StructuredCase {
 
 describe("CaseStageShell", () => {
   it("shows the case stages with Chat and Evidence after Intake", () => {
-    render(
+    renderWithQueryClient(
       <CaseStageShell activeStage="chat" caseData={makeCase()}>
         <div>Stage content</div>
       </CaseStageShell>,

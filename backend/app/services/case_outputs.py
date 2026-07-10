@@ -6,14 +6,29 @@ from typing import Any
 
 
 SYSTEM_SOURCE = "system_rule"
+ANALYST_SOURCE = "analyst_input"
 
 
-def apply_case_intake_outputs(payload: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
+def apply_case_intake_outputs(
+    payload: dict[str, Any],
+    *,
+    force: bool = False,
+    previous_payload: dict[str, Any] | None = None,
+    explicit_fields: set[str] | None = None,
+) -> dict[str, Any]:
     narrative = str(payload.get("incident_summary") or "").strip()
-    if not narrative:
-        return payload
-
     enriched = deepcopy(payload)
+    if previous_payload is not None:
+        return _reconcile_intake_outputs(
+            enriched,
+            narrative=narrative,
+            previous_payload=previous_payload,
+            force=force,
+            explicit_fields=explicit_fields or set(),
+        )
+    if not narrative:
+        return enriched
+
     evidence = _derive_evidence(narrative)
     evidence_ids = [item["evidence_id"] for item in evidence]
 
@@ -21,20 +36,145 @@ def apply_case_intake_outputs(payload: dict[str, Any], *, force: bool = False) -
     _replace_if_system_owned(enriched, "timeline_events", _derive_timeline(narrative, evidence_ids), force=force)
     _replace_if_system_owned(enriched, "attack_mappings", _derive_attack_mappings(narrative, evidence_ids), force=force)
     _replace_if_system_owned(enriched, "containment_actions", _derive_containment(narrative, evidence_ids), force=force)
-    _replace_if_system_owned(enriched, "recommendations", _derive_recommendations(narrative, evidence_ids), force=force)
 
-    if force or not enriched.get("gaps"):
-        enriched["gaps"] = _derive_gap_notes(narrative)
+    # Gaps and recommendations are analysis results, not intake defaults.
+    # Preserve pre-migration values as history in the stored case payload, but
+    # never create or refresh them from the narrative here.
     if force or not enriched.get("affected_users"):
         enriched["affected_users"] = _derive_affected_users(narrative)
     if force or not enriched.get("affected_assets"):
         enriched["affected_assets"] = _derive_affected_assets(narrative)
-    if force or not enriched.get("limitations"):
-        enriched["limitations"] = [
-            "Generated fields are draft outputs from the intake narrative and require analyst validation."
-        ]
 
     return enriched
+
+
+def _reconcile_intake_outputs(
+    payload: dict[str, Any],
+    *,
+    narrative: str,
+    previous_payload: dict[str, Any],
+    force: bool,
+    explicit_fields: set[str],
+) -> dict[str, Any]:
+    previous_narrative = str(previous_payload.get("incident_summary") or "").strip()
+    previous_users = _derive_affected_users(previous_narrative) if previous_narrative else []
+    previous_assets = _derive_affected_assets(previous_narrative) if previous_narrative else []
+
+    if "evidence_items" in explicit_fields:
+        evidence = list(payload.get("evidence_items") or [])
+    else:
+        preserved_evidence = _manual_items(payload.get("evidence_items"), force=force)
+        generated_evidence = _derive_evidence(narrative) if narrative else []
+        evidence = _merge_with_unique_ids(
+            preserved_evidence,
+            generated_evidence,
+            id_field="evidence_id",
+            prefix="E",
+        )
+        payload["evidence_items"] = evidence
+
+    evidence_ids = [
+        str(item.get("evidence_id"))
+        for item in evidence
+        if isinstance(item, dict) and item.get("evidence_id")
+    ] or (["INTAKE-NARRATIVE"] if narrative else [])
+
+    generated_collections = {
+        "timeline_events": _derive_timeline(narrative, evidence_ids) if narrative else [],
+        "attack_mappings": _derive_attack_mappings(narrative, evidence_ids) if narrative else [],
+        "containment_actions": _derive_containment(narrative, evidence_ids) if narrative else [],
+    }
+    id_fields = {
+        "timeline_events": ("event_id", "TL"),
+        "attack_mappings": ("mapping_id", "MAP"),
+        "containment_actions": ("action_id", "ACT"),
+    }
+    for field, generated in generated_collections.items():
+        if field in explicit_fields:
+            continue
+        id_field, prefix = id_fields[field]
+        payload[field] = _merge_with_unique_ids(
+            _manual_items(payload.get(field), force=force),
+            generated,
+            id_field=id_field,
+            prefix=prefix,
+        )
+
+    if "affected_users" not in explicit_fields:
+        payload["affected_users"] = _reconcile_derived_strings(
+            payload.get("affected_users"),
+            previous_users,
+            _derive_affected_users(narrative) if narrative else [],
+            force=force,
+        )
+    if "affected_assets" not in explicit_fields:
+        payload["affected_assets"] = _reconcile_derived_strings(
+            payload.get("affected_assets"),
+            previous_assets,
+            _derive_affected_assets(narrative) if narrative else [],
+            force=force,
+        )
+    return payload
+
+
+def _manual_items(items: Any, *, force: bool) -> list[dict[str, Any]]:
+    if force or not isinstance(items, list):
+        return []
+    return [
+        deepcopy(item)
+        for item in items
+        if isinstance(item, dict) and not _is_intake_owned(item)
+    ]
+
+
+def _is_intake_owned(item: dict[str, Any]) -> bool:
+    metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+    source_type = item.get("source_type") or metadata.get("source_type")
+    return bool(item.get("intake_derived") or source_type == SYSTEM_SOURCE)
+
+
+def _merge_with_unique_ids(
+    preserved: list[dict[str, Any]],
+    generated: list[dict[str, Any]],
+    *,
+    id_field: str,
+    prefix: str,
+) -> list[dict[str, Any]]:
+    used = {str(item.get(id_field)) for item in preserved if item.get(id_field)}
+    merged = list(preserved)
+    next_index = 1
+    for raw in generated:
+        item = deepcopy(raw)
+        candidate = str(item.get(id_field) or "")
+        while not candidate or candidate in used:
+            candidate = f"{prefix}-{next_index:03d}"
+            next_index += 1
+        item[id_field] = candidate
+        used.add(candidate)
+        merged.append(item)
+    return merged
+
+
+def _reconcile_derived_strings(
+    current: Any,
+    previous_generated: list[str],
+    next_generated: list[str],
+    *,
+    force: bool,
+) -> list[str]:
+    prior = {item.strip().casefold() for item in previous_generated}
+    preserved = [] if force or not isinstance(current, list) else [
+        str(item).strip()
+        for item in current
+        if str(item).strip() and str(item).strip().casefold() not in prior
+    ]
+    seen = {item.casefold() for item in preserved}
+    for item in next_generated:
+        normalized = item.strip()
+        if normalized and normalized.casefold() not in seen:
+            preserved.append(normalized)
+            seen.add(normalized.casefold())
+    return preserved
 
 
 def _replace_if_system_owned(
@@ -58,7 +198,7 @@ def _all_system_owned(items: Any) -> bool:
         if not isinstance(item, dict):
             return False
         source_type = item.get("source_type") or item.get("metadata", {}).get("source_type")
-        if source_type != SYSTEM_SOURCE:
+        if source_type != SYSTEM_SOURCE and not item.get("intake_derived"):
             return False
     return True
 
@@ -89,10 +229,11 @@ def _derive_evidence(narrative: str) -> list[dict[str, Any]]:
             "evidence_id": f"E-{index:03d}",
             "title": bullet[:96],
             "description": bullet,
-            "source_type": SYSTEM_SOURCE,
-            "status": "candidate",
-            "confidence": "medium",
+            "source_type": ANALYST_SOURCE,
+            "status": "unknown",
+            "confidence": "low",
             "analyst_verified": False,
+            "intake_derived": True,
         }
         for index, bullet in enumerate(_dedupe(bullets), start=1)
     ][:10]

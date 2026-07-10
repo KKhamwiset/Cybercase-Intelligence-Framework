@@ -3,23 +3,29 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
-import { getCaseReport, ReportViewModel } from "@/lib/reports";
+import { getLatestCaseReport, type CyberCaseReport, type ReportCompletedResponse } from "@/lib/api";
 
 type UseCaseReportState = {
-  report: ReportViewModel | null;
+  report: CyberCaseReport | null;
   isLoading: boolean;
   error: string;
   notFound: boolean;
 };
 
 export function useCaseReport(caseId: string | null): UseCaseReportState {
-  const query = useQuery<ReportViewModel>({
+  const query = useQuery<ReportCompletedResponse>({
     queryKey: caseId ? ["case-report", caseId] : ["case-report", "missing"],
     queryFn: ({ signal }) => {
       if (!caseId) {
         throw new Error("caseId is required");
       }
-      return getCaseReport(caseId, signal);
+      void signal;
+      return getLatestCaseReport(caseId).then((response) => {
+        if (response.status !== "completed") {
+          throw new Error("The report is not completed");
+        }
+        return response;
+      });
     },
     enabled: Boolean(caseId),
     retry: (failureCount, error) => {
@@ -36,7 +42,7 @@ export function useCaseReport(caseId: string | null): UseCaseReportState {
 
   const notFound = axios.isAxiosError(query.error) && query.error.response?.status === 404;
   return {
-    report: query.data ?? null,
+    report: query.data?.report ?? null,
     isLoading: query.isLoading,
     error: query.error && !notFound ? "Could not load the case report." : "",
     notFound,

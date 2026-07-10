@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,6 +29,7 @@ from app.schemas.case_chat import (
     CaseChatTurnView,
     CaseChatWorkspaceView,
 )
+from app.schemas.rag import MitreTableRow
 from app.services.case_context import CaseContextService
 from app.services.rag_client import RagServiceClient
 
@@ -88,6 +90,70 @@ class CaseChatService:
         return "analysis" if action in {"analyze", "refresh_analysis"} else action
 
     @staticmethod
+    def _build_analysis_outputs(
+        *,
+        rag_response: dict[str, object],
+        analysis_run_id: str,
+        case_id: str,
+        case_version: int,
+        case_snapshot_hash: str,
+        retrieval_context_id: str | None,
+        generated_at: datetime,
+    ) -> dict[str, object]:
+        """Validate and persist only structured RAG outputs.
+
+        The RAG contract currently exposes a structured MITRE table but not
+        structured gaps or recommendations. Free text is intentionally not
+        parsed into synthetic output records.
+        """
+        raw_rows = rag_response.get("mitre_table") or []
+        if not isinstance(raw_rows, list):
+            raise HTTPException(status_code=422, detail="RAG mitre_table must be a list")
+
+        mappings: list[dict[str, object]] = []
+        for index, raw_row in enumerate(raw_rows, start=1):
+            row = MitreTableRow.model_validate(raw_row)
+            source_references = [
+                reference
+                for reference in (
+                    retrieval_context_id,
+                    row.mitre_url,
+                    f"{row.source}:{row.technique_id or row.name}",
+                )
+                if reference
+            ]
+            mappings.append(
+                {
+                    "item_id": row.technique_id or f"RAG-MAP-{index:03d}",
+                    "title": row.name,
+                    "description": row.description,
+                    "source_type": "rag",
+                    "analysis_run_id": analysis_run_id,
+                    "case_id": case_id,
+                    "case_version": case_version,
+                    "case_snapshot_hash": case_snapshot_hash,
+                    "generated_at": generated_at.isoformat(),
+                    "source_references": source_references,
+                    "review_status": "unreviewed",
+                    "status": "candidate",
+                    "details": row.model_dump(mode="json"),
+                }
+            )
+
+        return {
+            "analysis_run_id": analysis_run_id,
+            "case_id": case_id,
+            "case_version": case_version,
+            "case_snapshot_hash": case_snapshot_hash,
+            "generated_at": generated_at.isoformat(),
+            "retrieval_context_id": retrieval_context_id,
+            "evidence": [],
+            "gaps": [],
+            "attack_mappings": mappings,
+            "recommendations": [],
+        }
+
+    @staticmethod
     def _visible_message(request: CaseChatMessageRequest) -> str:
         if request.action == "analyze":
             return "Analyze saved case"
@@ -99,7 +165,15 @@ class CaseChatService:
     def _context_summary(case: CaseRecord) -> CaseChatContextSummary:
         data = case.data or {}
         attack_candidates = sorted(
-            [item for item in (data.get("attack_mappings") or []) if isinstance(item, dict)],
+            [
+                item
+                for item in (data.get("attack_mappings") or [])
+                if isinstance(item, dict)
+                and isinstance(item.get("metadata"), dict)
+                and item["metadata"].get("source_type") == "system_rule"
+                and item["metadata"].get("status", "candidate") == "candidate"
+                and not item["metadata"].get("analyst_verified", False)
+            ],
             key=lambda item: (
                 str(item.get("mapping_id") or ""),
                 str(item.get("technique_id") or ""),
@@ -111,10 +185,15 @@ class CaseChatService:
             incident_summary=str(data.get("incident_summary") or ""),
             case_version=case.case_version,
             case_snapshot_hash=case.case_snapshot_hash,
-            evidence_count=len(data.get("evidence_items") or []),
-            gap_count=len(data.get("gaps") or []),
-            attack_mapping_count=len(data.get("attack_mappings") or []),
-            gaps=sorted(str(gap) for gap in (data.get("gaps") or [])),
+            evidence_count=sum(
+                1
+                for item in (data.get("evidence_items") or [])
+                if isinstance(item, dict)
+                and item.get("source_type") in {"analyst_input", "user_input", "log", "document"}
+            ),
+            gap_count=0,
+            attack_mapping_count=len(attack_candidates),
+            gaps=[],
             attack_candidates=[
                 CaseChatAttackCandidate(
                     mapping_id=str(item.get("mapping_id") or ""),
@@ -396,6 +475,8 @@ class CaseChatService:
             state.active_session_id = None
             state.requires_followup = False
             state.latest_retrieval_context_id = None
+            state.pending_idempotency_key = None
+            state.pending_started_at = None
         elif state.status != "pending":
             state.status = "idle"
 
@@ -586,16 +667,50 @@ class CaseChatService:
                 report_eligible=self._is_report_eligible(case, state),
                 requires_followup=state.requires_followup,
             )
-        state.status = "expired" if expired else "failed"
-        state.active_session_id = None if expired else state.active_session_id
-        state.requires_followup = False if expired else state.requires_followup
-        state.latest_retrieval_context_id = None if expired else state.latest_retrieval_context_id
+        question_failed = turn.turn_type == "question"
+        analysis_markers_are_current = bool(
+            question_failed
+            and state.latest_analysis_turn_id
+            and state.analysis_case_version == case.case_version
+            and state.analysis_snapshot_hash == case.case_snapshot_hash
+        )
+        current_analysis_survives = bool(
+            analysis_markers_are_current
+            and state.latest_retrieval_context_id
+        )
+        if question_failed:
+            state.status = (
+                "completed"
+                if current_analysis_survives
+                else "expired"
+                if analysis_markers_are_current
+                else "stale"
+                if state.analysis_case_version is not None
+                else "idle"
+            )
+            state.active_session_id = None
+            state.requires_followup = False
+        else:
+            state.status = "expired" if expired else "failed"
+            state.active_session_id = None if expired else state.active_session_id
+            state.requires_followup = False if expired else state.requires_followup
+            state.latest_retrieval_context_id = (
+                None if expired else state.latest_retrieval_context_id
+            )
         state.pending_idempotency_key = None
         state.pending_started_at = None
         state.case_version = case.case_version
         state.case_snapshot_hash = case.case_snapshot_hash
         await self.db.commit()
-        message = "RAG session expired. Refresh analysis to continue." if expired else "Case analysis failed. Refresh analysis to retry."
+        message = (
+            "The question failed, but the current analysis remains available."
+            if current_analysis_survives
+            else "The question could not be completed."
+            if question_failed
+            else "RAG session expired. Refresh analysis to continue."
+            if expired
+            else "Case analysis failed. Refresh analysis to retry."
+        )
         return CaseChatMessageResponse(
             status=state.status,
             turn_status=turn.turn_status,
@@ -603,7 +718,7 @@ class CaseChatService:
             message=message,
             case_version=case.case_version,
             case_snapshot_hash=case.case_snapshot_hash,
-            report_eligible=False,
+            report_eligible=self._is_report_eligible(case, state),
         )
 
     async def _finalize_success(
@@ -633,6 +748,9 @@ class CaseChatService:
         rag_status = str(rag_response.get("status") or "completed")
         session_id = str(rag_response.get("session_id") or "") or None
         retrieval_context_id = str(rag_response.get("retrieval_context_id") or "") or None
+        completes_analysis = turn_type == "analysis" or (
+            turn_type == "followup" and state.requires_followup and bool(state.active_session_id)
+        )
         stale = (
             not owns_pending_action
             or case.case_version != captured_version
@@ -640,8 +758,40 @@ class CaseChatService:
         )
         result_status = "stale" if stale else "completed"
         turn.turn_status = result_status
+        assistant_turn_id = f"CCT-{uuid4().hex}"
+        generated_at = datetime.now(timezone.utc)
+        analysis_outputs: dict[str, object] = {}
+        if not stale and completes_analysis and rag_status != "followup":
+            try:
+                analysis_outputs = self._build_analysis_outputs(
+                    rag_response=rag_response,
+                    analysis_run_id=assistant_turn_id,
+                    case_id=case_id,
+                    case_version=captured_version,
+                    case_snapshot_hash=captured_hash,
+                    retrieval_context_id=retrieval_context_id,
+                    generated_at=generated_at,
+                )
+            except (HTTPException, ValidationError):
+                turn.turn_status = "failed"
+                state.status = "failed"
+                state.requires_followup = False
+                state.active_session_id = None
+                state.latest_retrieval_context_id = None
+                state.pending_idempotency_key = None
+                state.pending_started_at = None
+                await self.db.commit()
+                return CaseChatMessageResponse(
+                    status="failed",
+                    turn_status="failed",
+                    turn_type=turn_type,
+                    message="RAG returned invalid structured analysis output.",
+                    case_version=case.case_version,
+                    case_snapshot_hash=case.case_snapshot_hash,
+                    report_eligible=False,
+                )
         assistant_turn = CaseChatTurn(
-            turn_id=f"CCT-{uuid4().hex}",
+            turn_id=assistant_turn_id,
             case_id=case_id,
             role="assistant",
             content=answer or "The RAG service completed without a visible response.",
@@ -651,6 +801,7 @@ class CaseChatService:
             case_snapshot_hash=captured_hash,
             rag_session_id=session_id,
             retrieval_context_id=retrieval_context_id,
+            analysis_outputs_json=analysis_outputs,
         )
         self.db.add(assistant_turn)
         if owns_pending_action:
@@ -667,14 +818,20 @@ class CaseChatService:
             state.requires_followup = False
             state.active_session_id = None
             state.latest_retrieval_context_id = None
-        else:
+        elif completes_analysis:
             state.status = "completed"
             state.requires_followup = rag_status == "followup"
             state.active_session_id = session_id if state.requires_followup else None
             state.analysis_case_version = captured_version
             state.analysis_snapshot_hash = captured_hash
-            state.latest_analysis_turn_id = assistant_turn.turn_id
+            state.latest_analysis_turn_id = None if state.requires_followup else assistant_turn.turn_id
             state.latest_retrieval_context_id = None if state.requires_followup else retrieval_context_id
+        else:
+            # Questions are chat history, not analysis runs. Preserve any prior
+            # completed analysis markers and never make a question report-eligible.
+            state.status = "completed"
+            state.requires_followup = False
+            state.active_session_id = None
         await self.db.commit()
         return CaseChatMessageResponse(
             status=state.status,
@@ -682,8 +839,14 @@ class CaseChatService:
             turn_type=turn_type,
             message=(
                 "Analysis completed against an older case version. Refresh analysis before reporting."
+                if stale and completes_analysis
+                else "The case-chat response used an older case version."
                 if stale
+                else "Case analysis requires follow-up."
+                if completes_analysis and rag_status == "followup"
                 else "Case analysis completed."
+                if completes_analysis
+                else "Case chat response completed."
             ),
             assistant_message=assistant_turn.content,
             followup_question=followup or None,

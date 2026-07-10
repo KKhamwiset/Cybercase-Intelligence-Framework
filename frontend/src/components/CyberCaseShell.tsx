@@ -20,6 +20,45 @@ type CyberCaseShellProps = {
   actions?: ReactNode;
 };
 
+function Navigation({ activeNav, mobile = false }: { activeNav: ActiveNav; mobile?: boolean }) {
+  return (
+    <nav
+      aria-label={mobile ? "Mobile navigation" : "Primary navigation"}
+      className={
+        mobile
+          ? "flex min-w-max items-center gap-1 px-3"
+          : "mt-8 space-y-1.5 text-xs font-bold"
+      }
+    >
+      {NAV_ITEMS.map((item) => {
+        const isActive = item.label === activeNav;
+        return (
+          <Link
+            key={item.label}
+            href={item.href}
+            aria-current={isActive ? "page" : undefined}
+            className={
+              mobile
+                ? `relative px-3 py-3 text-[11px] font-extrabold transition-colors duration-150 focus-visible:outline-offset-[-2px] motion-reduce:transition-none ${
+                    isActive
+                      ? "text-ink after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:bg-accent"
+                      : "text-muted hover:text-ink"
+                  }`
+                : `relative block border border-transparent px-3 py-2.5 transition-colors duration-150 motion-reduce:transition-none ${
+                    isActive
+                      ? "border-white/10 bg-white/10 pl-5 text-white before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:bg-accent-strong"
+                      : "text-white/60 hover:border-white/10 hover:bg-white/5 hover:text-white"
+                  }`
+            }
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function CyberCaseShell({
   activeNav,
   eyebrow = "CyberCase Intelligence Framework",
@@ -29,62 +68,54 @@ export default function CyberCaseShell({
   actions,
 }: CyberCaseShellProps) {
   return (
-    <main className="h-screen overflow-hidden bg-white text-black">
-      <div className="flex h-full w-full overflow-hidden bg-white">
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-black/10 bg-white px-4 py-5 md:flex">
+    <div className="h-screen overflow-hidden bg-canvas text-ink">
+      <div className="flex h-full w-full overflow-hidden">
+        <aside className="hidden w-60 shrink-0 flex-col border-r border-white/10 bg-ink px-5 py-6 text-white md:flex">
           <Link
             href="/"
-            className="flex items-center gap-2 text-base font-black tracking-tight"
+            className="group flex items-center gap-3 text-base font-black tracking-tight focus-visible:outline-offset-4"
           >
-            <span className="flex h-7 w-7 items-center justify-center bg-black text-[10px] text-white">
+            <span className="flex h-8 w-8 items-center justify-center border border-white/15 bg-white text-[10px] font-black text-ink transition-colors duration-150 group-hover:border-accent-strong group-hover:bg-accent-strong group-hover:text-white motion-reduce:transition-none">
               CC
             </span>
             <span>CyberCase</span>
           </Link>
 
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-neutral">
+          <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.2em] text-white/45">
             Intelligence Framework
           </p>
 
-          <nav className="mt-7 space-y-1 text-[11px] font-bold">
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`block px-3 py-2 transition ${
-                  item.label === activeNav
-                    ? "bg-black text-white"
-                    : "text-neutral hover:bg-neutral-100 hover:text-black"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <Navigation activeNav={activeNav} />
 
-          <div className="mt-auto border-t border-black/10 pt-4">
-            <p className="text-xs font-semibold text-neutral">Workspace</p>
-            <p className="mt-1 truncate text-sm font-black">
+          <div className="mt-auto border-t border-white/10 pt-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40">
+              Workspace
+            </p>
+            <p className="mt-1.5 truncate text-sm font-black text-white/90">
               CyberCase Operations
             </p>
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-16 shrink-0 items-center justify-between border-b border-black/10 bg-white px-4 md:px-6">
+        <section className="flex min-w-0 flex-1 flex-col bg-canvas">
+          <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-ink/10 bg-surface px-4 py-3 sm:flex-nowrap md:px-7">
             <div className="flex min-w-0 items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center bg-black text-[10px] font-black text-white md:hidden">
+              <Link
+                href="/"
+                aria-label="CyberCase home"
+                className="flex h-9 w-9 shrink-0 items-center justify-center bg-ink text-[10px] font-black text-white md:hidden"
+              >
                 CC
-              </span>
+              </Link>
 
               <div className="min-w-0">
-                <p className="truncate text-[10px] font-black uppercase tracking-widest text-neutral">
+                <p className="truncate text-[9px] font-black uppercase tracking-[0.17em] text-muted">
                   {eyebrow}
                 </p>
-                <p className="truncate text-sm font-black">{title}</p>
+                <p className="mt-0.5 truncate text-sm font-black text-ink">{title}</p>
 
                 {subtitle ? (
-                  <p className="hidden truncate text-[11px] font-semibold text-neutral sm:block">
+                  <p className="hidden truncate text-[11px] font-semibold text-muted sm:block">
                     {subtitle}
                   </p>
                 ) : null}
@@ -92,13 +123,19 @@ export default function CyberCaseShell({
             </div>
 
             {actions ? (
-              <div className="flex shrink-0 items-center gap-2">{actions}</div>
+              <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+                {actions}
+              </div>
             ) : null}
           </header>
+
+          <div className="shrink-0 overflow-x-auto border-b border-ink/10 bg-surface md:hidden">
+            <Navigation activeNav={activeNav} mobile />
+          </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
         </section>
       </div>
-    </main>
+    </div>
   );
 }

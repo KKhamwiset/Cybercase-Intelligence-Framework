@@ -18,6 +18,8 @@ from app.schemas.report import (
     ReportFollowUpResponse,
     ReportRequest,
     ReportResumeRequest,
+    ReportUpdate,
+    ReviewStatusUpdate,
 )
 
 
@@ -189,6 +191,42 @@ def test_followup_response_keeps_required_ui_fields() -> None:
     assert dumped["missing_information"] == ["incident date/time"]
     assert "case_fact_pack" not in dumped
     assert "answer" not in dumped
+
+
+def test_report_update_normalizes_allowlisted_narrative_fields() -> None:
+    request = ReportUpdate(
+        title="  Analyst reviewed report  ",
+        investigation_next_steps=["  Preserve mailbox logs.  "],
+    )
+
+    assert request.model_dump(exclude_unset=True) == {
+        "title": "Analyst reviewed report",
+        "investigation_next_steps": ["Preserve mailbox logs."],
+    }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"title": "   "},
+        {"executive_case_summary": None},
+        {"investigation_next_steps": [""]},
+        {"report_id": "immutable"},
+        {"case_fact_pack": {}},
+        {"metadata": {"origin": "manual_edit"}},
+    ],
+)
+def test_report_update_rejects_empty_unknown_and_immutable_fields(payload: dict) -> None:
+    with pytest.raises(ValidationError):
+        ReportUpdate.model_validate(payload)
+
+
+def test_review_status_update_rejects_generated_fields() -> None:
+    with pytest.raises(ValidationError):
+        ReviewStatusUpdate.model_validate(
+            {"review_status": "approved", "report_id": "immutable"}
+        )
 
 
 def test_legacy_response_adapter_preserves_old_top_level_fields() -> None:

@@ -1,25 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
+import CaseOutputSummaryCards from "@/components/cases/CaseOutputState";
 import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
 import SaveStatus, { SaveState } from "@/components/cases/SaveStatus";
 import { useUnsavedChangesWarning } from "@/components/cases/useUnsavedChangesWarning";
-import { isNotFound, useCase, useUpdateCase } from "@/hooks/useCase";
+import { isNotFound, useCase, useCaseOutputs, useUpdateCase } from "@/hooks/useCase";
+import { apiErrorMessage } from "@/lib/api-errors";
 import { useSessionDraft } from "@/hooks/useSessionDraft";
-
-type CaseOutputTile = {
-  title: string;
-  count: number;
-  status: string;
-  preview: string;
-  href?: string;
-};
 
 export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null }) {
   const caseQuery = useCase(caseId);
+  const outputsQuery = useCaseOutputs(caseId);
   const mutation = useUpdateCase(caseId ?? "");
   const loadedCase = caseQuery.data;
   const initialNarrative = loadedCase?.incident_summary ?? "";
@@ -29,6 +24,7 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
   );
   const [followUp, setFollowUp] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [saveError, setSaveError] = useState("");
 
   const hasSavedNarrative = Boolean(loadedCase?.incident_summary.trim());
   const hasUnsavedNarrative = Boolean(loadedCase && draft !== loadedCase.incident_summary);
@@ -43,68 +39,19 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
           : "saved";
   useUnsavedChangesWarning(hasUnsavedNarrative || hasUnsavedFollowUp);
 
-  const outputTiles = useMemo<CaseOutputTile[]>(() => {
-    if (!loadedCase) {
-      return [];
-    }
-    return [
-      {
-        title: "Evidence",
-        count: loadedCase.evidence_items.length,
-        href: `/cases/${loadedCase.case_id}/evidence`,
-        status: loadedCase.evidence_items.length
-          ? `${loadedCase.evidence_items.length} item(s) extracted`
-          : "No evidence extracted yet",
-        preview:
-          loadedCase.evidence_items[0]?.title ||
-          "Save Intake to generate evidence candidates.",
-      },
-      {
-        title: "Gaps",
-        count: loadedCase.gaps.length,
-        href: `/cases/${loadedCase.case_id}/gap-analysis`,
-        status: loadedCase.gaps.length
-          ? `${loadedCase.gaps.length} gap(s) identified`
-          : "No gaps identified yet",
-        preview: loadedCase.gaps[0] || "Save Intake to identify missing facts.",
-      },
-      {
-        title: "ATT&CK Mapping",
-        count: loadedCase.attack_mappings.length,
-        href: `/cases/${loadedCase.case_id}/attack-mapping`,
-        status: loadedCase.attack_mappings.length
-          ? `${loadedCase.attack_mappings.length} candidate mapping(s)`
-          : "No mappings generated yet",
-        preview: loadedCase.attack_mappings[0]
-          ? `${loadedCase.attack_mappings[0].technique_id} ${loadedCase.attack_mappings[0].technique_name}`
-          : "Save Intake to produce technique candidates.",
-      },
-      {
-        title: "Recommendations",
-        count: loadedCase.recommendations.length,
-        status: loadedCase.recommendations.length
-          ? `${loadedCase.recommendations.length} recommendation(s)`
-          : "No recommendations yet",
-        preview:
-          loadedCase.recommendations[0]?.title ||
-          "Recommendations appear after case outputs are generated.",
-      },
-    ];
-  }, [loadedCase]);
-
   if (!caseId) {
     return <CaseRouteState title="Case Intake" message="No case ID was provided." />;
   }
 
-  if (caseQuery.isLoading) {
+  if (caseQuery.isLoading || outputsQuery.isLoading) {
     return <CaseRouteState title="Case Intake" message={`Loading case ${caseId}.`} />;
   }
 
-  if (isNotFound(caseQuery.error)) {
+  if (isNotFound(caseQuery.error) || isNotFound(outputsQuery.error)) {
     return <CaseRouteState title="Case Intake" message={`Case ${caseId} was not found.`} />;
   }
 
-  if (caseQuery.error || !loadedCase) {
+  if (caseQuery.error || outputsQuery.error || !loadedCase || !outputsQuery.data) {
     return <CaseRouteState title="Case Intake" message="Could not load this case." />;
   }
 
@@ -113,12 +60,14 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
       return;
     }
     setSaveState("saving");
+    setSaveError("");
     try {
       const savedCase = await mutation.mutateAsync({ incident_summary: draft });
       clearDraft(savedCase.incident_summary);
       setSaveState("saved");
-    } catch {
+    } catch (caught) {
       setSaveState("failed");
+      setSaveError(apiErrorMessage(caught, "Could not save the intake narrative."));
     }
   };
 
@@ -129,12 +78,14 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
     }
     const nextNotes = [loadedCase.analyst_notes, note].filter(Boolean).join("\n\n");
     setSaveState("saving");
+    setSaveError("");
     try {
       await mutation.mutateAsync({ analyst_notes: nextNotes });
       setFollowUp("");
       setSaveState("saved");
-    } catch {
+    } catch (caught) {
       setSaveState("failed");
+      setSaveError(apiErrorMessage(caught, "Could not save the analyst note."));
     }
   };
 
@@ -151,12 +102,17 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
               <p className="mono-label">Case Intake</p>
               <h1 className="mt-2 text-2xl font-black">Incident narrative</h1>
               <p className="mt-2 max-w-2xl text-sm font-semibold text-neutral">
-                Start with the incident description. Saving this narrative creates the
-                downstream gap analysis, ATT&CK mapping, and report inputs for this case.
+                Start with the analyst-provided incident description. Generated gaps and
+                recommendations remain empty until a current analysis completes.
               </p>
             </div>
 
             <div className="p-5">
+              {saveError ? (
+                <p role="alert" className="mb-4 border border-red-500/30 bg-red-50 p-3 text-sm font-semibold text-red-800">
+                  {saveError}
+                </p>
+              ) : null}
               <textarea
                 value={draft}
                 onChange={(event) => {
@@ -242,44 +198,7 @@ export default function CaseIntakeWorkspace({ caseId }: { caseId: string | null 
             ) : null}
           </section>
 
-          <aside className="border border-black/10 bg-white p-5">
-            <p className="mono-label">Generated Case Outputs</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {outputTiles.map((tile) => {
-                const content = (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-lg font-black">{tile.title}</h2>
-                      <span className="text-3xl font-black">{tile.count}</span>
-                    </div>
-                    <p className="mt-3 text-xs font-black uppercase text-neutral">
-                      {tile.status}
-                    </p>
-                    <p className="mt-2 line-clamp-3 text-sm font-semibold leading-6 text-neutral-900">
-                      {tile.preview}
-                    </p>
-                  </>
-                );
-
-                return tile.href ? (
-                  <Link
-                    key={tile.title}
-                    href={tile.href}
-                    className="block min-h-40 border border-black/10 bg-neutral-50 p-4 transition hover:border-black hover:bg-white"
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <article
-                    key={tile.title}
-                    className="min-h-40 border border-black/10 bg-neutral-50 p-4"
-                  >
-                    {content}
-                  </article>
-                );
-              })}
-            </div>
-          </aside>
+          <CaseOutputSummaryCards data={outputsQuery.data} />
         </div>
       </div>
     </CaseStageShell>

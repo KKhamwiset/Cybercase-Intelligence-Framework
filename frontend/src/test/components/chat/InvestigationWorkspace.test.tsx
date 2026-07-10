@@ -106,6 +106,10 @@ describe("InvestigationWorkspace follow-up progression", () => {
       report_id: "report-1",
       report: makeReport(),
       answer: "Report generated",
+      edit_metadata: {
+        origin: "generated",
+        edited_fields: [],
+      },
     });
 
     render(<InvestigationWorkspace showCaseList={false} caseId="CASE-CHAT" />);

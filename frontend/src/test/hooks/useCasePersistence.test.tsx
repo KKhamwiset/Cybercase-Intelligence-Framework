@@ -18,6 +18,7 @@ vi.mock("@/lib/cases", async () => {
 function makeCase(incidentSummary = ""): StructuredCase {
   return {
     case_id: "CASE-PERSIST",
+    case_version: 1,
     title: "Persistent case",
     case_type: "incident",
     status: "new",

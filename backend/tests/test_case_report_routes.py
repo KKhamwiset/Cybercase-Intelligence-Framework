@@ -129,6 +129,9 @@ class _FakeDb:
     async def commit(self) -> None:
         self.commits += 1
 
+    async def rollback(self) -> None:
+        return None
+
     async def execute(self, statement):
         from sqlalchemy.sql.dml import Delete
 

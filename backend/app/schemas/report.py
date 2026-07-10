@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.common import (
     Confidence,
@@ -20,6 +20,16 @@ ReportSectionStatus = Literal["complete", "partial", "missing"]
 DeterministicReportStatus = Literal["draft", "incomplete", "ready_for_review"]
 GapPriority = Literal["high", "medium", "low"]
 IncidentReportType = Literal["incident_analysis"]
+
+REPORT_EDITABLE_FIELDS = frozenset(
+    {
+        "title",
+        "executive_case_summary",
+        "evidence_still_required",
+        "investigation_next_steps",
+        "limitations_and_disclaimers",
+    }
+)
 
 LEGAL_DISCLAIMER = (
     "This is preliminary investigation support only and is not a legal conclusion."
@@ -221,7 +231,69 @@ class ReportResumeRequest(BaseModel):
 
 
 class ReviewStatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     review_status: ReviewStatus
+
+
+class ReportUpdate(BaseModel):
+    """Analyst-owned narrative overlay for a generated report.
+
+    Generated identifiers, evidence, mappings, fact-pack data, and provenance
+    are intentionally absent and therefore rejected by ``extra="forbid"``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    executive_case_summary: str | None = Field(
+        default=None, min_length=1, max_length=20_000
+    )
+    evidence_still_required: list[str] | None = Field(default=None, max_length=100)
+    investigation_next_steps: list[str] | None = Field(default=None, max_length=100)
+    limitations_and_disclaimers: list[str] | None = Field(default=None, max_length=100)
+
+    @field_validator("title", "executive_case_summary", mode="before")
+    @classmethod
+    def normalize_required_text(cls, value: object) -> object:
+        if value is None:
+            raise ValueError("Report narrative fields cannot be null")
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise ValueError("Report narrative fields cannot be empty")
+        return value
+
+    @field_validator(
+        "evidence_still_required",
+        "investigation_next_steps",
+        "limitations_and_disclaimers",
+    )
+    @classmethod
+    def normalize_narrative_list(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            raise ValueError("Report narrative lists cannot be null")
+        normalized: list[str] = []
+        for item in value:
+            text = item.strip()
+            if not text:
+                raise ValueError("Report narrative list items cannot be empty")
+            if len(text) > 4_000:
+                raise ValueError("Report narrative list items cannot exceed 4000 characters")
+            normalized.append(text)
+        return normalized
+
+    @model_validator(mode="after")
+    def require_at_least_one_edit(self) -> "ReportUpdate":
+        if not self.model_fields_set:
+            raise ValueError("At least one analyst-editable report field is required")
+        return self
+
+
+class ReportEditMetadata(BaseModel):
+    origin: Literal["generated", "manual_edit"] = "generated"
+    edited_fields: list[str] = Field(default_factory=list)
+    edited_at: datetime | None = None
 
 
 class ReportCompletedResponse(BaseModel):
@@ -230,6 +302,7 @@ class ReportCompletedResponse(BaseModel):
     report: CyberCaseReport
     answer: str = ""
     retrieval_context_id: str | None = None
+    edit_metadata: ReportEditMetadata = Field(default_factory=ReportEditMetadata)
 
 
 class ReportFollowUpResponse(BaseModel):
@@ -333,6 +406,7 @@ class ReportRegistryItem(BaseModel):
     created_at: str
     updated_at: str
     executive_summary_preview: str
+    edit_metadata: ReportEditMetadata = Field(default_factory=ReportEditMetadata)
 
 
 __all__ = [
@@ -354,6 +428,8 @@ __all__ = [
     "MitreAssessment",
     "ReportCompletedResponse",
     "ReportErrorResponse",
+    "ReportEditMetadata",
+    "REPORT_EDITABLE_FIELDS",
     "ReportFollowUpResponse",
     "ReportGap",
     "ReportInputSnapshot",
@@ -364,6 +440,7 @@ __all__ = [
     "ReportSection",
     "ReportSectionStatus",
     "ReportType",
+    "ReportUpdate",
     "ReportViewModel",
     "ReportWorkflowResponse",
     "ReviewStatusUpdate",

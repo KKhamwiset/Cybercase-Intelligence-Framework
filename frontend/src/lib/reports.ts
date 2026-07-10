@@ -1,7 +1,3 @@
-import axios from "axios";
-
-import { getApiBaseUrl } from "./api";
-
 export type FindingStatus = "confirmed" | "candidate" | "unknown";
 export type ReportStatus = "draft" | "incomplete" | "ready_for_review";
 export type ReportSectionStatus = "complete" | "partial" | "missing";
@@ -101,16 +97,4 @@ export interface ActionItemView {
   description?: string;
   status: FindingStatus;
   metadata: FindingMetadataView;
-}
-
-export async function getCaseReport(
-  caseId: string,
-  signal?: AbortSignal,
-): Promise<ReportViewModel> {
-  const baseUrl = getApiBaseUrl();
-  const response = await axios.get<ReportViewModel>(
-    `${baseUrl}/cases/${encodeURIComponent(caseId)}/report`,
-    { signal },
-  );
-  return response.data;
 }

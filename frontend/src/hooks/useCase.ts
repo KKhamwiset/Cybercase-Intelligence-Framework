@@ -1,15 +1,16 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 import {
   CaseCreateInput,
   CaseUpdateInput,
   createCase,
+  deleteCase,
   getCase,
+  getCaseOutputs,
   listCases,
-  StructuredCase,
   updateCase,
 } from "@/lib/cases";
 import { caseAnalysisKeys } from "@/lib/case-chat";
@@ -18,6 +19,11 @@ export const caseKeys = {
   all: ["cases"] as const,
   lists: () => [...caseKeys.all, "list"] as const,
   detail: (caseId: string) => [...caseKeys.all, caseId] as const,
+  outputs: (caseId: string) => [...caseKeys.detail(caseId), "outputs"] as const,
+};
+
+export const caseMutationKeys = {
+  item: (caseId: string) => ["case-mutation", caseId] as const,
 };
 
 export function useCase(caseId: string | null) {
@@ -46,6 +52,29 @@ export function useCases() {
   });
 }
 
+export function useCaseOutputs(caseId: string | null) {
+  return useQuery({
+    queryKey: caseId ? caseKeys.outputs(caseId) : [...caseKeys.all, "missing", "outputs"],
+    queryFn: ({ signal }) => {
+      if (!caseId) {
+        throw new Error("caseId is required");
+      }
+      return getCaseOutputs(caseId, signal);
+    },
+    enabled: Boolean(caseId),
+    retry: (failureCount, error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return false;
+      }
+      return failureCount < 2;
+    },
+  });
+}
+
+export function useCaseActionPending(caseId: string): boolean {
+  return useIsMutating({ mutationKey: caseMutationKeys.item(caseId) }) > 0;
+}
+
 export function useCreateCase() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -60,25 +89,27 @@ export function useCreateCase() {
 export function useUpdateCase(caseId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: caseMutationKeys.item(caseId),
     mutationFn: (input: CaseUpdateInput) => updateCase(caseId, input),
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: caseKeys.detail(caseId) });
-      const previous = queryClient.getQueryData<StructuredCase>(caseKeys.detail(caseId));
-      if (previous) {
-        queryClient.setQueryData(caseKeys.detail(caseId), { ...previous, ...input });
-      }
-      return { previous };
-    },
-    onError: (_error, _input, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(caseKeys.detail(caseId), context.previous);
-      }
-    },
     onSuccess: (savedCase) => {
       queryClient.setQueryData(caseKeys.detail(caseId), savedCase);
+      queryClient.removeQueries({ queryKey: caseKeys.outputs(caseId), exact: true });
       void queryClient.invalidateQueries({ queryKey: caseKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(caseId) });
       void queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(caseId) });
+      void queryClient.invalidateQueries({ queryKey: caseKeys.outputs(caseId) });
+    },
+  });
+}
+
+export function useDeleteCase(caseId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: caseMutationKeys.item(caseId),
+    mutationFn: () => deleteCase(caseId),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: caseKeys.detail(caseId) });
+      void queryClient.invalidateQueries({ queryKey: caseKeys.lists() });
     },
   });
 }

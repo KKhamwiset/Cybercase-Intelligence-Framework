@@ -3,17 +3,24 @@
 @theme {
     --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
-    --color-primary: #050505;
-    --color-secondary: #1f1f1f;
-    --color-neutral: #6b6b6b;
+    --color-primary: #171717;
+    --color-secondary: #2b2b2b;
+    --color-neutral: #5f6368;
 
-    --color-background: #1f1f1f;
-    --color-surface: #ffffff;
+    --color-ink: #171717;
+    --color-canvas: #f4f4f2;
+    --color-surface: #fbfbf8;
+    --color-subdued: #e8e8e5;
+    --color-muted: #5f6368;
+    --color-accent: #b91c1c;
+    --color-accent-strong: #dc2626;
+
+    --color-background: #f4f4f2;
 }
 
 :root {
     --background: var(--color-background);
-    --foreground: #050505;
+    --foreground: var(--color-ink);
 }
 
 html {
@@ -27,15 +34,15 @@ body {
 }
 
 @utility card {
-    @apply border border-black/15 bg-white;
+    @apply border border-ink/15 bg-surface;
 }
 
 @utility btn-primary {
-    @apply bg-black px-5 py-2.5 text-sm font-black text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply bg-ink px-5 py-2.5 text-sm font-black text-white transition-colors duration-150 hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none;
 }
 
 @utility btn-secondary {
-    @apply border border-black/15 bg-white px-5 py-2.5 text-sm font-black text-black transition-colors hover:border-black hover:bg-neutral-50;
+    @apply border border-ink/15 bg-surface px-5 py-2.5 text-sm font-black text-ink transition-colors duration-150 hover:border-ink hover:bg-subdued/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent motion-reduce:transition-none;
 }
 
 @utility btn-inverted {
@@ -47,7 +54,7 @@ body {
 }
 
 @utility panel {
-    @apply border border-black/15 bg-white;
+    @apply border border-ink/15 bg-surface;
 }
 
 @utility mono-label {
@@ -55,8 +62,24 @@ body {
 }
 
 ::selection {
-    background: #050505;
+    background: #b91c1c;
     color: #ffffff;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 .report-shell {

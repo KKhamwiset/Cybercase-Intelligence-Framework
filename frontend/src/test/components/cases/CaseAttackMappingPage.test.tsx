@@ -2,9 +2,10 @@ import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CaseAttackMappingPage from "@/app/cases/[caseId]/attack-mapping/page";
-import { getCase } from "@/lib/cases";
+import { getCase, getCaseOutputs } from "@/lib/cases";
 import { getCaseReportReadiness } from "@/lib/case-chat";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";
+import { makeCaseOutputs, makeOutputItem } from "@/test/caseOutputs";
 
 const push = vi.fn();
 
@@ -15,7 +16,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/cases", async () => {
   const actual = await vi.importActual<typeof import("@/lib/cases")>("@/lib/cases");
-  return { ...actual, getCase: vi.fn(), updateCase: vi.fn() };
+  return { ...actual, getCase: vi.fn(), getCaseOutputs: vi.fn(), updateCase: vi.fn() };
 });
 
 vi.mock("@/lib/case-chat", async () => {
@@ -31,6 +32,7 @@ vi.mock("@/lib/api", async () => {
 function makeCase() {
   return {
     case_id: "CASE-MAP",
+    case_version: 1,
     title: "Mapping case",
     case_type: "incident",
     status: "investigating" as const,
@@ -79,8 +81,20 @@ describe("CaseAttackMappingPage", () => {
   beforeEach(() => {
     push.mockReset();
     vi.mocked(getCase).mockReset();
+    vi.mocked(getCaseOutputs).mockReset();
     vi.mocked(getCaseReportReadiness).mockReset();
     vi.mocked(getCase).mockResolvedValue(makeCase());
+    vi.mocked(getCaseOutputs).mockResolvedValue(
+      makeCaseOutputs("CASE-MAP", {
+        attackMappings: [makeOutputItem({
+          item_id: "T1566",
+          title: "Phishing",
+          description: "Email lure reported in intake.",
+          source_type: "system_rule",
+          analysis_run_id: null,
+        })],
+      }),
+    );
   });
 
   it("labels saved mappings as intake-derived system-rule candidates", async () => {
@@ -88,9 +102,9 @@ describe("CaseAttackMappingPage", () => {
     renderWithQueryClient(<CaseAttackMappingPage />);
 
     expect(await screen.findByRole("heading", { name: "Intake-derived ATT&CK candidates" })).toBeInTheDocument();
-    expect(screen.getByText(/These are deterministic candidates from saved intake data/i)).toBeInTheDocument();
-    expect(screen.getByText("Source: intake / system_rule")).toBeInTheDocument();
-    expect(screen.getByText("Candidate — analyst review required")).toBeInTheDocument();
+    expect(screen.getByText(/Counts and items come from the backend lifecycle view/i)).toBeInTheDocument();
+    expect(screen.getByText("Deterministic candidate")).toBeInTheDocument();
+    expect(screen.getByText("Candidate - analyst review required")).toBeInTheDocument();
     expect(screen.getByText("No current RAG analysis for this case version")).toBeInTheDocument();
   });
 
@@ -100,6 +114,7 @@ describe("CaseAttackMappingPage", () => {
       report_eligible: true,
       reason: "ready",
     }));
+    vi.mocked(getCaseOutputs).mockResolvedValue(makeCaseOutputs("CASE-MAP", { status: "completed" }));
     renderWithQueryClient(<CaseAttackMappingPage />);
 
     expect(await screen.findByText("Current investigation analysis available")).toBeInTheDocument();

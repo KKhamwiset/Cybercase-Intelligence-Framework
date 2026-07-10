@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CaseChatWorkspace from "./CaseChatWorkspace";
-import { getCase } from "@/lib/cases";
+import { getCase, getCaseOutputs } from "@/lib/cases";
 import {
   getCaseChat,
   getCaseReportReadiness,
@@ -11,10 +11,11 @@ import {
 import { generateCaseReport } from "@/lib/api";
 import type { StructuredCase } from "@/lib/cases";
 import { renderWithQueryClient } from "@/test/renderWithQueryClient";
+import { makeCaseOutputs } from "@/test/caseOutputs";
 
 vi.mock("@/lib/cases", async () => {
   const actual = await vi.importActual<typeof import("@/lib/cases")>("@/lib/cases");
-  return { ...actual, getCase: vi.fn() };
+  return { ...actual, getCase: vi.fn(), getCaseOutputs: vi.fn() };
 });
 vi.mock("@/lib/case-chat", async () => {
   const actual = await vi.importActual<typeof import("@/lib/case-chat")>("@/lib/case-chat");
@@ -30,7 +31,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 function makeCase(): StructuredCase {
   return {
-    case_id: "CASE-CHAT", title: "Chat case", case_type: "incident", status: "new", severity: "high",
+    case_id: "CASE-CHAT", case_version: 1, title: "Chat case", case_type: "incident", status: "new", severity: "high",
     incident_summary: "Finance reported a phishing email.", affected_users: [], affected_assets: [],
     timeline_events: [], evidence_items: [], attack_mappings: [], containment_actions: [],
     recommendations: [], gaps: [], limitations: [], analyst_notes: "",
@@ -69,11 +70,13 @@ function readiness(overrides = {}) {
 describe("CaseChatWorkspace", () => {
   beforeEach(() => {
     vi.mocked(getCase).mockReset();
+    vi.mocked(getCaseOutputs).mockReset();
     vi.mocked(getCaseChat).mockReset();
     vi.mocked(getCaseReportReadiness).mockReset();
     vi.mocked(postCaseChatMessage).mockReset();
     vi.mocked(generateCaseReport).mockReset();
     vi.mocked(getCase).mockResolvedValue(makeCase());
+    vi.mocked(getCaseOutputs).mockResolvedValue(makeCaseOutputs("CASE-CHAT"));
     vi.mocked(getCaseReportReadiness).mockResolvedValue(readiness());
   });
 

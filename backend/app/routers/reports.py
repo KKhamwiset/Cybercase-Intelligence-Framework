@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 import io
 
@@ -6,6 +6,7 @@ from app.schemas.report import (
     ReportWorkflowResponse,
     ReviewStatusUpdate,
     ReportRegistryItem,
+    ReportUpdate,
 )
 from app.services.report_workflow import ReportWorkflowResult, ReportWorkflowService
 from app.dependencies import get_report_workflow_service
@@ -16,9 +17,10 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 @router.get("", response_model=list[ReportRegistryItem])
 async def list_reports(
+    case_id: str | None = None,
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> list[ReportRegistryItem]:
-    return await service.list_reports()
+    return await service.list_reports(case_id=case_id)
 
 
 @router.get("/{report_id}", response_model=ReportWorkflowResponse)
@@ -27,6 +29,24 @@ async def get_report(
     service: ReportWorkflowService = Depends(get_report_workflow_service),
 ) -> ReportWorkflowResult:
     return await service.get_report(report_id)
+
+
+@router.patch("/{report_id}", response_model=ReportWorkflowResponse)
+async def update_report(
+    report_id: str,
+    request: ReportUpdate,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> ReportWorkflowResult:
+    return await service.update_report(report_id, request)
+
+
+@router.delete("/{report_id}", status_code=204)
+async def delete_report(
+    report_id: str,
+    service: ReportWorkflowService = Depends(get_report_workflow_service),
+) -> Response:
+    await service.delete_report(report_id)
+    return Response(status_code=204)
 
 
 @router.patch("/{report_id}/review-status", response_model=ReportWorkflowResponse)

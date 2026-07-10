@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import CyberCaseShell from "@/components/CyberCaseShell";
+import CaseCrudControls from "@/components/cases/CaseCrudControls";
 import type { StructuredCase } from "@/lib/cases";
 
 const STAGES = [
@@ -31,7 +32,12 @@ export default function CaseStageShell({
       activeNav="Investigate"
       title={caseData.title}
       subtitle={`Case ${caseData.case_id}`}
-      actions={actions}
+      actions={
+        <div className="flex flex-wrap items-center gap-3">
+          {actions}
+          <CaseCrudControls caseData={caseData} />
+        </div>
+      }
     >
       <div className="flex h-full flex-col overflow-hidden bg-neutral-100">
         <div className="shrink-0 border-b border-black/10 bg-white px-5 py-3">

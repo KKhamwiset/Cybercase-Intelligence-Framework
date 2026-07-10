@@ -19,9 +19,27 @@ export type CaseStatus =
   | "resolved"
   | "unknown";
 export type CaseSeverity = "critical" | "high" | "medium" | "low" | "unknown";
+export type CaseAnalysisOutputStatus =
+  | "not_started"
+  | "pending"
+  | "completed"
+  | "stale"
+  | "failed"
+  | "expired";
+export type CaseOutputSourceType =
+  | "analyst_input"
+  | "user_input"
+  | "log"
+  | "document"
+  | "system_rule"
+  | "rag"
+  | "manual_edit"
+  | "legacy_unverified";
+export type CaseOutputReviewStatus = "unreviewed" | "accepted" | "rejected" | "edited";
 
 export interface CaseListItem {
   case_id: string;
+  case_version: number;
   title: string;
   status: CaseStatus;
   severity: CaseSeverity;
@@ -39,6 +57,7 @@ export interface CaseAttackMapping {
 
 export interface StructuredCase {
   case_id: string;
+  case_version: number;
   title: string;
   case_type: string;
   status: CaseStatus;
@@ -76,12 +95,57 @@ export interface CaseUpdateInput {
   affected_assets?: string[];
   timeline_events?: TimelineEventView[];
   evidence_items?: EvidenceItemView[];
-  attack_mappings?: CaseAttackMapping[];
   containment_actions?: ActionItemView[];
-  recommendations?: ActionItemView[];
-  gaps?: string[];
   limitations?: string[];
   analyst_notes?: string;
+}
+
+export interface CaseOutputItem {
+  item_id: string;
+  title: string;
+  description: string;
+  source_type: CaseOutputSourceType;
+  analysis_run_id?: string | null;
+  case_version: number;
+  generated_at?: string | null;
+  source_references: string[];
+  review_status: CaseOutputReviewStatus;
+  status: string;
+  details: Record<string, unknown>;
+}
+
+export interface CaseOutputBucket {
+  current_count: number;
+  items: CaseOutputItem[];
+  source_types: CaseOutputSourceType[];
+}
+
+export interface CaseHistoricalOutputBucket {
+  historical_count: number;
+  items: CaseOutputItem[];
+}
+
+export interface CaseOutputsResponse {
+  case_id: string;
+  case_version: number;
+  analysis: {
+    status: CaseAnalysisOutputStatus;
+    analysis_run_id?: string | null;
+    analyzed_case_version?: number | null;
+    analyzed_snapshot_hash?: string | null;
+  };
+  outputs: {
+    evidence: CaseOutputBucket;
+    gaps: CaseOutputBucket;
+    attack_mappings: CaseOutputBucket;
+    recommendations: CaseOutputBucket;
+  };
+  historical_outputs: {
+    evidence: CaseHistoricalOutputBucket;
+    gaps: CaseHistoricalOutputBucket;
+    attack_mappings: CaseHistoricalOutputBucket;
+    recommendations: CaseHistoricalOutputBucket;
+  };
 }
 
 export interface CaseMetadataInput {
@@ -115,6 +179,17 @@ export async function getCase(
   return response.data;
 }
 
+export async function getCaseOutputs(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<CaseOutputsResponse> {
+  const response = await axios.get<CaseOutputsResponse>(
+    `${getApiBaseUrl()}/cases/${encodeURIComponent(caseId)}/outputs`,
+    { signal },
+  );
+  return response.data;
+}
+
 export async function updateCase(
   caseId: string,
   input: CaseUpdateInput,
@@ -124,4 +199,8 @@ export async function updateCase(
     input,
   );
   return response.data;
+}
+
+export async function deleteCase(caseId: string): Promise<void> {
+  await axios.delete(`${getApiBaseUrl()}/cases/${encodeURIComponent(caseId)}`);
 }

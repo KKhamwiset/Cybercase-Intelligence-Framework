@@ -5,7 +5,7 @@ import os
 from typing import AsyncIterator
 
 import pytest
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import NullPool
 from sqlalchemy import select
@@ -15,11 +15,16 @@ from app.database import Base, get_db
 from app.dependencies import get_report_workflow_service
 from app.main import app as backend_app
 from app.models.case import CaseRecord
-from app.models.case_chat import CaseChatState
+from app.models.case_chat import CaseChatState, CaseChatTurn
+from app.models.report import ReportRecord, ReportSessionRecord
 from app.schemas.report import (
     CaseFactPack,
     CaseInformationCompleteness,
     CyberCaseReport,
+    GenerateCaseReportRequest,
+    ReportResumeRequest,
+    ReportUpdate,
+    ReviewStatusUpdate,
 )
 from app.services.report_workflow import ReportWorkflowService
 from app.services.case_context import CaseContextService
@@ -116,6 +121,24 @@ class _MockRagClient:
             }
         return {}
 
+
+class _BlockingRagClient:
+    def __init__(self, entered: asyncio.Event, release: asyncio.Event) -> None:
+        self.entered = entered
+        self.release = release
+
+    async def get_json(self, path: str) -> dict:
+        assert path == "/retrieval-contexts/ctx-http"
+        self.entered.set()
+        await self.release.wait()
+        return {
+            "retrieval_context_id": "ctx-http",
+            "query": "Suspicious logins from a foreign IP.",
+            "rag_result": {},
+            "context": "Sample threat context data",
+            "answer": "Sample RAG answer",
+            "mitre_table": [],
+        }
 
 class _MockReportGenerator:
     def __init__(self) -> None:
@@ -226,6 +249,20 @@ def _create_case(client: TestClient, title: str = "HTTP Case") -> str:
             case = result.scalars().first()
             assert case is not None
             snapshot_hash = CaseContextService.hash_for_case(case)
+            analysis_turn_id = f"analysis-{case_id}"
+            session.add(
+                CaseChatTurn(
+                    turn_id=analysis_turn_id,
+                    case_id=case_id,
+                    role="assistant",
+                    content="Completed HTTP analysis",
+                    turn_type="analysis",
+                    turn_status="completed",
+                    case_version=case.case_version,
+                    case_snapshot_hash=snapshot_hash,
+                    retrieval_context_id="ctx-http",
+                )
+            )
             session.add(
                 CaseChatState(
                     case_id=case_id,
@@ -233,6 +270,7 @@ def _create_case(client: TestClient, title: str = "HTTP Case") -> str:
                     case_snapshot_hash=snapshot_hash,
                     status="completed",
                     requires_followup=False,
+                    latest_analysis_turn_id=analysis_turn_id,
                     latest_retrieval_context_id="ctx-http",
                     analysis_case_version=case.case_version,
                     analysis_snapshot_hash=snapshot_hash,
@@ -297,6 +335,424 @@ def test_report_registry_get_and_review_status(client: TestClient) -> None:
     )
     assert updated.status_code == 200
     assert updated.json()["report"]["review_status"] == "approved"
+
+
+def test_successful_regeneration_replaces_current_report_and_resets_manual_state(
+    client: TestClient,
+) -> None:
+    case_id = _create_case(client)
+    initial = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert initial.status_code == 200
+    stable_report_id = initial.json()["report_id"]
+
+    patched = client.patch(
+        f"/api/v1/reports/{stable_report_id}",
+        json={"title": "Analyst override"},
+    )
+    approved = client.patch(
+        f"/api/v1/reports/{stable_report_id}/review-status",
+        json={"review_status": "approved"},
+    )
+    assert patched.status_code == approved.status_code == 200
+
+    async def _created_at() -> object:
+        async with SessionLocal() as session:
+            record = (
+                await session.execute(
+                    select(ReportRecord).where(ReportRecord.case_id == case_id)
+                )
+            ).scalars().one()
+            return record.created_at
+
+    original_created_at = asyncio.run(_created_at())
+    regenerated = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "timeline", "force_generate": True},
+    )
+
+    assert regenerated.status_code == 200
+    body = regenerated.json()
+    assert body["report_id"] == stable_report_id
+    assert body["report"]["report_id"] == stable_report_id
+    assert body["report"]["report_type"] == "timeline"
+    assert body["report"]["title"] == "HTTP Incident Report"
+    assert body["report"]["review_status"] == "draft"
+    assert body["edit_metadata"] == {
+        "origin": "generated",
+        "edited_fields": [],
+        "edited_at": None,
+    }
+
+    case_report = client.get(f"/api/v1/cases/{case_id}/report")
+    filtered = client.get("/api/v1/reports", params={"case_id": case_id})
+    assert case_report.status_code == filtered.status_code == 200
+    assert case_report.json()["report_id"] == stable_report_id
+    assert [item["report_id"] for item in filtered.json()] == [stable_report_id]
+
+    async def _assert_replaced_record() -> None:
+        async with SessionLocal() as session:
+            records = (
+                await session.execute(
+                    select(ReportRecord).where(ReportRecord.case_id == case_id)
+                )
+            ).scalars().all()
+            assert len(records) == 1
+            record = records[0]
+            assert record.report_id == stable_report_id
+            assert record.created_at == original_created_at
+            assert record.report_type == "timeline"
+            assert record.review_status == "draft"
+            assert record.report_payload_json["report_id"] == stable_report_id
+            assert record.case_fact_pack_json["review_status"] == "draft"
+            metadata = record.report_payload_json["metadata"]
+            assert metadata["origin"] == "generated"
+            assert metadata["edited_fields"] == []
+            assert "manual_overlay" not in metadata
+            assert "edit_history" not in metadata
+            assert "edited_at" not in metadata
+
+    asyncio.run(_assert_replaced_record())
+
+
+def test_failed_regeneration_preserves_current_report(
+    client: TestClient,
+    report_generator: _MockReportGenerator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case_id = _create_case(client)
+    initial = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert initial.status_code == 200
+    report_id = initial.json()["report_id"]
+    assert client.patch(
+        f"/api/v1/reports/{report_id}",
+        json={"title": "Preserve this analyst edit"},
+    ).status_code == 200
+    assert client.patch(
+        f"/api/v1/reports/{report_id}/review-status",
+        json={"review_status": "approved"},
+    ).status_code == 200
+
+    def _fail_generation(*args: object, **kwargs: object) -> CyberCaseReport:
+        raise RuntimeError("sensitive generator failure")
+
+    monkeypatch.setattr(report_generator, "generate", _fail_generation)
+    failed = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "timeline", "force_generate": True},
+    )
+
+    assert failed.status_code == 500
+    assert failed.json()["detail"] == "Report generation failed. Please retry."
+    assert "sensitive" not in failed.text
+
+    current = client.get(f"/api/v1/cases/{case_id}/report")
+    assert current.status_code == 200
+    assert current.json()["report_id"] == report_id
+    assert current.json()["report"]["title"] == "Preserve this analyst edit"
+    assert current.json()["report"]["review_status"] == "approved"
+    assert current.json()["edit_metadata"]["origin"] == "manual_edit"
+
+    async def _assert_preserved_record() -> None:
+        async with SessionLocal() as session:
+            records = (
+                await session.execute(
+                    select(ReportRecord).where(ReportRecord.case_id == case_id)
+                )
+            ).scalars().all()
+            claims = (
+                await session.execute(
+                    select(ReportSessionRecord).where(
+                        ReportSessionRecord.case_id == case_id
+                    )
+                )
+            ).scalars().all()
+            assert len(records) == 1
+            assert records[0].report_id == report_id
+            assert records[0].report_type == "overview"
+            assert records[0].review_status == "approved"
+            assert records[0].report_payload_json["metadata"]["manual_overlay"][
+                "title"
+            ] == "Preserve this analyst edit"
+            assert claims == []
+
+    asyncio.run(_assert_preserved_record())
+
+
+def test_report_filter_content_patch_and_delete_preserve_case(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.services.case_chat.RagServiceClient", _MockRagClient)
+    first_case_id = _create_case(client, "First report case")
+    second_case_id = _create_case(client, "Second report case")
+    first = client.post(
+        f"/api/v1/cases/{first_case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    second = client.post(
+        f"/api/v1/cases/{second_case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert first.status_code == second.status_code == 200
+    first_report_id = first.json()["report_id"]
+
+    filtered = client.get("/api/v1/reports", params={"case_id": first_case_id})
+    assert filtered.status_code == 200
+    assert [item["report_id"] for item in filtered.json()] == [first_report_id]
+
+    patched = client.patch(
+        f"/api/v1/reports/{first_report_id}",
+        json={
+            "title": "  Analyst-reviewed title  ",
+            "executive_case_summary": "Analyst-reviewed summary",
+        },
+    )
+    assert patched.status_code == 200
+    assert patched.json()["report"]["title"] == "Analyst-reviewed title"
+    assert patched.json()["edit_metadata"]["origin"] == "manual_edit"
+
+    async def _load_stored_report() -> ReportRecord:
+        async with SessionLocal() as session:
+            result = await session.execute(
+                select(ReportRecord).where(ReportRecord.report_id == first_report_id)
+            )
+            report = result.scalars().first()
+            assert report is not None
+            return report
+
+    stored = asyncio.run(_load_stored_report())
+    assert stored.report_payload_json["title"] == "HTTP Incident Report"
+    assert stored.report_payload_json["metadata"]["manual_overlay"]["title"] == (
+        "Analyst-reviewed title"
+    )
+
+    deleted = client.delete(f"/api/v1/reports/{first_report_id}")
+    assert deleted.status_code == 204
+    assert client.get(f"/api/v1/reports/{first_report_id}").status_code == 404
+    assert client.get(f"/api/v1/cases/{first_case_id}").status_code == 200
+    readiness = client.get(f"/api/v1/cases/{first_case_id}/report/readiness")
+    assert readiness.status_code == 200
+    assert readiness.json()["report_eligible"] is True
+    regenerated = client.post(
+        f"/api/v1/cases/{first_case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert regenerated.status_code == 200
+
+
+def test_report_delete_conflicts_with_active_followup(client: TestClient) -> None:
+    case_id = _create_case(client)
+    generated = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert generated.status_code == 200
+    followup = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview"},
+    )
+    assert followup.status_code == 200
+    assert followup.json()["status"] == "followup"
+    duplicate = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview"},
+    )
+    assert duplicate.status_code == 409
+
+    content_update = client.patch(
+        f"/api/v1/reports/{generated.json()['report_id']}",
+        json={"title": "Blocked edit"},
+    )
+    review_update = client.patch(
+        f"/api/v1/reports/{generated.json()['report_id']}/review-status",
+        json={"review_status": "approved"},
+    )
+    assert content_update.status_code == 409
+    assert review_update.status_code == 409
+
+    deleted = client.delete(f"/api/v1/reports/{generated.json()['report_id']}")
+
+    assert deleted.status_code == 409
+
+
+def test_concurrent_report_start_has_one_durable_case_claim(
+    client: TestClient,
+    report_generator: _MockReportGenerator,
+) -> None:
+    case_id = _create_case(client)
+
+    async def _run() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        blocking_client = _BlockingRagClient(entered, release)
+        async with SessionLocal() as first_session, SessionLocal() as second_session:
+            first_service = ReportWorkflowService(
+                report_gen=report_generator,
+                client=blocking_client,
+                db=first_session,
+            )
+            second_service = ReportWorkflowService(
+                report_gen=report_generator,
+                client=blocking_client,
+                db=second_session,
+            )
+            first_task = asyncio.create_task(
+                first_service.generate_report(
+                    case_id,
+                    GenerateCaseReportRequest(force_generate=True),
+                )
+            )
+            await asyncio.wait_for(entered.wait(), timeout=2)
+            try:
+                with pytest.raises(HTTPException) as duplicate_error:
+                    await second_service.generate_report(
+                        case_id,
+                        GenerateCaseReportRequest(force_generate=True),
+                    )
+                assert duplicate_error.value.status_code == 409
+                # A real failed HTTP request closes/rolls back its dependency
+                # session before the winning request resumes. Mirror that here
+                # so the losing transaction releases its parent-case row lock.
+                await second_session.rollback()
+            finally:
+                release.set()
+            completed = await first_task
+            assert completed.status == "completed"
+
+        async with SessionLocal() as verification_session:
+            claims = (
+                await verification_session.execute(
+                    select(ReportSessionRecord).where(
+                        ReportSessionRecord.case_id == case_id
+                    )
+                )
+            ).scalars().all()
+            reports = (
+                await verification_session.execute(
+                    select(ReportRecord).where(ReportRecord.case_id == case_id)
+                )
+            ).scalars().all()
+            assert claims == []
+            assert len(reports) == 1
+
+    asyncio.run(_run())
+
+
+def test_duplicate_resume_is_rejected_while_first_resume_owns_claim(
+    client: TestClient,
+    report_generator: _MockReportGenerator,
+) -> None:
+    case_id = _create_case(client)
+    followup = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview"},
+    )
+    assert followup.status_code == 200
+    session_id = followup.json()["session_id"]
+
+    async def _run() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        blocking_client = _BlockingRagClient(entered, release)
+        request = ReportResumeRequest(session_id=session_id, answer="10:00 UTC")
+        async with SessionLocal() as first_session, SessionLocal() as second_session:
+            first_service = ReportWorkflowService(
+                report_gen=report_generator,
+                client=blocking_client,
+                db=first_session,
+            )
+            second_service = ReportWorkflowService(
+                report_gen=report_generator,
+                client=blocking_client,
+                db=second_session,
+            )
+            first_task = asyncio.create_task(first_service.resume_report(case_id, request))
+            await asyncio.wait_for(entered.wait(), timeout=2)
+            try:
+                with pytest.raises(HTTPException) as duplicate_error:
+                    await second_service.resume_report(case_id, request)
+                assert duplicate_error.value.status_code == 409
+                await second_session.rollback()
+            finally:
+                release.set()
+            completed = await first_task
+            assert completed.status == "completed"
+
+        async with SessionLocal() as verification_session:
+            case = (
+                await verification_session.execute(
+                    select(CaseRecord).where(CaseRecord.case_id == case_id)
+                )
+            ).scalars().first()
+            assert case is not None
+            assert len(case.data["report_followup_answers"]) == 1
+
+    asyncio.run(_run())
+
+
+def test_report_crud_is_blocked_by_direct_generation_claim(
+    client: TestClient,
+    report_generator: _MockReportGenerator,
+) -> None:
+    case_id = _create_case(client)
+    existing = client.post(
+        f"/api/v1/cases/{case_id}/report",
+        json={"report_type": "overview", "force_generate": True},
+    )
+    assert existing.status_code == 200
+    report_id = existing.json()["report_id"]
+
+    async def _run() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        blocking_client = _BlockingRagClient(entered, release)
+        async with SessionLocal() as generation_session:
+            generation_service = ReportWorkflowService(
+                report_gen=report_generator,
+                client=blocking_client,
+                db=generation_session,
+            )
+            generation_task = asyncio.create_task(
+                generation_service.generate_report(
+                    case_id,
+                    GenerateCaseReportRequest(force_generate=True),
+                )
+            )
+            await asyncio.wait_for(entered.wait(), timeout=2)
+            try:
+                operations = (
+                    lambda service: service.update_report(
+                        report_id,
+                        ReportUpdate(title="Blocked edit"),
+                    ),
+                    lambda service: service.update_review_status(
+                        report_id,
+                        ReviewStatusUpdate(review_status="approved"),
+                    ),
+                    lambda service: service.delete_report(report_id),
+                )
+                for operation in operations:
+                    async with SessionLocal() as mutation_session:
+                        mutation_service = ReportWorkflowService(
+                            report_gen=report_generator,
+                            client=_MockRagClient(),
+                            db=mutation_session,
+                        )
+                        with pytest.raises(HTTPException) as conflict:
+                            await operation(mutation_service)
+                        assert conflict.value.status_code == 409
+            finally:
+                release.set()
+            completed = await generation_task
+            assert completed.status == "completed"
+
+    asyncio.run(_run())
 
 
 def test_followup_wrong_case_is_forbidden(client: TestClient) -> None:

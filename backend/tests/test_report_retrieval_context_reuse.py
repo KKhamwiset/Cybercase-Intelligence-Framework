@@ -9,7 +9,7 @@ from app.schemas.report import (
 )
 from app.services.report_workflow import ReportWorkflowService
 from app.models.case import CaseRecord
-from app.models.case_chat import CaseChatState
+from app.models.case_chat import CaseChatState, CaseChatTurn
 from app.services.case_context import CaseContextService
 
 
@@ -163,22 +163,65 @@ class _FakeDb:
     def __init__(self, records=None, chat_state=None) -> None:
         self.records = records or {}
         self.chat_state = chat_state
+        case = next(
+            (record for record in self.records.values() if isinstance(record, CaseRecord)),
+            None,
+        )
+        self.chat_turn = (
+            CaseChatTurn(
+                turn_id=chat_state.latest_analysis_turn_id,
+                case_id=case.case_id,
+                role="assistant",
+                content="Completed analysis",
+                turn_type="analysis",
+                turn_status="completed",
+                case_version=case.case_version,
+                case_snapshot_hash=case.case_snapshot_hash,
+                retrieval_context_id=chat_state.latest_retrieval_context_id,
+            )
+            if isinstance(chat_state, CaseChatState)
+            and chat_state.latest_analysis_turn_id
+            and isinstance(case, CaseRecord)
+            else None
+        )
+        self.report_sessions = {}
         self.added = []
         self.commits = 0
 
     def add(self, record) -> None:
         self.added.append(record)
-        key = getattr(record, "case_id", None) or getattr(record, "report_id", None)
-        if key:
-            self.records[key] = record
+        from app.models.report import ReportRecord, ReportSessionRecord
+
+        if isinstance(record, ReportSessionRecord):
+            self.report_sessions[record.session_id] = record
+        elif isinstance(record, ReportRecord):
+            self.records[record.report_id] = record
 
     async def commit(self) -> None:
         self.commits += 1
 
+    async def rollback(self) -> None:
+        return None
+
     async def execute(self, statement):
         stmt_str = str(statement)
+        if "report_sessions" in stmt_str:
+            return _Result(next(iter(self.report_sessions.values()), None))
         if "case_chat_states" in stmt_str:
             return _Result(self.chat_state)
+        if "case_chat_turns" in stmt_str:
+            return _Result(self.chat_turn)
+        if "FROM cases" in stmt_str:
+            return _Result(
+                next(
+                    (
+                        record
+                        for record in self.records.values()
+                        if isinstance(record, CaseRecord)
+                    ),
+                    None,
+                )
+            )
         matched_record = None
         for key, rec in self.records.items():
             if key in stmt_str:
@@ -222,6 +265,7 @@ def _current_case_and_state() -> tuple[CaseRecord, CaseChatState]:
         case_snapshot_hash=snapshot_hash,
         status="completed",
         requires_followup=False,
+        latest_analysis_turn_id="turn-123",
         latest_retrieval_context_id="ctx-123",
         analysis_case_version=1,
         analysis_snapshot_hash=snapshot_hash,
@@ -249,6 +293,19 @@ def test_generate_report_reuses_retrieval_context() -> None:
     assert "/retrieval-contexts/ctx-123" in client.contexts_fetched
     assert len(response.report.mitre_attack_assessment) == 1
     assert response.report.mitre_attack_assessment[0].technique_id == "T1566"
+    persisted = next(
+        record
+        for record in db.added
+        if getattr(record, "report_id", None) == response.report_id
+    )
+    assert persisted.report_payload_json["metadata"] == {
+        "origin": "generated",
+        "edited_fields": [],
+        "retrieval_context_id": "ctx-123",
+        "analysis_run_id": "turn-123",
+        "analysis_case_version": 1,
+        "analysis_snapshot_hash": case_rec.case_snapshot_hash,
+    }
 
 
 def test_generate_report_resolves_the_current_chat_context_when_omitted() -> None:

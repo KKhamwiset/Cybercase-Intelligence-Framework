@@ -6,7 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import CaseRouteState from "@/components/cases/CaseRouteState";
 import CaseStageShell from "@/components/cases/CaseStageShell";
-import { isNotFound, useCase } from "@/hooks/useCase";
+import { caseKeys, isNotFound, useCase, useCaseOutputs } from "@/hooks/useCase";
+import { analysisStatusLabel } from "@/components/cases/CaseOutputState";
 import {
   caseAnalysisKeys,
   CaseChatAction,
@@ -27,6 +28,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   const router = useRouter();
   const queryClient = useQueryClient();
   const caseQuery = useCase(caseId);
+  const outputsQuery = useCaseOutputs(caseId);
   const [message, setMessage] = useState("");
   const [requestError, setRequestError] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -56,25 +58,33 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
   if (!caseId) {
     return <CaseRouteState title="Case Chat" message="No case ID was provided." />;
   }
-  if (caseQuery.isLoading || chatQuery.isLoading || readinessQuery.isLoading) {
+  if (caseQuery.isLoading || chatQuery.isLoading || readinessQuery.isLoading || outputsQuery.isLoading) {
     return <CaseRouteState title="Case Chat" message={`Loading case ${caseId}.`} />;
   }
-  if (isNotFound(caseQuery.error) || isNotFound(chatQuery.error) || isNotFound(readinessQuery.error)) {
+  if (
+    isNotFound(caseQuery.error) ||
+    isNotFound(chatQuery.error) ||
+    isNotFound(readinessQuery.error) ||
+    isNotFound(outputsQuery.error)
+  ) {
     return <CaseRouteState title="Case Chat" message={`Case ${caseId} was not found.`} />;
   }
   if (
     caseQuery.error ||
     chatQuery.error ||
     readinessQuery.error ||
+    outputsQuery.error ||
     !caseQuery.data ||
     !chatQuery.data ||
-    !readinessQuery.data
+    !readinessQuery.data ||
+    !outputsQuery.data
   ) {
     return <CaseRouteState title="Case Chat" message="Could not load this case chat." />;
   }
 
   const workspace = chatQuery.data;
   const readiness = readinessQuery.data;
+  const caseOutputs = outputsQuery.data;
   const activeCaseId = caseId;
   const hasSavedIntake = Boolean(workspace.context.incident_summary.trim());
   const isPending = isSending || workspace.status === "pending";
@@ -94,6 +104,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
         queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+        queryClient.invalidateQueries({ queryKey: caseKeys.outputs(activeCaseId) }),
       ]);
     } catch {
       setRequestError("Could not submit the case-chat action. Refresh analysis and try again.");
@@ -120,6 +131,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
           queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+          queryClient.invalidateQueries({ queryKey: caseKeys.outputs(activeCaseId) }),
         ]);
         return;
       }
@@ -129,6 +141,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.workspace(activeCaseId) }),
         queryClient.invalidateQueries({ queryKey: caseAnalysisKeys.readiness(activeCaseId) }),
+        queryClient.invalidateQueries({ queryKey: caseKeys.outputs(activeCaseId) }),
       ]);
     } finally {
       setIsGeneratingReport(false);
@@ -245,7 +258,7 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
                       disabled={isGeneratingReport || isPending}
                       className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                  {isGeneratingReport ? "Starting report…" : "Generate preliminary report"}
+                  {isGeneratingReport ? "Starting report..." : "Generate preliminary report"}
                     </button>
                     <button
                       type="button"
@@ -293,36 +306,37 @@ export default function CaseChatWorkspace({ caseId }: { caseId: string | null })
             <details open className="border border-black/10 bg-white">
               <summary className="cursor-pointer list-none border-b border-black/10 p-5">
                 <p className="mono-label">Pinned saved case context</p>
-                <p className="mt-2 text-sm font-black">Case version {workspace.context.case_version}</p>
+                <p className="mt-2 text-sm font-black">Case version {caseOutputs.case_version}</p>
               </summary>
               <div className="space-y-4 p-5">
                 <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-neutral-900">
                   {workspace.context.incident_summary || "No saved intake narrative."}
                 </p>
                 <dl className="grid grid-cols-3 gap-2 border-t border-black/10 pt-4 text-center">
-                  <div><dt className="mono-label">Evidence</dt><dd className="mt-1 text-xl font-black">{workspace.context.evidence_count}</dd></div>
-                  <div><dt className="mono-label">Gaps</dt><dd className="mt-1 text-xl font-black">{workspace.context.gap_count}</dd></div>
-                  <div><dt className="mono-label">ATT&CK</dt><dd className="mt-1 text-xl font-black">{workspace.context.attack_mapping_count}</dd></div>
+                  <div><dt className="mono-label">Evidence</dt><dd className="mt-1 text-xl font-black">{caseOutputs.outputs.evidence.current_count}</dd></div>
+                  <div><dt className="mono-label">Gaps</dt><dd className="mt-1 text-xl font-black">{caseOutputs.outputs.gaps.current_count}</dd></div>
+                  <div><dt className="mono-label">ATT&CK</dt><dd className="mt-1 text-xl font-black">{caseOutputs.outputs.attack_mappings.current_count}</dd></div>
                 </dl>
+                <p className="text-xs font-black uppercase tracking-wider text-neutral">
+                  {analysisStatusLabel(caseOutputs.analysis.status)}
+                </p>
                 <div className="space-y-2 border-t border-black/10 pt-4">
-                  <p className="mono-label">Known gaps</p>
-                  {workspace.context.gaps.length ? (
+                  <p className="mono-label">Current gaps</p>
+                  {caseOutputs.outputs.gaps.current_count ? (
                     <ul className="space-y-1 text-xs font-semibold leading-5 text-neutral-900">
-                      {workspace.context.gaps.slice(0, 4).map((gap) => <li key={gap}>• {gap}</li>)}
+                      {caseOutputs.outputs.gaps.items.slice(0, 4).map((gap) => <li key={gap.item_id}>- {gap.title}</li>)}
                     </ul>
-                  ) : <p className="text-xs font-semibold text-neutral">No deterministic gaps recorded.</p>}
+                  ) : <p className="text-xs font-semibold text-neutral">Run analysis to identify evidence gaps.</p>}
                 </div>
                 <div className="space-y-2 border-t border-black/10 pt-4">
-                  <p className="mono-label">ATT&CK candidates</p>
-                  {workspace.context.attack_candidates.length ? (
+                  <p className="mono-label">Current ATT&CK candidates</p>
+                  {caseOutputs.outputs.attack_mappings.current_count ? (
                     <ul className="space-y-1 text-xs font-semibold leading-5 text-neutral-900">
-                      {workspace.context.attack_candidates.slice(0, 4).map((candidate) => (
-                        <li key={candidate.mapping_id || `${candidate.technique_id}-${candidate.technique_name}`}>
-                          {candidate.technique_id} {candidate.technique_name}
-                        </li>
+                      {caseOutputs.outputs.attack_mappings.items.slice(0, 4).map((candidate) => (
+                        <li key={candidate.item_id}>{candidate.item_id} {candidate.title}</li>
                       ))}
                     </ul>
-                  ) : <p className="text-xs font-semibold text-neutral">No ATT&CK candidates recorded.</p>}
+                  ) : <p className="text-xs font-semibold text-neutral">No current ATT&CK candidates are available.</p>}
                 </div>
                 <p className="border-t border-black/10 pt-4 text-xs font-semibold text-neutral">
                   Last case update: {workspace.context.updated_at ? new Date(workspace.context.updated_at).toLocaleString() : "not recorded"}

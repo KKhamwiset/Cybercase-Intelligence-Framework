@@ -82,6 +82,16 @@ class _RagClient:
             "status": "completed",
             "answer": "Grounded investigation response",
             "retrieval_context_id": "ctx-current",
+            "mitre_table": [
+                {
+                    "technique_id": "T1566",
+                    "name": "Phishing",
+                    "entity_type": "attack-pattern",
+                    "source": "graph",
+                    "relevance": "cited_in_answer",
+                    "description": "Grounded candidate",
+                }
+            ],
         }
 
     async def get_json(self, path: str):
@@ -102,6 +112,18 @@ class _ExpiredFollowupRagClient:
     async def post_json(self, path: str, payload: dict):
         self.calls.append((path, payload))
         raise HTTPException(status_code=404, detail="RAG session not found")
+
+
+class _InvalidStructuredOutputRagClient(_RagClient):
+    async def post_json(self, path: str, payload: dict):
+        response = await super().post_json(path, payload)
+        response["mitre_table"] = [{"technique_id": "T1566"}]
+        return response
+
+
+class _FailingQuestionRagClient(_RagClient):
+    async def post_json(self, path: str, payload: dict):
+        raise HTTPException(status_code=502, detail="RAG question failed")
 
 
 def _case_and_state() -> tuple[CaseRecord, CaseChatState]:
@@ -139,8 +161,9 @@ def test_get_workspace_never_calls_rag_and_exposes_pinned_context() -> None:
     workspace = asyncio.run(CaseChatService(db=db, client=rag).get_workspace(case.case_id))
 
     assert rag.calls == []
-    assert workspace.context.gaps == ["Confirm sender infrastructure"]
-    assert workspace.context.attack_candidates[0].technique_id == "T1566"
+    assert workspace.context.gaps == []
+    assert workspace.context.gap_count == 0
+    assert workspace.context.attack_candidates == []
     assert db.commits == 1
 
 
@@ -217,6 +240,114 @@ def test_explicit_analyze_builds_backend_prompt_and_persists_turns() -> None:
     assert "Finance received a phishing message." in rag.calls[0][1]["query"]
     assert rag.calls[0][1]["use_agent"] is True
     assert state.latest_retrieval_context_id == "ctx-current"
+    assistant = db.turns[-1]
+    assert assistant.analysis_outputs_json["analysis_run_id"] == assistant.turn_id
+    assert assistant.analysis_outputs_json["attack_mappings"][0]["source_type"] == "rag"
+    assert assistant.analysis_outputs_json["attack_mappings"][0]["case_version"] == case.case_version
+
+
+def test_successful_question_is_not_promoted_to_analysis_run() -> None:
+    case, state = _case_and_state()
+    db = _FakeDb(case, state)
+    response = asyncio.run(
+        CaseChatService(db=db, client=_RagClient()).send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="question", message="What happened?"),
+            idempotency_key="question-before-analysis",
+        )
+    )
+
+    assert response.status == "completed"
+    assert response.report_eligible is False
+    assert state.latest_analysis_turn_id is None
+    assert state.analysis_case_version is None
+    assert db.turns[-1].analysis_outputs_json == {}
+    assert response.message == "Case chat response completed."
+
+
+def test_question_success_preserves_current_analysis_and_uses_chat_copy() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_analysis_turn_id = "CCT-prior-analysis"
+    state.latest_retrieval_context_id = "ctx-prior-analysis"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+
+    response = asyncio.run(
+        CaseChatService(db=db, client=_RagClient()).send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="question", message="What happened?"),
+            idempotency_key="question-after-analysis",
+        )
+    )
+
+    assert response.message == "Case chat response completed."
+    assert response.report_eligible is True
+    assert state.latest_analysis_turn_id == "CCT-prior-analysis"
+    assert state.latest_retrieval_context_id == "ctx-prior-analysis"
+
+
+def test_question_failure_preserves_current_analysis_lifecycle() -> None:
+    case, state = _case_and_state()
+    state.status = "completed"
+    state.latest_analysis_turn_id = "CCT-prior-analysis"
+    state.latest_retrieval_context_id = "ctx-prior-analysis"
+    state.analysis_case_version = case.case_version
+    state.analysis_snapshot_hash = case.case_snapshot_hash
+    db = _FakeDb(case, state)
+
+    response = asyncio.run(
+        CaseChatService(db=db, client=_FailingQuestionRagClient()).send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="question", message="What happened?"),
+            idempotency_key="failed-question-after-analysis",
+        )
+    )
+
+    assert response.turn_status == "failed"
+    assert response.status == "completed"
+    assert response.report_eligible is True
+    assert "current analysis remains available" in response.message
+    assert state.latest_analysis_turn_id == "CCT-prior-analysis"
+    assert state.latest_retrieval_context_id == "ctx-prior-analysis"
+
+
+def test_question_failure_before_analysis_returns_to_idle() -> None:
+    case, state = _case_and_state()
+    db = _FakeDb(case, state)
+
+    response = asyncio.run(
+        CaseChatService(db=db, client=_FailingQuestionRagClient()).send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="question", message="What happened?"),
+            idempotency_key="failed-question-before-analysis",
+        )
+    )
+
+    assert response.turn_status == "failed"
+    assert response.status == "idle"
+    assert response.report_eligible is False
+    assert state.status == "idle"
+    assert state.analysis_case_version is None
+
+
+def test_invalid_structured_rag_output_fails_without_persisting_analysis() -> None:
+    case, state = _case_and_state()
+    db = _FakeDb(case, state)
+    response = asyncio.run(
+        CaseChatService(db=db, client=_InvalidStructuredOutputRagClient()).send_message(
+            case.case_id,
+            CaseChatMessageRequest(action="analyze"),
+            idempotency_key="invalid-structured-output",
+        )
+    )
+
+    assert response.status == "failed"
+    assert response.report_eligible is False
+    assert state.latest_analysis_turn_id is None
+    assert len(db.turns) == 1
+    assert db.turns[0].turn_status == "failed"
 
 
 def test_readiness_exposes_current_analysis_and_validates_context_without_query() -> None:

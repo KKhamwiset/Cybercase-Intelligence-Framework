@@ -3,13 +3,21 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.case import CaseRecord
-from app.schemas.cases import CaseCreate, CaseListItem, CaseUpdate, StructuredCase
+from app.models.case_chat import CaseChatState
+from app.models.report import ReportRecord, ReportSessionRecord
+from app.schemas.cases import (
+    CaseCreate,
+    CaseListItem,
+    CaseOutputsResponse,
+    CaseUpdate,
+    StructuredCase,
+)
 from app.schemas.case_chat import (
     CaseChatMessageRequest,
     CaseChatMessageResponse,
@@ -18,6 +26,7 @@ from app.schemas.case_chat import (
 )
 from app.schemas.report import ReportViewModel, ReportWorkflowResponse, GenerateCaseReportRequest, ReportResumeRequest
 from app.services.case_outputs import apply_case_intake_outputs
+from app.services.case_output_summary import CaseOutputSummaryService
 from app.services.case_chat import CaseChatService
 from app.services.case_context import CaseContextService
 from app.services.report_generator import (
@@ -57,7 +66,7 @@ def _report_from_record(case: CaseRecord) -> ReportViewModel:
 
 
 def _structured_case_from_record(case: CaseRecord) -> StructuredCase:
-    return structured_case_from_record_data(
+    structured = structured_case_from_record_data(
         case_id=case.case_id,
         title=case.title,
         status=case.status,
@@ -66,6 +75,12 @@ def _structured_case_from_record(case: CaseRecord) -> StructuredCase:
         created_at=case.created_at,
         updated_at=case.updated_at,
     )
+    structured.case_id = case.case_id
+    structured.case_version = case.case_version
+    structured.title = case.title
+    structured.status = case.status
+    structured.severity = case.severity
+    return structured
 
 
 def _new_case_id() -> str:
@@ -76,16 +91,15 @@ def _record_payload(case_id: str, request: CaseCreate) -> dict[str, object]:
     now = datetime.now(timezone.utc)
     payload = StructuredCase(
         case_id=case_id,
-        title=request.title,
-        case_type=request.case_type,
-        status=request.status,
-        severity=request.severity,
-        incident_summary=request.incident_summary,
         created_at=now,
         updated_at=now,
+        **request.model_dump(mode="python", exclude_none=True),
     ).model_dump(mode="json")
     if request.incident_summary.strip():
-        payload = apply_case_intake_outputs(payload, force=True)
+        payload = apply_case_intake_outputs(payload, force=False)
+    # case_version is authoritative in the relational column and is injected
+    # into response models on read; never persist a competing JSON value.
+    payload.pop("case_version", None)
     return payload
 
 
@@ -118,6 +132,7 @@ async def list_cases(db: AsyncSession = Depends(get_db)) -> list[CaseListItem]:
     return [
         CaseListItem(
             case_id=case.case_id,
+            case_version=case.case_version,
             title=case.title,
             status=case.status,
             severity=case.severity,
@@ -148,21 +163,89 @@ async def update_case(
     payload = dict(case.data or {})
     payload.update(updates)
     payload["case_id"] = case.case_id
-    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+    payload["case_version"] = case.case_version
     if "incident_summary" in updates:
-        payload = apply_case_intake_outputs(payload, force=False)
+        payload = apply_case_intake_outputs(
+            payload,
+            force=False,
+            previous_payload=dict(case.data or {}),
+            explicit_fields=set(updates),
+        )
 
     validated = StructuredCase(**payload)
+    next_data = validated.model_dump(mode="json")
+    next_data.pop("case_version", None)
+    next_hash = CaseContextService.snapshot_hash(
+        CaseContextService.build_payload_from_values(
+            title=validated.title,
+            status=validated.status,
+            severity=validated.severity,
+            data=next_data,
+        )
+    )
+    if previous_hash and next_hash == previous_hash:
+        # End the SELECT FOR UPDATE transaction without dirtying updated_at or
+        # advancing case_version for a normalized no-op.
+        await db.commit()
+        return _structured_case_from_record(case)
+
+    next_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     case.title = validated.title
     case.status = validated.status
     case.severity = validated.severity
-    case.data = validated.model_dump(mode="json")
+    case.data = next_data
     changed = CaseChatService(db=db).update_case_snapshot(case, previous_hash)
     if changed:
         await CaseChatService(db=db).invalidate_for_case_update(case)
     await db.commit()
     await db.refresh(case)
     return _structured_case_from_record(case)
+
+
+@router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_case(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    case = await _load_case_record(case_id, db, for_update=True)
+
+    state_result = await db.execute(
+        select(CaseChatState).where(CaseChatState.case_id == case_id).with_for_update()
+    )
+    chat_state = state_result.scalars().first()
+    if isinstance(chat_state, CaseChatState) and (
+        chat_state.status == "pending" or chat_state.requires_followup
+    ):
+        raise HTTPException(status_code=409, detail="Case analysis is still pending")
+
+    session_result = await db.execute(
+        select(ReportSessionRecord).where(ReportSessionRecord.case_id == case_id).limit(1)
+    )
+    if isinstance(session_result.scalars().first(), ReportSessionRecord):
+        raise HTTPException(status_code=409, detail="Report follow-up is still pending")
+
+    report_result = await db.execute(
+        select(ReportRecord)
+        .where(
+            ReportRecord.case_id == case_id,
+            ReportRecord.workflow_status != "completed",
+        )
+        .limit(1)
+    )
+    if isinstance(report_result.scalars().first(), ReportRecord):
+        raise HTTPException(status_code=409, detail="Report generation is still pending")
+
+    await db.execute(delete(CaseRecord).where(CaseRecord.case_id == case_id))
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{case_id}/outputs", response_model=CaseOutputsResponse)
+async def get_case_outputs(
+    case_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> CaseOutputsResponse:
+    return await CaseOutputSummaryService(db=db).get_outputs(case_id)
 
 
 @router.get("/{case_id}/chat", response_model=CaseChatWorkspaceView)

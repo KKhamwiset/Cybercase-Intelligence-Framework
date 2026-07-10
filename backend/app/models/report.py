@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 
 class ReportRecord(Base):
     __tablename__ = "reports"
+    __table_args__ = (UniqueConstraint("case_id", name="uq_reports_case_id"),)
 
     report_id: Mapped[str] = mapped_column(String(80), primary_key=True, index=True)
     case_id: Mapped[str] = mapped_column(
-        String(80), ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False, index=True
+        String(80), ForeignKey("cases.case_id", ondelete="CASCADE"), nullable=False
     )
     report_type: Mapped[str] = mapped_column(String(40), nullable=False, default="overview")
     workflow_status: Mapped[str] = mapped_column(String(40), nullable=False, default="completed")
@@ -35,7 +36,7 @@ class ReportRecord(Base):
         onupdate=func.now(),
     )
 
-    case: Mapped[CaseRecord] = relationship("CaseRecord", back_populates="reports")
+    case: Mapped[CaseRecord] = relationship("CaseRecord", back_populates="report")
 
 
 class ReportSessionRecord(Base):

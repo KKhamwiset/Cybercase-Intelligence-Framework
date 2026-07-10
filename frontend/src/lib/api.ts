@@ -176,12 +176,27 @@ export interface CyberCaseReport {
   created_at: string;
 }
 
+export interface ReportEditMetadata {
+  origin: "generated" | "manual_edit";
+  edited_fields: string[];
+  edited_at?: string | null;
+}
+
+export interface ReportUpdateInput {
+  title?: string;
+  executive_case_summary?: string;
+  evidence_still_required?: string[];
+  investigation_next_steps?: string[];
+  limitations_and_disclaimers?: string[];
+}
+
 export interface ReportCompletedResponse {
   status: "completed";
   report_id: string;
   report: CyberCaseReport;
   answer: string;
   retrieval_context_id?: string;
+  edit_metadata: ReportEditMetadata;
 }
 
 export interface ReportFollowUpResponse {
@@ -241,6 +256,21 @@ export const getReport = async (reportId: string): Promise<ReportWorkflowRespons
     baseUrl + "/reports/" + reportId,
   );
   return response.data;
+};
+
+export const updateReport = async (
+  reportId: string,
+  input: ReportUpdateInput,
+): Promise<ReportWorkflowResponse> => {
+  const response = await axios.patch<ReportWorkflowResponse>(
+    `${getApiBaseUrl()}/reports/${encodeURIComponent(reportId)}`,
+    input,
+  );
+  return response.data;
+};
+
+export const deleteReport = async (reportId: string): Promise<void> => {
+  await axios.delete(`${getApiBaseUrl()}/reports/${encodeURIComponent(reportId)}`);
 };
 
 export const updateReportReviewStatus = async (
@@ -325,12 +355,14 @@ export interface ReportRegistryItem {
   created_at: string;
   updated_at: string;
   executive_summary_preview: string;
+  edit_metadata: ReportEditMetadata;
 }
 
-export const listReports = async (): Promise<ReportRegistryItem[]> => {
+export const listReports = async (caseId?: string): Promise<ReportRegistryItem[]> => {
   const baseUrl = getApiBaseUrl();
   const response = await axios.get<ReportRegistryItem[]>(
     baseUrl + "/reports",
+    { params: caseId ? { case_id: caseId } : undefined },
   );
   return response.data;
 };
