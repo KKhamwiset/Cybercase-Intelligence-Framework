@@ -46,6 +46,7 @@ from ..config import (
     LLM_TEMPERATURE,
     LOCAL_LLM_MODEL,
     OLLAMA_BASE_URL,
+    SINGLE_CALL_GENERATION,
     ULTRAFAST_MAX_TOKENS,
     ULTRAFAST_TOP_K,
     USE_FP16,
@@ -83,6 +84,7 @@ class AgentState(TypedDict, total=False):
     # ── Translation ───────────────────────────────────────────────────────
     english_query: str  # Translated (or original if already English)
     respond_in_thai: bool
+    answer_is_final: bool  # single-call generation already produced Thai
 
     # ── Retrieval ─────────────────────────────────────────────────────────
     graphrag_result: Any  # GraphRAGResult
@@ -238,6 +240,15 @@ class GraphRAGAgent:
             self.reasoning_llm = None
             self.translation_llm = None
             print("[AGENT] No LLM configured (ANTHROPIC_API_KEY not set)")
+
+        print(
+            "[AGENT] Generation    : "
+            + (
+                "single-call (Thai direct, variant C)"
+                if SINGLE_CALL_GENERATION
+                else "two-stage (reason EN -> translate TH)"
+            )
+        )
 
         # Build the LangGraph
         self.graph = self._build_graph()
@@ -911,30 +922,45 @@ class GraphRAGAgent:
             return {"answer": ack_message}
 
         # ── Standard reasoning ────────────────────────────────────────────
+        # Single-call generation (benchmark variant C): write the final Thai
+        # answer in this call — the translate_output node is skipped via
+        # answer_is_final. Statistically equal quality to the two-stage path
+        # at ~2.3x lower latency (see evaluation/results/).
+        single_call = SINGLE_CALL_GENERATION and state.get("respond_in_thai", False)
+
         reasoning_prompt = build_generation_prompt(
             context=state.get("context", ""),
             original_query=state.get("original_query", ""),
             english_query=state.get("english_query", ""),
-            respond_in_thai=False,
+            respond_in_thai=single_call,
             incident_facts=state.get("incident_facts") or {},
+        )
+        system_prompt = (
+            CrossLingualLayer.get_fast_system_prompt(respond_in_thai=True)
+            if single_call
+            else CrossLingualLayer.get_reasoning_system_prompt()
         )
 
         if verbose:
-            sep("AGENT — REASONING LLM (context-grounded QA)")
+            sep(
+                "AGENT — REASONING LLM (single-call, Thai direct)"
+                if single_call
+                else "AGENT — REASONING LLM (context-grounded QA)"
+            )
 
         response = self.reasoning_llm.invoke(
             [
-                SystemMessage(content=CrossLingualLayer.get_reasoning_system_prompt()),
+                SystemMessage(content=system_prompt),
                 HumanMessage(content=reasoning_prompt),
             ]
         )
-        english_answer = str(response.content)
+        answer = str(response.content)
 
         if verbose:
-            sep("ENGLISH ANSWER")
-            print(english_answer)
+            sep("ANSWER (Thai, single-call)" if single_call else "ENGLISH ANSWER")
+            print(answer)
 
-        return {"answer": english_answer}
+        return {"answer": answer, "answer_is_final": single_call}
 
     def _node_translate_output(self, state: AgentState) -> dict:
         """Stage 3: Translation LLM — render English answer into Thai."""
@@ -1011,7 +1037,14 @@ class GraphRAGAgent:
 
     @staticmethod
     def _edge_after_reasoning(state: AgentState) -> str:
-        """Decide whether to translate the answer to Thai."""
-        if state.get("respond_in_thai", False):
+        """Decide whether to translate the answer to Thai.
+
+        Skipped when single-call generation already wrote the Thai answer
+        (answer_is_final). The ACKNOWLEDGE_LIMIT fast path never sets that
+        flag, so its (possibly English) message still gets translated.
+        """
+        if state.get("respond_in_thai", False) and not state.get(
+            "answer_is_final", False
+        ):
             return "translate"
         return "done"

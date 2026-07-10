@@ -88,6 +88,18 @@ LLM_MODEL = "claude-haiku-4-5"
 LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
 
+# Single-call generation (benchmark variant C): for Thai queries the
+# reasoning LLM writes the final Thai answer directly — no separate
+# translation stage. Measured statistically equal to the two-stage path
+# (ID-F1 delta -0.011, CI crosses 0) at 2.3x lower latency and 44% fewer
+# output tokens on 45 incident samples; the translation stage never
+# altered ATT&CK IDs (id_survival 1.0). See
+# evaluation/results/crosslingual_generation_report.md. Set to "false"
+# to roll back to the two-stage reason->translate path.
+SINGLE_CALL_GENERATION = (
+    os.getenv("SINGLE_CALL_GENERATION", "true").lower() == "true"
+)
+
 # Ultrafast mode (--ultrafast): vector-only retrieve (no graph) + terse, capped
 # output. Output-token count dominates LLM latency, so the answer is short.
 ULTRAFAST_MAX_TOKENS = int(os.getenv("ULTRAFAST_MAX_TOKENS", "1024"))
