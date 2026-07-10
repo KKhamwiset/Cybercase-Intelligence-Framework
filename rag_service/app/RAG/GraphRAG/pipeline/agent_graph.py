@@ -463,9 +463,14 @@ class GraphRAGAgent:
         result = self.graph.invoke(initial_state)
 
         # ── Handle follow-up ──────────────────────────────────────────
-        # Use a loop so CLI mode can handle multiple follow-up iterations
-        while result.get("awaiting_followup") and result.get("followup_question"):
-            question = result["followup_question"]
+        # Use a loop so CLI mode can handle multiple follow-up iterations.
+        # Key the loop on awaiting_followup ALONE: a follow-up must never be
+        # silently dropped just because its question came back blank (that
+        # would fall through to a completed response with an empty answer).
+        while result.get("awaiting_followup"):
+            question = (
+                result.get("followup_question") or self._DEFAULT_FOLLOWUP_QUESTION
+            )
 
             if verbose:
                 from ..config import sep
@@ -861,14 +866,26 @@ class GraphRAGAgent:
             "acknowledgement_message": getattr(evaluation, "message", ""),
         }
 
+    # Used when the evaluator flags INSUFFICIENT but returns a blank
+    # follow-up question — without this the graph would set
+    # awaiting_followup with no question, and query() would fall through
+    # to a status="completed" response carrying an empty answer.
+    _DEFAULT_FOLLOWUP_QUESTION = (
+        "ขอรายละเอียดเพิ่มเติมเกี่ยวกับเหตุการณ์นี้ได้ไหมครับ "
+        "(เช่น ผู้โจมตีเข้าถึงระบบครั้งแรกได้อย่างไร)"
+    )
+
     def _node_prepare_followup(self, state: AgentState) -> dict:
-        """Prepare a follow-up question for the user."""
+        """Prepare a follow-up question for the user.
+
+        Guarantees a non-empty question so awaiting_followup is never set
+        without one — the evaluator's follow_up field can come back blank.
+        """
         evaluation = state.get("evaluation")
+        question = (getattr(evaluation, "follow_up", "") or "").strip()
         return {
             "awaiting_followup": True,
-            "followup_question": evaluation.follow_up
-            if evaluation
-            else "Could you please provide more details?",
+            "followup_question": question or self._DEFAULT_FOLLOWUP_QUESTION,
         }
 
     def _node_broaden_search(self, state: AgentState) -> dict:
