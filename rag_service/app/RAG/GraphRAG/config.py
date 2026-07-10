@@ -18,6 +18,8 @@ load_dotenv()
 
 # STIX data folders (each contains versioned .json bundles)
 _STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
+if not _STIX_DATA_DIR.exists():
+    _STIX_DATA_DIR = _PROJECT_ROOT.parent / "Mitre_ATT&CK Doc"
 ENTERPRISE_ATTACK_DIR = _STIX_DATA_DIR / "enterprise-attack"
 MOBILE_ATTACK_DIR = _STIX_DATA_DIR / "mobile-attack"
 ICS_ATTACK_DIR = _STIX_DATA_DIR / "ics-attack"
@@ -186,6 +188,9 @@ DUAL_QUERY_RETRIEVAL = os.getenv("DUAL_QUERY_RETRIEVAL", "true").lower() == "tru
 # ──────────────────────────────────────────────────────────────────────────────
 # DOMAINS
 # ──────────────────────────────────────────────────────────────────────────────
+# Ingest historical files (default: False, parsing only latest enterprise-attack.json / mobile-attack.json)
+INGEST_HISTORICAL = os.getenv("INGEST_HISTORICAL", "false").lower() in ("1", "true", "yes")
+
 ATTACK_DOMAINS = {"enterprise": ENTERPRISE_ATTACK_DIR, "mobile": MOBILE_ATTACK_DIR}
 
 
@@ -200,3 +205,5 @@ def sep(title=""):
         print("\n" + "─" * pad + f" {title} " + "─" * pad)
     else:
         print("\n" + "─" * width)
+
+print(ATTACK_DOMAINS.items())

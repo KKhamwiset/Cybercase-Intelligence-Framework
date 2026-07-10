@@ -9,6 +9,8 @@ from app.schemas.report import (
 )
 from app.services.report_workflow import ReportWorkflowService
 from app.models.case import CaseRecord
+from app.models.case_chat import CaseChatState
+from app.services.case_context import CaseContextService
 
 
 class _MockRagClient:
@@ -158,8 +160,9 @@ class _MockReportGenerator:
 
 
 class _FakeDb:
-    def __init__(self, records=None) -> None:
+    def __init__(self, records=None, chat_state=None) -> None:
         self.records = records or {}
+        self.chat_state = chat_state
         self.added = []
         self.commits = 0
 
@@ -174,6 +177,8 @@ class _FakeDb:
 
     async def execute(self, statement):
         stmt_str = str(statement)
+        if "case_chat_states" in stmt_str:
+            return _Result(self.chat_state)
         matched_record = None
         for key, rec in self.records.items():
             if key in stmt_str:
@@ -200,15 +205,32 @@ class _Scalars:
         return self.record
 
 
-def test_generate_report_reuses_retrieval_context() -> None:
-    case_rec = CaseRecord(
+def _current_case_and_state() -> tuple[CaseRecord, CaseChatState]:
+    case = CaseRecord(
         case_id="CASE-123",
         title="Phishing breach",
         status="open",
         severity="high",
         data={"incident_summary": "Suspicious logins from foreign IP."},
+        case_version=1,
     )
-    db = _FakeDb(records={"CASE-123": case_rec})
+    snapshot_hash = CaseContextService.hash_for_case(case)
+    case.case_snapshot_hash = snapshot_hash
+    return case, CaseChatState(
+        case_id=case.case_id,
+        case_version=1,
+        case_snapshot_hash=snapshot_hash,
+        status="completed",
+        requires_followup=False,
+        latest_retrieval_context_id="ctx-123",
+        analysis_case_version=1,
+        analysis_snapshot_hash=snapshot_hash,
+    )
+
+
+def test_generate_report_reuses_retrieval_context() -> None:
+    case_rec, chat_state = _current_case_and_state()
+    db = _FakeDb(records={"CASE-123": case_rec}, chat_state=chat_state)
     client = _MockRagClient()
     service = ReportWorkflowService(
         report_gen=_MockReportGenerator(),
@@ -229,15 +251,9 @@ def test_generate_report_reuses_retrieval_context() -> None:
     assert response.report.mitre_attack_assessment[0].technique_id == "T1566"
 
 
-def test_generate_report_queries_when_context_id_missing() -> None:
-    case_rec = CaseRecord(
-        case_id="CASE-123",
-        title="Phishing breach",
-        status="open",
-        severity="high",
-        data={"incident_summary": "Suspicious logins from foreign IP."},
-    )
-    db = _FakeDb(records={"CASE-123": case_rec})
+def test_generate_report_resolves_the_current_chat_context_when_omitted() -> None:
+    case_rec, chat_state = _current_case_and_state()
+    db = _FakeDb(records={"CASE-123": case_rec}, chat_state=chat_state)
     client = _MockRagClient()
     service = ReportWorkflowService(
         report_gen=_MockReportGenerator(),
@@ -252,19 +268,72 @@ def test_generate_report_queries_when_context_id_missing() -> None:
     response = asyncio.run(service.generate_report("CASE-123", req))
 
     assert response.status == "completed"
-    assert client.queries_called == 1
-    assert "/retrieval-contexts/ctx-123" in client.contexts_fetched
+    assert client.queries_called == 0
+    assert client.contexts_fetched == ["/retrieval-contexts/ctx-123"]
+
+
+def test_generate_report_rejects_a_supplied_context_mismatch() -> None:
+    case_rec, chat_state = _current_case_and_state()
+    db = _FakeDb(records={"CASE-123": case_rec}, chat_state=chat_state)
+    client = _MockRagClient()
+    service = ReportWorkflowService(
+        report_gen=_MockReportGenerator(),
+        client=client,
+        db=db,
+    )
+
+    response = asyncio.run(
+        service.generate_report(
+            "CASE-123",
+            GenerateCaseReportRequest(
+                report_type="overview",
+                retrieval_context_id="ctx-not-current",
+            ),
+        )
+    )
+
+    assert response.status == "analysis_stale"
+    assert response.error_code == "retrieval_context_mismatch"
+    assert client.queries_called == 0
+    assert client.contexts_fetched == []
+
+
+@pytest.mark.parametrize(
+    ("state_status", "error_code"),
+    [
+        ("idle", "analysis_required"),
+        ("pending", "analysis_pending"),
+        ("failed", "analysis_failed"),
+        ("stale", "analysis_stale"),
+        ("expired", "context_expired"),
+    ],
+)
+def test_generate_report_rejects_non_ready_chat_state(
+    state_status: str, error_code: str
+) -> None:
+    case_rec, chat_state = _current_case_and_state()
+    chat_state.status = state_status
+    db = _FakeDb(records={"CASE-123": case_rec}, chat_state=chat_state)
+    client = _MockRagClient()
+    service = ReportWorkflowService(
+        report_gen=_MockReportGenerator(),
+        client=client,
+        db=db,
+    )
+
+    response = asyncio.run(
+        service.generate_report("CASE-123", GenerateCaseReportRequest())
+    )
+
+    assert response.error_code == error_code
+    assert client.queries_called == 0
+    assert client.contexts_fetched == []
 
 
 def test_generate_report_expired_context_returns_error() -> None:
-    case_rec = CaseRecord(
-        case_id="CASE-123",
-        title="Phishing breach",
-        status="open",
-        severity="high",
-        data={"incident_summary": "Suspicious logins from foreign IP."},
-    )
-    db = _FakeDb(records={"CASE-123": case_rec})
+    case_rec, chat_state = _current_case_and_state()
+    chat_state.latest_retrieval_context_id = "ctx-expired"
+    db = _FakeDb(records={"CASE-123": case_rec}, chat_state=chat_state)
     client = _MockRagClient()
     service = ReportWorkflowService(
         report_gen=_MockReportGenerator(),

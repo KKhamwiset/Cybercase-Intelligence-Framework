@@ -199,7 +199,7 @@ ReportRequest = GenerateReportRequest
 
 
 class GenerateCaseReportRequest(BaseModel):
-    """Request body for POST /cases/{case_id}/report — no query required."""
+    """Case-owned report request; the backend resolves the current chat context."""
     report_type: ReportType = "overview"
     legal: bool = False
     force_generate: bool = False
@@ -242,7 +242,7 @@ class ReportFollowUpResponse(BaseModel):
 
 
 class ReportErrorResponse(BaseModel):
-    status: Literal["error", "context_expired"]
+    status: Literal["error", "context_expired", "analysis_required", "analysis_stale"]
     error_code: str
     message: str
 

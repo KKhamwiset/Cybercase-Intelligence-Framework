@@ -15,12 +15,14 @@ from app.database import Base, get_db
 from app.dependencies import get_report_workflow_service
 from app.main import app as backend_app
 from app.models.case import CaseRecord
+from app.models.case_chat import CaseChatState
 from app.schemas.report import (
     CaseFactPack,
     CaseInformationCompleteness,
     CyberCaseReport,
 )
 from app.services.report_workflow import ReportWorkflowService
+from app.services.case_context import CaseContextService
 
 
 TEST_DATABASE_URL = os.getenv(
@@ -216,7 +218,30 @@ def _create_case(client: TestClient, title: str = "HTTP Case") -> str:
         },
     )
     assert response.status_code == 201
-    return response.json()["case_id"]
+    case_id = response.json()["case_id"]
+
+    async def _seed_current_chat_analysis() -> None:
+        async with SessionLocal() as session:
+            result = await session.execute(select(CaseRecord).where(CaseRecord.case_id == case_id))
+            case = result.scalars().first()
+            assert case is not None
+            snapshot_hash = CaseContextService.hash_for_case(case)
+            session.add(
+                CaseChatState(
+                    case_id=case_id,
+                    case_version=case.case_version,
+                    case_snapshot_hash=snapshot_hash,
+                    status="completed",
+                    requires_followup=False,
+                    latest_retrieval_context_id="ctx-http",
+                    analysis_case_version=case.case_version,
+                    analysis_snapshot_hash=snapshot_hash,
+                )
+            )
+            await session.commit()
+
+    asyncio.run(_seed_current_chat_analysis())
+    return case_id
 
 
 def test_case_owned_report_accepts_body_without_query(
@@ -253,7 +278,7 @@ def test_report_registry_get_and_review_status(client: TestClient) -> None:
     case_id = _create_case(client)
     generated = client.post(
         f"/api/v1/cases/{case_id}/report",
-        json={"report_type": "overview", "force_generate": True},
+        json={"report_type": "overview", "force_generate": True, "retrieval_context_id": "ctx-http"},
     )
     assert generated.status_code == 200
     report_id = generated.json()["report_id"]
@@ -280,7 +305,7 @@ def test_followup_wrong_case_is_forbidden(client: TestClient) -> None:
 
     followup = client.post(
         f"/api/v1/cases/{first_case_id}/report",
-        json={"report_type": "overview"},
+        json={"report_type": "overview", "retrieval_context_id": "ctx-http"},
     )
     assert followup.status_code == 200
     assert followup.json()["status"] == "followup"
@@ -300,7 +325,7 @@ def test_followup_answer_persists_and_regenerate_does_not_repeat_question(
 
     followup = client.post(
         f"/api/v1/cases/{case_id}/report",
-        json={"report_type": "overview"},
+        json={"report_type": "overview", "retrieval_context_id": "ctx-http"},
     )
     assert followup.status_code == 200
     assert followup.json()["status"] == "followup"
@@ -335,7 +360,7 @@ def test_followup_answer_persists_and_regenerate_does_not_repeat_question(
 
     regenerated = client.post(
         f"/api/v1/cases/{case_id}/report",
-        json={"report_type": "overview"},
+        json={"report_type": "overview", "retrieval_context_id": "ctx-http"},
     )
     assert regenerated.status_code == 200
     assert regenerated.json()["status"] == "completed"
@@ -347,7 +372,7 @@ def test_export_report_endpoints(client: TestClient) -> None:
     case_id = _create_case(client)
     generated = client.post(
         f"/api/v1/cases/{case_id}/report",
-        json={"report_type": "overview", "force_generate": True},
+        json={"report_type": "overview", "force_generate": True, "retrieval_context_id": "ctx-http"},
     )
     assert generated.status_code == 200
     report_id = generated.json()["report_id"]

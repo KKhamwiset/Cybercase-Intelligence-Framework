@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import ValidationError
 
 from .schemas import CaseFactPack, ReportEntity
+
+logger = logging.getLogger("app.report.extractor")
 
 
 class LLMFactPackMixin:
@@ -61,9 +64,9 @@ class LLMFactPackMixin:
         )
         if fallback_note not in deterministic_pack.limitations:
             deterministic_pack.limitations.append(fallback_note)
-        print(
-            "[REPORT] Case Fact Pack LLM validation failed; "
-            f"using deterministic fallback: {last_error}"
+        logger.warning(
+            "Case Fact Pack LLM validation failed; using deterministic fallback: %s",
+            last_error,
         )
         return deterministic_pack
 

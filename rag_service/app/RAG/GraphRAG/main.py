@@ -18,6 +18,8 @@ from FlagEmbedding import BGEM3FlagModel
 from .config import (
     EMBED_MODEL,
     USE_FP16,
+    QDRANT_URL,
+    NEO4J_URI,
     sep,
 )
 
@@ -284,6 +286,12 @@ Examples:
     )
 
     arg_parser.add_argument(
+        "--confirm-clear",
+        action="store_true",
+        help="Confirm clearing the remote/cloud database during ingestion",
+    )
+
+    arg_parser.add_argument(
         "--agent",
         action="store_true",
         help="Use the Agentic RAG pipeline (LangGraph) with self-reflection and follow-up",
@@ -313,6 +321,18 @@ Examples:
     args = arg_parser.parse_args()
 
     if args.ingest:
+        is_cloud = bool(QDRANT_URL) or "localhost" not in NEO4J_URI
+        if is_cloud and not args.confirm_clear:
+            print("\n[WARNING] Ingestion will CLEAR and rebuild your remote database (Qdrant & Neo4j)!")
+            print("To bypass this prompt, run with --confirm-clear.")
+            try:
+                confirm = input("Are you sure you want to proceed? (yes/no): ")
+                if confirm.lower().strip() != "yes":
+                    print("Ingestion cancelled.")
+                    return
+            except (KeyboardInterrupt, EOFError):
+                print("\nIngestion cancelled.")
+                return
         run_ingest()
     elif args.test:
         run_tests(

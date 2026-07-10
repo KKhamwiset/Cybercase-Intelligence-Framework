@@ -30,9 +30,12 @@ API (per iapp.co.th/docs/llm/thanoy-legal):
 
 from __future__ import annotations
 
+import logging
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger("app.thanoy")
 
 THANOY_ENABLED = settings.thanoy_enabled
 THANOY_API_KEY = settings.thanoy_api_key
@@ -95,11 +98,11 @@ async def get_legal_advice(case_summary: str, *, timeout: float | None = None) -
             resp.raise_for_status()
             advice = _parse_response(resp.json())
     except Exception as e:  # network / timeout / bad status / bad JSON
-        print(f"[THANOY] legal advice unavailable, skipping section: {e}")
+        logger.error("Thanoy legal advice unavailable, skipping section: %s", e)
         return None
 
     if not advice:
-        print("[THANOY] empty response, skipping legal section")
+        logger.warning("Thanoy empty response, skipping legal section")
         return None
 
     return f"{advice}\n\n{LEGAL_DISCLAIMER}"

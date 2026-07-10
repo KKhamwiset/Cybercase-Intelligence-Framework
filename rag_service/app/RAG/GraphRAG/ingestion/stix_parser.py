@@ -92,6 +92,7 @@ class StixParser:
     def __init__(self):
         self.entities: list[AttackEntity] = []
         self.relationships: list[AttackRelationship] = []
+        self.tombstoned_ids: set[str] = set()
 
         # Lookup tables built during parsing
         self._id_to_name: dict[str, str] = {}
@@ -100,17 +101,27 @@ class StixParser:
         self._data_component_to_source: dict[str, str] = {}
 
     def parse_folder(self, folder: Path, domain: str = "enterprise") -> None:
-        """Parse all STIX bundle JSON files in a folder."""
-        json_files = sorted(folder.glob("*.json"))
+        """Parse STIX bundle JSON files in a folder."""
+        from ..config import INGEST_HISTORICAL
+
+        default_file = folder / f"{folder.name}.json"
+        if not INGEST_HISTORICAL and default_file.exists():
+            print(f"[PARSE] Preferred mode: parsing only latest file '{default_file.name}'")
+            json_files = [default_file]
+        else:
+            json_files = sorted(folder.glob("*.json"))
+
         if not json_files:
             print(f"[WARN] No JSON files found in {folder}")
             return
 
         print(f"\n[PARSE] Found {len(json_files)} JSON file(s) in {folder.name}/")
         for filepath in json_files:
-            self.parse_file(filepath, domain=domain)
+            self.parse_file(filepath, domain=domain, finalize=False)
 
-    def parse_file(self, filepath: Path, domain: str = "enterprise") -> None:
+        self.finalize_parsing()
+
+    def parse_file(self, filepath: Path, domain: str = "enterprise", finalize: bool = True) -> None:
         """Parse a single STIX bundle JSON file."""
         print(
             f"[PARSE] Loading {filepath.name} ({filepath.stat().st_size / 1e6:.1f} MB)"
@@ -121,6 +132,13 @@ class StixParser:
 
         objects = bundle.get("objects", [])
         print(f"[PARSE] Total STIX objects: {len(objects)}")
+
+        # Collect tombstoned/revoked/deprecated IDs first
+        for obj in objects:
+            if _is_revoked_or_deprecated(obj):
+                stix_id = obj.get("id")
+                if stix_id:
+                    self.tombstoned_ids.add(stix_id)
 
         # ── First pass: build entities ────────────────────────────────────
         raw_relationships = []
@@ -211,6 +229,9 @@ class StixParser:
         print("\n[PARSE] Relationships parsed:")
         for label, count in sorted(edge_counts.items()):
             print(f"        {label}: {count}")
+
+        if finalize:
+            self.finalize_parsing()
 
     # ──────────────────────────────────────────────────────────────────────
     # ENTITY PARSERS
@@ -393,6 +414,35 @@ class StixParser:
         """Get all relationships of a specific edge label."""
         return [r for r in self.relationships if r.edge_label == label]
 
+    def finalize_parsing(self) -> None:
+        """Apply tombstones and deduplicate entities and relationships."""
+        # 1. Deduplicate entities (latest active overrides earlier active)
+        unique_entities = {e.stix_id: e for e in self.entities}
+
+        # Remove tombstoned entities
+        for tomb_id in self.tombstoned_ids:
+            if tomb_id in unique_entities:
+                del unique_entities[tomb_id]
+        self.entities = list(unique_entities.values())
+
+        # Update lookup tables to exclude tombstoned entries
+        self._id_to_name = {k: v for k, v in self._id_to_name.items() if k not in self.tombstoned_ids}
+        self._id_to_label = {k: v for k, v in self._id_to_label.items() if k not in self.tombstoned_ids}
+
+        # 2. Deduplicate and filter relationships
+        unique_rels = {r.stix_id: r for r in self.relationships}
+        filtered_rels = {}
+        for r_id, r in unique_rels.items():
+            if r_id in self.tombstoned_ids:
+                continue
+            if r.source_ref in self.tombstoned_ids or r.target_ref in self.tombstoned_ids:
+                continue
+            # Ensure both endpoints exist in our active entities lookup map
+            if r.source_ref not in self._id_to_name or r.target_ref not in self._id_to_name:
+                continue
+            filtered_rels[r_id] = r
+        self.relationships = list(filtered_rels.values())
+
 
 def parse_all_domains() -> StixParser:
     """Parse all configured ATT&CK domain folders and return a unified parser."""
@@ -409,12 +459,7 @@ def parse_all_domains() -> StixParser:
         else:
             print(f"[WARN] {folder_path} not found, skipping {domain_name} domain")
 
-    # Deduplicate entities and relationships (since many exist across multiple versioned files)
-    unique_entities = {e.stix_id: e for e in parser.entities}
-    parser.entities = list(unique_entities.values())
-
-    unique_rels = {r.stix_id: r for r in parser.relationships}
-    parser.relationships = list(unique_rels.values())
+    parser.finalize_parsing()
 
     print(
         f"\n[PARSE] Total Deduplicated: {len(parser.entities)} entities, {len(parser.relationships)} relationships"

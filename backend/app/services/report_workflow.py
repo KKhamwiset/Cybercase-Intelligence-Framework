@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -9,6 +9,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.case import CaseRecord
+from app.models.case_chat import CaseChatState
 from app.models.report import ReportRecord, ReportSessionRecord
 from app.schemas.report import (
     CaseFactPack,
@@ -23,14 +24,13 @@ from app.schemas.report import (
     ReviewStatusUpdate,
     EvidenceReference,
     ReportRegistryItem,
-    CaseAnalysisStartRequest,
-    CaseAnalysisFollowUpRequest,
-    CaseAnalysisResponse,
-    CaseInformationCompleteness,
 )
 from app.services.rag_client import RagServiceClient
+from app.services.case_context import CaseContextService
 from app.services.reporting.generator import ReportGenerator
 from app.services.reporting.thanoy_client import get_legal_advice
+
+logger = logging.getLogger("app.report")
 
 ReportWorkflowResult = ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse
 
@@ -119,6 +119,14 @@ class ReportWorkflowService:
         if not case:
             raise HTTPException(status_code=404, detail="Case not found")
 
+        # A case-originated report is allowed only from the current durable
+        # case-chat analysis.  Do not trust a browser-provided context ID and
+        # never fall back to automatic retrieval here.
+        retrieval_context_id_or_error = await self._validated_case_chat_context(case, request)
+        if isinstance(retrieval_context_id_or_error, ReportErrorResponse):
+            return retrieval_context_id_or_error
+        retrieval_context_id = retrieval_context_id_or_error
+
         # 2. Build canonical report input from case data
         query = case.data.get("incident_summary", "")
         if not query.strip():
@@ -134,30 +142,27 @@ class ReportWorkflowService:
 
         evidence_registry = build_evidence_registry_from_case(case)
 
-        # 3. Call RAG service internally or use provided retrieval_context_id
-        retrieval_context_id = request.retrieval_context_id or ""
-        if not retrieval_context_id:
-            session_stmt = (
-                select(ReportSessionRecord)
-                .where(ReportSessionRecord.case_id == case_id)
-                .order_by(ReportSessionRecord.created_at.desc())
-                .limit(1)
+        # 3. The chat guard selected the only permitted context.  A missing
+        # context is an explicit expiry recovery state, never a fresh query.
+        try:
+            snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
+            if not snapshot or "context" not in snapshot:
+                raise HTTPException(status_code=404, detail="Retrieval context not found")
+        except HTTPException as exc:
+            if exc.status_code == 404:
+                await self._mark_context_expired(case.case_id)
+            internal_request = GenerateReportRequest(
+                query=query,
+                report_type=request.report_type,
+                legal=request.legal,
+                force_generate=request.force_generate,
+                evidence_registry=evidence_registry,
+                retrieval_context_id=retrieval_context_id,
             )
-            session_res = await self.db.execute(session_stmt)
-            session_record = session_res.scalars().first()
-            if session_record and hasattr(session_record, "request_payload_json") and session_record.request_payload_json:
-                retrieval_context_id = session_record.request_payload_json.get("retrieval_context_id")
-
-        snapshot = None
-
-        if retrieval_context_id:
-            try:
-                snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
-                if not snapshot or "context" not in snapshot:
-                    raise ValueError("Empty or invalid retrieval context snapshot")
-            except Exception as exc:
-                print(f"[RAG] Failed to load retrieval context {retrieval_context_id}: {exc}")
-                internal_request = GenerateReportRequest(
+            return self._report_context_wait_response(internal_request)
+        except Exception:
+            return self._report_context_wait_response(
+                GenerateReportRequest(
                     query=query,
                     report_type=request.report_type,
                     legal=request.legal,
@@ -165,15 +170,7 @@ class ReportWorkflowService:
                     evidence_registry=evidence_registry,
                     retrieval_context_id=retrieval_context_id,
                 )
-                return self._report_context_wait_response(internal_request)
-        else:
-            try:
-                rag_payload = {"query": query, "use_agent": False}
-                rag_res = await self.client.post_json("/query", rag_payload)
-                retrieval_context_id = rag_res.get("retrieval_context_id", "")
-            except Exception as exc:
-                print(f"[RAG] Error calling query internally: {exc}")
-                retrieval_context_id = ""
+            )
 
         # Build internal request from case data
         internal_request = GenerateReportRequest(
@@ -185,14 +182,7 @@ class ReportWorkflowService:
             retrieval_context_id=retrieval_context_id,
         )
 
-        # 4. Fetch retrieval context snapshot (if not already fetched)
-        if snapshot is None:
-            try:
-                snapshot = await self.client.get_json(f"/retrieval-contexts/{retrieval_context_id}")
-            except Exception:
-                return self._report_context_wait_response(internal_request)
-
-        # 5. Preview fact pack to check if follow-up is needed
+        # 4. Preview fact pack to check if follow-up is needed
         preview_pack = self.report_gen.preview_case_fact_pack(
             internal_request.query,
             legal=internal_request.legal,
@@ -202,6 +192,91 @@ class ReportWorkflowService:
             return await self._start_report_followup_db(case_id, internal_request, preview_pack)
 
         return await self._complete_report_generation_db(case_id, internal_request, snapshot)
+
+    async def _validated_case_chat_context(
+        self, case: CaseRecord, request: GenerateCaseReportRequest
+    ) -> str | ReportErrorResponse:
+        current_hash = CaseContextService.hash_for_case(case)
+        # Recompute from persisted context as a defensive guard against an
+        # out-of-band legacy update that failed to refresh the stored hash.
+        case_hash = current_hash
+        case_version = getattr(case, "case_version", None) or 1
+        result = await self.db.execute(
+            select(CaseChatState).where(CaseChatState.case_id == case.case_id)
+        )
+        state = result.scalars().first()
+        if not isinstance(state, CaseChatState) or state.status == "idle":
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_required",
+                message="Run and complete a current case chat analysis before generating a report.",
+            )
+        if (
+            state.status == "stale"
+            or (
+                state.analysis_case_version is not None
+                and (
+                    state.analysis_case_version != case_version
+                    or state.analysis_snapshot_hash != case_hash
+                )
+            )
+        ):
+            return ReportErrorResponse(
+                status="analysis_stale",
+                error_code="analysis_stale",
+                message="The available analysis does not match the current case. Refresh analysis before reporting.",
+            )
+        if state.status == "pending" or state.requires_followup:
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_pending",
+                message="Case analysis is still in progress. Wait for it to complete before reporting.",
+            )
+        if state.status == "failed":
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_failed",
+                message="The latest case analysis failed. Refresh analysis before reporting.",
+            )
+        if state.status == "expired":
+            return ReportErrorResponse(
+                status="context_expired",
+                error_code="context_expired",
+                message="The case chat retrieval context expired. Refresh analysis before reporting.",
+            )
+        if state.analysis_case_version is None:
+            return ReportErrorResponse(
+                status="analysis_required",
+                error_code="analysis_required",
+                message="Run and complete a current case chat analysis before generating a report.",
+            )
+        context_id = state.latest_retrieval_context_id
+        if not context_id:
+            return ReportErrorResponse(
+                status="context_expired",
+                error_code="context_expired",
+                message="The case chat retrieval context expired. Refresh analysis before reporting.",
+            )
+        if request.retrieval_context_id and request.retrieval_context_id != context_id:
+            return ReportErrorResponse(
+                status="analysis_stale",
+                error_code="retrieval_context_mismatch",
+                message="The supplied retrieval context is not the latest valid case chat analysis.",
+            )
+        return context_id
+
+    async def _mark_context_expired(self, case_id: str) -> None:
+        result = await self.db.execute(
+            select(CaseChatState).where(CaseChatState.case_id == case_id).with_for_update()
+        )
+        state = result.scalars().first()
+        if state is None:
+            return
+        state.status = "expired"
+        state.latest_retrieval_context_id = None
+        state.active_session_id = None
+        state.requires_followup = False
+        await self.db.commit()
 
     async def resume_report(
         self, case_id: str, request: ReportResumeRequest
@@ -250,22 +325,14 @@ class ReportWorkflowService:
         update_fields = {"query": combined_query, "force_generate": True}
         resumed_request = original.model_copy(update=update_fields)
 
-        # 4. Call RAG service internally to perform /query and obtain a new retrieval_context_id
-        try:
-            rag_payload = {"query": combined_query, "use_agent": False}
-            rag_res = await self.client.post_json("/query", rag_payload)
-            new_retrieval_context_id = rag_res.get("retrieval_context_id", "")
-            resumed_request = resumed_request.model_copy(
-                update={"retrieval_context_id": new_retrieval_context_id}
-            )
-        except Exception as exc:
-            print(f"[RAG] Error calling query internally during resume: {exc}")
-            new_retrieval_context_id = resumed_request.retrieval_context_id
+        # 4. Reuse the existing retrieval context from the active session request payload
+        new_retrieval_context_id = resumed_request.retrieval_context_id
 
         # 5. Fetch retrieval context snapshot
         try:
             snapshot = await self.client.get_json(f"/retrieval-contexts/{new_retrieval_context_id}")
-        except Exception:
+        except Exception as exc:
+            logger.error("Error retrieving context snapshot during resume: %s", exc)
             return self._report_context_wait_response(resumed_request)
 
         # 6. Complete generation and delete session
@@ -280,6 +347,8 @@ class ReportWorkflowService:
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -288,6 +357,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def get_latest_case_report(self, case_id: str) -> ReportWorkflowResult:
@@ -304,6 +374,8 @@ class ReportWorkflowService:
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -312,6 +384,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def list_reports(self) -> list[ReportRegistryItem]:
@@ -361,13 +434,19 @@ class ReportWorkflowService:
         report.review_status = request.review_status
         report.case_fact_pack.review_status = request.review_status
 
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        report_dump = report.model_dump(mode="json")
+        if metadata:
+            report_dump["metadata"] = metadata
+
         report_record.review_status = request.review_status
-        report_record.report_payload_json = report.model_dump(mode="json")
+        report_record.report_payload_json = report_dump
         report_record.case_fact_pack_json = report.case_fact_pack.model_dump(mode="json")
 
         await self.db.commit()
 
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -376,6 +455,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def _start_report_followup_db(
@@ -410,7 +490,7 @@ class ReportWorkflowService:
             raise HTTPException(status_code=503, detail="Report Generator not available")
 
         try:
-            print(f"[REPORT] Formatting report locally from RAG context: {request.retrieval_context_id}")
+            logger.info("Formatting report locally from RAG context: %s", request.retrieval_context_id)
             input_snapshot = ReportInputSnapshot.model_validate(snapshot)
 
             report = self.report_gen.generate(
@@ -427,9 +507,19 @@ class ReportWorkflowService:
             if request.legal:
                 await self._apply_thanoy_legal_advice(report)
 
-            # Persist report in DB
-            report_payload = report.model_dump(mode="json")
-            report_payload["retrieval_context_id"] = request.retrieval_context_id
+            # Persist report in DB with traceability metadata
+            case_stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
+            case_res = await self.db.execute(case_stmt)
+            case = case_res.scalars().first()
+            case_version = case.case_version if case else 1
+            case_snapshot_hash = case.case_snapshot_hash if case else ""
+
+            report_dump = report.model_dump(mode="json")
+            report_dump["metadata"] = {
+                "retrieval_context_id": request.retrieval_context_id,
+                "analysis_case_version": case_version,
+                "analysis_snapshot_hash": case_snapshot_hash,
+            }
 
             report_record = ReportRecord(
                 report_id=report.report_id,
@@ -437,7 +527,7 @@ class ReportWorkflowService:
                 report_type=request.report_type,
                 workflow_status="completed",
                 review_status=report.review_status,
-                report_payload_json=report_payload,
+                report_payload_json=report_dump,
                 case_fact_pack_json=report.case_fact_pack.model_dump(mode="json"),
             )
             self.db.add(report_record)
@@ -461,9 +551,7 @@ class ReportWorkflowService:
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
-            print(f"[REPORT] Error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Error during report generation")
             raise HTTPException(status_code=500, detail=str(e))
 
     def _needs_report_followup(self, case_fact_pack: CaseFactPack) -> bool:
@@ -538,255 +626,6 @@ class ReportWorkflowService:
         while f"E-{index:03d}" in used:
             index += 1
         return f"E-{index:03d}"
-
-    async def start_case_analysis(
-        self, case_id: str, request: CaseAnalysisStartRequest
-    ) -> CaseAnalysisResponse:
-        # 1. Load case from DB
-        stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
-        result = await self.db.execute(stmt)
-        case = result.scalars().first()
-        if not case:
-            raise HTTPException(status_code=404, detail="Case not found")
-
-        # 2. Build query from case data
-        query = case.data.get("incident_summary", "")
-        if not query.strip():
-            query = f"Incident investigation for case {case_id}"
-
-        # Clean up any existing session for this case
-        await self.db.execute(delete(ReportSessionRecord).where(ReportSessionRecord.case_id == case_id))
-        await self.db.commit()
-
-        # 3. Call RAG query
-        try:
-            rag_payload = {"query": query, "use_agent": True}
-            rag_res = await self.client.post_json("/query", rag_payload)
-            retrieval_context_id = rag_res.get("retrieval_context_id", "")
-        except Exception as exc:
-            print(f"[RAG] Error calling query internally during start: {exc}")
-            retrieval_context_id = ""
-
-        # 4. Preview fact pack
-        evidence_registry = build_evidence_registry_from_case(case)
-        preview_pack = self.report_gen.preview_case_fact_pack(
-            query,
-            legal=request.legal,
-            evidence_registry=evidence_registry,
-        )
-
-        session_id = str(uuid.uuid4())
-        # Store metadata state in session
-        payload_data = {
-            "query": query,
-            "report_type": request.report_type,
-            "legal": request.legal,
-            "evidence_registry": [e.model_dump(mode="json") for e in evidence_registry],
-            "retrieval_context_id": retrieval_context_id,
-            "completeness": preview_pack.completeness.model_dump(mode="json"),
-            "missing_information": preview_pack.missing_information,
-            "mitre_preview": [
-                item.model_dump(mode="json") for item in preview_pack.mitre_assessments
-            ],
-        }
-
-        # 5. Check if follow-up is needed
-        if self._needs_report_followup(preview_pack):
-            followup_question = self._build_report_followup_question(preview_pack)
-            workflow_status = "needs_followup"
-        else:
-            followup_question = ""
-            workflow_status = "ready_for_report"
-
-        session_record = ReportSessionRecord(
-            session_id=session_id,
-            case_id=case_id,
-            request_payload_json=payload_data,
-            followup_question=followup_question,
-        )
-        self.db.add(session_record)
-        await self.db.commit()
-
-        return CaseAnalysisResponse(
-            case_id=case_id,
-            session_id=session_id,
-            workflow_status=workflow_status,
-            retrieval_context_id=retrieval_context_id,
-            completeness=preview_pack.completeness,
-            missing_information=preview_pack.missing_information,
-            followup_question=followup_question or None,
-            mitre_preview=payload_data["mitre_preview"],
-            created_at=datetime.now(timezone.utc).isoformat(),
-            updated_at=datetime.now(timezone.utc).isoformat(),
-        )
-
-    async def get_case_analysis(self, case_id: str) -> CaseAnalysisResponse:
-        case_stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
-        case_res = await self.db.execute(case_stmt)
-        if not case_res.scalars().first():
-            raise HTTPException(status_code=404, detail="Case not found")
-
-        # 1. Check if an active session exists. A freshly started analysis should
-        # not be hidden by an older completed report for the same case.
-        session_stmt = (
-            select(ReportSessionRecord)
-            .where(ReportSessionRecord.case_id == case_id)
-            .order_by(ReportSessionRecord.created_at.desc())
-            .limit(1)
-        )
-        session_res = await self.db.execute(session_stmt)
-        session_record = session_res.scalars().first()
-        if session_record:
-            payload = session_record.request_payload_json or {}
-            retrieval_context_id = payload.get("retrieval_context_id")
-            completeness = None
-            if "completeness" in payload:
-                completeness = CaseInformationCompleteness.model_validate(payload["completeness"])
-            missing_information = payload.get("missing_information", [])
-
-            workflow_status = "needs_followup" if session_record.followup_question else "ready_for_report"
-
-            return CaseAnalysisResponse(
-                case_id=case_id,
-                session_id=session_record.session_id,
-                workflow_status=workflow_status,
-                retrieval_context_id=retrieval_context_id,
-                completeness=completeness,
-                missing_information=missing_information,
-                followup_question=session_record.followup_question or None,
-                mitre_preview=payload.get("mitre_preview", []),
-                created_at=session_record.created_at.isoformat() if session_record.created_at else None,
-                updated_at=session_record.updated_at.isoformat() if session_record.updated_at else None,
-            )
-
-        # 2. Check if a completed report exists
-        stmt = (
-            select(ReportRecord)
-            .where(ReportRecord.case_id == case_id)
-            .order_by(ReportRecord.created_at.desc())
-            .limit(1)
-        )
-        result = await self.db.execute(stmt)
-        report_record = result.scalars().first()
-        if report_record:
-            report = CyberCaseReport.model_validate(report_record.report_payload_json)
-            mitre_preview = []
-            if report.case_fact_pack and report.case_fact_pack.mitre_assessments:
-                mitre_preview = [m.model_dump(mode="json") for m in report.case_fact_pack.mitre_assessments]
-
-            return CaseAnalysisResponse(
-                case_id=case_id,
-                workflow_status="report_generated",
-                retrieval_context_id=report_record.report_payload_json.get("retrieval_context_id"),
-                completeness=report.case_information_completeness,
-                missing_information=report.case_fact_pack.missing_information if report.case_fact_pack else [],
-                mitre_preview=mitre_preview,
-                created_at=report_record.created_at.isoformat() if report_record.created_at else None,
-                updated_at=report_record.updated_at.isoformat() if report_record.updated_at else None,
-            )
-
-        return CaseAnalysisResponse(
-            case_id=case_id,
-            workflow_status="case_saved"
-        )
-
-    async def submit_case_analysis_followup(
-        self, case_id: str, request: CaseAnalysisFollowUpRequest
-    ) -> CaseAnalysisResponse:
-        # 1. Load active session
-        stmt = select(ReportSessionRecord).where(ReportSessionRecord.session_id == request.session_id)
-        res = await self.db.execute(stmt)
-        session_record = res.scalars().first()
-        if not session_record:
-            raise HTTPException(status_code=404, detail="Analysis session not found")
-        if session_record.case_id != case_id:
-            raise HTTPException(status_code=403, detail="Analysis session does not belong to this case")
-
-        # 2. Persist follow-up Q&A into the case record
-        case_stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
-        case_res = await self.db.execute(case_stmt)
-        case = case_res.scalars().first()
-        answer = request.answer.strip()
-        if case and answer:
-            payload = dict(case.data or {})
-            answers = list(payload.get("report_followup_answers", []))
-            answers.append({
-                "question": session_record.followup_question,
-                "answer": answer,
-                "answered_at": datetime.now(timezone.utc).isoformat(),
-                "source": "report_followup",
-            })
-            payload["report_followup_answers"] = answers
-            payload["updated_at"] = datetime.now(timezone.utc).isoformat()
-            case.data = payload
-
-        # 3. Merge answer into the query context
-        payload = dict(session_record.request_payload_json or {})
-        original_query = payload.get("query", "")
-        combined_query = original_query
-        answer_adds_facts = self._answer_adds_new_facts(answer)
-        if answer:
-            combined_query = (
-                f"{original_query}\n\n"
-                "Follow-up answer supplied for preliminary report:\n"
-                f"{answer}"
-            )
-
-        # 4. If the answer adds facts, re-run RAG. Unknown/N/A answers preserve
-        # the current context because they do not improve retrieval.
-        retrieval_context_id = payload.get("retrieval_context_id")
-        if answer_adds_facts:
-            try:
-                rag_payload = {"query": combined_query, "use_agent": True}
-                rag_res = await self.client.post_json("/query", rag_payload)
-                retrieval_context_id = rag_res.get("retrieval_context_id", "")
-            except Exception as exc:
-                print(f"[RAG] Error calling query internally during followup: {exc}")
-
-        # 5. Preview completeness again
-        evidence_registry = [EvidenceReference.model_validate(e) for e in payload.get("evidence_registry", [])]
-        preview_pack = self.report_gen.preview_case_fact_pack(
-            combined_query,
-            legal=payload.get("legal", False),
-            evidence_registry=evidence_registry,
-        )
-
-        # 6. Update session payload
-        payload["query"] = combined_query
-        payload["retrieval_context_id"] = retrieval_context_id
-        payload["completeness"] = preview_pack.completeness.model_dump(mode="json")
-        payload["missing_information"] = preview_pack.missing_information
-        payload["mitre_preview"] = [
-            item.model_dump(mode="json") for item in preview_pack.mitre_assessments
-        ]
-        session_record.request_payload_json = payload
-
-        if self._needs_report_followup(preview_pack):
-            followup_question = self._build_report_followup_question(preview_pack)
-            session_record.followup_question = followup_question
-            workflow_status = "needs_followup"
-        else:
-            session_record.followup_question = ""
-            workflow_status = "ready_for_report"
-
-        await self.db.commit()
-
-        return CaseAnalysisResponse(
-            case_id=case_id,
-            session_id=session_record.session_id,
-            workflow_status=workflow_status,
-            retrieval_context_id=retrieval_context_id,
-            completeness=preview_pack.completeness,
-            missing_information=preview_pack.missing_information,
-            followup_question=session_record.followup_question or None,
-            mitre_preview=payload["mitre_preview"],
-            created_at=session_record.created_at.isoformat() if session_record.created_at else None,
-            updated_at=datetime.now(timezone.utc).isoformat(),
-        )
-
-    def _answer_adds_new_facts(self, answer: str) -> bool:
-        normalized = answer.strip().lower()
-        return normalized not in {"", "unknown", "n/a", "na", "none", "no", "not available"}
 
 
 __all__ = [
