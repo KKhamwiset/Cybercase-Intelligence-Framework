@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
 from fastapi import HTTPException
 
 from app.config import settings
+
+logger = logging.getLogger("app.rag")
 
 
 class RagServiceClient:
@@ -42,7 +45,7 @@ class RagServiceClient:
                     )
                 return payload
             except httpx.HTTPStatusError as exc:
-                print(f"[RAG] Service error: {exc.response.text}")
+                logger.error("RAG service status error calling RAG service. Status: %s", exc.response.status_code)
                 raise HTTPException(
                     status_code=exc.response.status_code,
                     detail=exc.response.text,
@@ -50,7 +53,7 @@ class RagServiceClient:
             except HTTPException:
                 raise
             except Exception as exc:
-                print(f"[RAG] Error calling RAG service: {exc}")
+                logger.error("Error calling RAG service: %s", exc)
                 raise HTTPException(status_code=500, detail=str(exc))
 
 

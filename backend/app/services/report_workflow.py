@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -28,6 +29,8 @@ from app.services.rag_client import RagServiceClient
 from app.services.case_context import CaseContextService
 from app.services.reporting.generator import ReportGenerator
 from app.services.reporting.thanoy_client import get_legal_advice
+
+logger = logging.getLogger("app.report")
 
 ReportWorkflowResult = ReportCompletedResponse | ReportFollowUpResponse | ReportErrorResponse
 
@@ -322,22 +325,14 @@ class ReportWorkflowService:
         update_fields = {"query": combined_query, "force_generate": True}
         resumed_request = original.model_copy(update=update_fields)
 
-        # 4. Call RAG service internally to perform /query and obtain a new retrieval_context_id
-        try:
-            rag_payload = {"query": combined_query, "use_agent": False}
-            rag_res = await self.client.post_json("/query", rag_payload)
-            new_retrieval_context_id = rag_res.get("retrieval_context_id", "")
-            resumed_request = resumed_request.model_copy(
-                update={"retrieval_context_id": new_retrieval_context_id}
-            )
-        except Exception as exc:
-            print(f"[RAG] Error calling query internally during resume: {exc}")
-            new_retrieval_context_id = resumed_request.retrieval_context_id
+        # 4. Reuse the existing retrieval context from the active session request payload
+        new_retrieval_context_id = resumed_request.retrieval_context_id
 
         # 5. Fetch retrieval context snapshot
         try:
             snapshot = await self.client.get_json(f"/retrieval-contexts/{new_retrieval_context_id}")
-        except Exception:
+        except Exception as exc:
+            logger.error("Error retrieving context snapshot during resume: %s", exc)
             return self._report_context_wait_response(resumed_request)
 
         # 6. Complete generation and delete session
@@ -352,6 +347,8 @@ class ReportWorkflowService:
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -360,6 +357,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def get_latest_case_report(self, case_id: str) -> ReportWorkflowResult:
@@ -376,6 +374,8 @@ class ReportWorkflowService:
 
         report = CyberCaseReport.model_validate(report_record.report_payload_json)
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -384,6 +384,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def list_reports(self) -> list[ReportRegistryItem]:
@@ -433,13 +434,19 @@ class ReportWorkflowService:
         report.review_status = request.review_status
         report.case_fact_pack.review_status = request.review_status
 
+        metadata = report_record.report_payload_json.get("metadata") or {}
+        report_dump = report.model_dump(mode="json")
+        if metadata:
+            report_dump["metadata"] = metadata
+
         report_record.review_status = request.review_status
-        report_record.report_payload_json = report.model_dump(mode="json")
+        report_record.report_payload_json = report_dump
         report_record.case_fact_pack_json = report.case_fact_pack.model_dump(mode="json")
 
         await self.db.commit()
 
         answer = self.report_gen.render_report_markdown(report) if self.report_gen else report.executive_case_summary
+        retrieval_context_id = metadata.get("retrieval_context_id")
         return ReportCompletedResponse(
             status="completed",
             answer=answer,
@@ -448,6 +455,7 @@ class ReportWorkflowService:
             case_fact_pack=report.case_fact_pack,
             completeness=report.case_information_completeness,
             missing_information=report.case_fact_pack.missing_information,
+            retrieval_context_id=retrieval_context_id,
         )
 
     async def _start_report_followup_db(
@@ -482,7 +490,7 @@ class ReportWorkflowService:
             raise HTTPException(status_code=503, detail="Report Generator not available")
 
         try:
-            print(f"[REPORT] Formatting report locally from RAG context: {request.retrieval_context_id}")
+            logger.info("Formatting report locally from RAG context: %s", request.retrieval_context_id)
             input_snapshot = ReportInputSnapshot.model_validate(snapshot)
 
             report = self.report_gen.generate(
@@ -499,14 +507,27 @@ class ReportWorkflowService:
             if request.legal:
                 await self._apply_thanoy_legal_advice(report)
 
-            # Persist report in DB
+            # Persist report in DB with traceability metadata
+            case_stmt = select(CaseRecord).where(CaseRecord.case_id == case_id)
+            case_res = await self.db.execute(case_stmt)
+            case = case_res.scalars().first()
+            case_version = case.case_version if case else 1
+            case_snapshot_hash = case.case_snapshot_hash if case else ""
+
+            report_dump = report.model_dump(mode="json")
+            report_dump["metadata"] = {
+                "retrieval_context_id": request.retrieval_context_id,
+                "analysis_case_version": case_version,
+                "analysis_snapshot_hash": case_snapshot_hash,
+            }
+
             report_record = ReportRecord(
                 report_id=report.report_id,
                 case_id=case_id,
                 report_type=request.report_type,
                 workflow_status="completed",
                 review_status=report.review_status,
-                report_payload_json=report.model_dump(mode="json"),
+                report_payload_json=report_dump,
                 case_fact_pack_json=report.case_fact_pack.model_dump(mode="json"),
             )
             self.db.add(report_record)
@@ -530,9 +551,7 @@ class ReportWorkflowService:
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception as e:
-            print(f"[REPORT] Error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Error during report generation")
             raise HTTPException(status_code=500, detail=str(e))
 
     def _needs_report_followup(self, case_fact_pack: CaseFactPack) -> bool:
