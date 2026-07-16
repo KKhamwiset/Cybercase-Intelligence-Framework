@@ -526,15 +526,21 @@ class GraphRAGAgent:
         This is the second step of the API flow:
 
         1. ``agent.query(q)`` → ``AgentResponse(status="followup", session_id=..., ...)``
-        2. ``agent.resume(session_id, user_answer)`` → ``AgentResponse(status="completed", answer=...)``
+        2. ``agent.resume(session_id, user_answer)`` → usually
+           ``AgentResponse(status="completed", answer=...)``, but may return
+           another ``status="followup"`` (with a fresh ``session_id``) when the
+           context is still insufficient after the answer. The caller should
+           loop the same way as after ``query()`` until ``status`` is
+           ``"completed"`` (bounded by ``MAX_FOLLOWUP_RETRIES``).
 
         Args:
-            session_id: The session ID returned by ``query()``.
+            session_id: The session ID returned by ``query()`` or a prior
+                ``resume()``.
             user_answer: The user's response to the follow-up question.
             verbose: Print intermediate steps.
 
         Returns:
-            ``AgentResponse`` with ``status="completed"``.
+            ``AgentResponse`` — ``status`` is ``"completed"`` or ``"followup"``.
 
         Raises:
             KeyError: If the session_id is not found (expired or invalid).
@@ -559,6 +565,38 @@ class GraphRAGAgent:
         else:
             result = self._force_continue(stored_state)
 
+        # The re-run graph can ask ANOTHER follow-up when the context is still
+        # insufficient after the user's answer (e.g. initial-access answered,
+        # but credential-theft still missing). Park a new session and return
+        # status="followup" instead of a completed response with an empty
+        # answer. Bounded by MAX_FOLLOWUP_RETRIES in _edge_after_evaluation.
+        return self._park_or_complete(result, verbose)
+
+    def _park_or_complete(self, result: dict, verbose: bool = True) -> AgentResponse:
+        """Turn a graph result into an AgentResponse.
+
+        If the graph is awaiting another follow-up, park a fresh session and
+        return status="followup"; otherwise return the completed answer. Shared
+        by query() and resume() so a follow-up on a later turn behaves exactly
+        like the first one (never a silent completed+empty).
+        """
+        if result.get("awaiting_followup"):
+            import uuid
+
+            question = (
+                result.get("followup_question") or self._DEFAULT_FOLLOWUP_QUESTION
+            )
+            session_id = str(uuid.uuid4())
+            self._sessions[session_id] = dict(result)
+            if verbose:
+                sep("AGENT — FOLLOW-UP REQUIRED")
+                print(f"  Question: {question}")
+                print(f"  Session parked: {session_id}")
+            return AgentResponse(
+                status="followup",
+                followup_question=question,
+                session_id=session_id,
+            )
         return AgentResponse(
             status="completed",
             answer=result.get("answer", ""),
