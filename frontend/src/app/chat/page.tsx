@@ -3,40 +3,76 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   chatContinue,
-  ChatMessage,
   queryRagFile,
   resumeRag,
-  QueryResponse,
+  type ChatMessage,
+  type QueryResponse,
 } from "@/lib/api";
 import Link from "next/link";
-import FollowUpModule from "@/components/FollowUpModule";
+import FollowUpModule, {
+  type FollowUpEntry,
+} from "@/components/FollowUpModule";
+
+const SEEDED_MESSAGES: ChatMessage[] = [
+  {
+    role: "user",
+    content:
+      "We detected suspicious PowerShell activity and an outbound connection from a finance workstation.",
+  },
+  {
+    role: "assistant",
+    content:
+      "I can start the analysis, but I need two details to keep the timeline and ATT&CK mapping evidence-based.",
+  },
+];
+
+const MOCK_CLARIFICATION_QUESTIONS = [
+  {
+    question: "Which endpoint or service first showed signs of compromise?",
+    rationale:
+      "This narrows the incident scope and focuses the initial ATT&CK mapping on the affected asset.",
+  },
+  {
+    question: "What evidence confirms when the suspicious activity began?",
+    rationale:
+      "A timestamped source helps separate observed facts from assumptions in the investigation timeline.",
+  },
+] as const;
 
 /**
  * Chat Page Component
  * Provides a clean black and white interface for interacting with the RAG-powered chatbot.
  */
 export default function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(SEEDED_MESSAGES);
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [followUpResponse, setFollowUpResponse] = useState<QueryResponse | null>(null);
+  const [isClarificationActive, setIsClarificationActive] = useState(true);
+  const [clarificationStep, setClarificationStep] = useState(0);
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [clarificationEntries, setClarificationEntries] = useState<
+    FollowUpEntry[]
+  >([]);
+  const [isClarificationSubmitting, setIsClarificationSubmitting] =
+    useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the bottom of the chat history
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, clarificationStep, clarificationEntries.length, isClarificationActive]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && !selectedFile) || isLoading) return;
+    if (
+      (!input.trim() && !selectedFile) ||
+      isLoading ||
+      isClarificationActive
+    ) {
+      return;
+    }
 
     const currentInput = input;
     const currentFile = selectedFile;
@@ -67,10 +103,15 @@ export default function ChatPage() {
 
       if (response.status === "followup") {
         setCurrentSessionId(response.session_id || null);
-        setFollowUpResponse(response);
+        const followUpMessage: ChatMessage = {
+          role: "assistant",
+          content:
+            response.followup_question ||
+            "I need one more detail before I can continue.",
+        };
+        setMessages((prev) => [...prev, followUpMessage]);
       } else {
         setCurrentSessionId(null);
-        setFollowUpResponse(null);
         const aiMessage: ChatMessage = {
           role: "assistant",
           content: response.answer,
@@ -88,6 +129,37 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClarificationSubmit = async () => {
+    const answer = clarificationAnswer.trim();
+    if (!answer || isClarificationSubmitting) return;
+
+    setIsClarificationSubmitting(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
+
+    const currentQuestion = MOCK_CLARIFICATION_QUESTIONS[clarificationStep];
+    const nextEntries: FollowUpEntry[] = [
+      ...clarificationEntries,
+      { question: currentQuestion.question, answer },
+    ];
+
+    setClarificationEntries(nextEntries);
+    setClarificationAnswer("");
+
+    if (clarificationStep < MOCK_CLARIFICATION_QUESTIONS.length - 1) {
+      setClarificationStep((step) => step + 1);
+    } else {
+      setIsClarificationActive(false);
+      const resolvedMessage: ChatMessage = {
+        role: "assistant",
+        content:
+          "Clarification complete. I’ve recorded the affected asset and timeline evidence, so the investigation can continue with those details in context.",
+      };
+      setMessages((prev) => [...prev, resolvedMessage]);
+    }
+
+    setIsClarificationSubmitting(false);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,23 +260,17 @@ export default function ChatPage() {
             </div>
           ))}
 
-          {followUpResponse && followUpResponse.status === "followup" && (
+          {isClarificationActive && (
             <FollowUpModule
-              question={followUpResponse.followup_question || "I need more information."}
-              sessionId={followUpResponse.session_id || ""}
-              onResolved={(response) => {
-                setFollowUpResponse(null);
-                setCurrentSessionId(null);
-                const aiMessage: ChatMessage = {
-                  role: "assistant",
-                  content: response.answer,
-                };
-                setMessages((prev) => [...prev, aiMessage]);
-              }}
-              onError={(error) => {
-                console.error("Follow-up error:", error);
-                setFollowUpResponse(null);
-              }}
+              question={MOCK_CLARIFICATION_QUESTIONS[clarificationStep].question}
+              rationale={MOCK_CLARIFICATION_QUESTIONS[clarificationStep].rationale}
+              answer={clarificationAnswer}
+              currentQuestion={clarificationStep + 1}
+              totalQuestions={MOCK_CLARIFICATION_QUESTIONS.length}
+              entries={clarificationEntries}
+              isSubmitting={isClarificationSubmitting}
+              onAnswerChange={setClarificationAnswer}
+              onSubmit={handleClarificationSubmit}
             />
           )}
 
@@ -272,7 +338,7 @@ export default function ChatPage() {
                   type="file"
                   accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                   onChange={handleFileChange}
-                  disabled={isLoading}
+                  disabled={isLoading || isClarificationActive}
                   className="sr-only"
                 />
               </label>
@@ -287,7 +353,7 @@ export default function ChatPage() {
                         fileInputRef.current.value = "";
                       }
                     }}
-                    disabled={isLoading}
+                    disabled={isLoading || isClarificationActive}
                     className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold uppercase tracking-widest text-neutral transition-colors hover:text-primary disabled:opacity-50"
                   >
                     Clear
@@ -302,18 +368,27 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
-                  currentSessionId
+                  isClarificationActive
+                    ? "Answer the clarification above to continue..."
+                    : currentSessionId
                     ? "Answer the follow-up question..."
                     : selectedFile
                       ? "Ask what to analyze from this file..."
                       : "Ask anything about Thai regulations..."
                 }
-                disabled={isLoading}
-                className={`w-full bg-gray-50 border ${currentSessionId ? "border-amber-300 ring-1 ring-amber-100" : "border-gray-200"} focus:border-primary focus:bg-white rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all disabled:opacity-50 shadow-sm group-hover:shadow-md`}
+                disabled={isLoading || isClarificationActive}
+                aria-describedby={
+                  isClarificationActive ? "chat-composer-status" : undefined
+                }
+                className={`w-full border bg-gray-50 ${currentSessionId ? "border-gray-400 ring-1 ring-gray-200" : "border-gray-200"} rounded-2xl py-5 pl-6 pr-16 text-primary outline-none transition-all focus:border-primary focus:bg-white focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100 shadow-sm group-hover:shadow-md`}
               />
               <button
                 type="submit"
-                disabled={isLoading || (!input.trim() && !selectedFile)}
+                disabled={
+                  isLoading ||
+                  isClarificationActive ||
+                  (!input.trim() && !selectedFile)
+                }
                 className="absolute right-3 p-3 bg-primary hover:bg-secondary text-white rounded-xl transition-all disabled:opacity-50 disabled:bg-neutral transform active:scale-95 shadow-sm"
                 aria-label="Send message"
               >
@@ -333,6 +408,16 @@ export default function ChatPage() {
                 </svg>
               </button>
             </div>
+            {isClarificationActive && (
+              <p
+                id="chat-composer-status"
+                className="px-2 text-xs font-semibold text-gray-600"
+                aria-live="polite"
+              >
+                The chat composer is paused while the assistant is waiting for
+                your clarification above.
+              </p>
+            )}
           </form>
           <div className="flex justify-between items-center mt-4 px-2">
             <p className="text-[10px] text-neutral font-medium uppercase tracking-widest">

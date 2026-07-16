@@ -68,7 +68,7 @@ BGE-M3 (embedding ที่ใช้อยู่แล้ว) เป็นโม
 | `pipeline/cross_lingual.py` | เพิ่มฟังก์ชัน **`build_retrieval_queries(original, english, extra)`** — จุดเดียวที่กำหนดนโยบาย dual-query ทุก path เรียกผ่านตัวนี้ |
 | `pipeline/agent_graph.py` | `_node_retrieve` และ `retrieve_only()` สร้าง query list ผ่าน `build_retrieval_queries` |
 | `pipeline/chain.py` | `query()` step 2 และ `retrieve_only()` เปลี่ยนจาก `retrieve(english)` → `retrieve_multi(queries)` |
-| `app/main.py` | `/generate-report` แปลคำถามก่อน (เดิมไม่แปลเลย) แล้ว retrieve แบบ dual-query |
+| `backend` | Report Generator เดิมไม่แปลเลย ตอนนี้ฝั่ง Backend orchestrate ให้ retrieve แบบ dual-query |
 | `evaluation/eval_runner.py` | `_make_generation_fn` ใช้ flow เดียวกับ chain เพื่อให้ RAGAS เห็น context ตรงกับ runtime จริง |
 | `__init__.py` ทั้ง 3 ชั้น | export `build_retrieval_queries` ขึ้นถึงระดับ `RAG` package |
 | `evaluation/crosslingual_benchmark.py` | **ไฟล์ใหม่** — benchmark เทียบ tRAG / Thai-direct / Dual-query (ดู [§5](#5-benchmark--crosslingual_benchmarkpy)) |
@@ -82,7 +82,7 @@ BGE-M3 (embedding ที่ใช้อยู่แล้ว) เป็นโม
 | Query อังกฤษ | retrieve ตรง 1 query | **เหมือนเดิมทุกประการ** (ไม่เบิ้ล query) |
 | Follow-up rewrites | ต่อท้าย query list | เหมือนเดิม — ต่อท้ายหลังสอง query แรก (dedup ให้) |
 | Reranker | mmarco-mMiniLMv2 (117M, ไม่มีไทย) | bge-reranker-v2-m3 (568M, multilingual รวมไทย) |
-| `/generate-report` | query ดิบ ไม่แปล | แปล + dual-query เหมือน path อื่น |
+| Report generation | query ดิบ ไม่แปล | แปล + dual-query เหมือน path อื่น (คุมโดย Backend) |
 | จำนวน LLM call | เท่าเดิม | **เท่าเดิม** (การแปลยังเกิด 1 ครั้งเหมือนเดิม — เพิ่มเฉพาะงาน vector search + rerank อีก 1 รอบสำหรับ query ไทย) |
 
 ---
@@ -144,7 +144,7 @@ flowchart TD
 | Agent debug | `retrieve_only()` | CLI `--retrieve-only --agent` |
 | Chain (`/query` use_agent=false) | `query()` step 2 | |
 | Chain debug | `retrieve_only()` | CLI `--retrieve-only` |
-| Report (`/generate-report`) | `app/main.py` | เดิมไม่แปลเลย — แก้พร้อมกัน |
+| Report Generation | Backend | เดิมไม่แปลเลย ตอนนี้ย้ายไปฝั่ง Backend |
 | Evaluation (RAGAS) | `eval_runner._make_generation_fn` | ให้ context ที่วัดตรงกับ runtime |
 
 ---

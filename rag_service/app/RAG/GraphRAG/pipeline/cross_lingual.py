@@ -243,6 +243,51 @@ class CrossLingualLayer:
         return TRANSLATE_TO_THAI_SYSTEM_PROMPT
 
     @staticmethod
+    def get_fast_system_prompt(respond_in_thai: bool) -> str:
+        """Single-pass system prompt for --fast mode.
+
+        Same jargon-simplification + 4-section structure as the reasoning stage,
+        but the model writes the FINAL answer directly in the response language —
+        there is no separate downstream translation stage in fast mode, so we fold
+        reasoning + translation into one LLM call.
+        """
+        if not respond_in_thai:
+            return REASONING_SYSTEM_PROMPT
+        return REASONING_SYSTEM_PROMPT + (
+            "\n\nLANGUAGE OVERRIDE (fast mode): Write the ENTIRE response in Thai "
+            "(ภาษาไทย). This OVERRIDES rule 1 — there is no separate translation "
+            "stage. Keep ATT&CK IDs (T1566, TA0001, …) and technique/tactic/tool/"
+            "group names in English. Translate the four section headers to Thai:\n"
+            "  ## INCIDENT SUMMARY                   → ## สรุปเหตุการณ์\n"
+            "  ## ATTACK SEQUENCE                    → ## ลำดับการโจมตี\n"
+            "  ## MITRE ATT&CK TECHNIQUES IDENTIFIED → ## เทคนิคการโจมตีที่ตรวจพบ (MITRE ATT&CK)\n"
+            "  ## IMPACT ASSESSMENT                  → ## ผลกระทบที่เกิดขึ้น"
+        )
+
+    @staticmethod
+    def get_ultrafast_system_prompt(respond_in_thai: bool) -> str:
+        """Terse single-pass prompt for --ultrafast mode.
+
+        Produces only a brief incident → MITRE mapping (no 4-section narrative),
+        keeping the output token count — the dominant LLM-latency cost — small.
+        """
+        base = (
+            "You are a MITRE ATT&CK incident analyst. From the retrieved context, "
+            "give a SHORT answer for a non-technical prosecutor:\n"
+            "1. One or two sentences summarising what happened.\n"
+            "2. A bullet list of the MITRE ATT&CK techniques matching the incident, "
+            "each as: [ATT&CK ID] Name — short reason.\n"
+            "Cite ONLY ATT&CK IDs that appear in the context; never invent IDs. "
+            "Be concise — no preamble, no extra sections."
+        )
+        if respond_in_thai:
+            base += (
+                "\nWrite the answer in Thai (ภาษาไทย); keep ATT&CK IDs and "
+                "technique/tool/group names in English."
+            )
+        return base
+
+    @staticmethod
     def should_respond_in_thai(query: str) -> bool:
         """Determine if the final output should be in Thai based on the query language."""
         return _is_thai(query)

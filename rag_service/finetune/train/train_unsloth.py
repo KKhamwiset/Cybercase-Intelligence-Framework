@@ -1,18 +1,23 @@
 """
-QLoRA Trainer — Qwen2.5-7B → MITRE ATT&CK specialist
-====================================================
-Run this on a Cloud GPU (Colab / Kaggle T4 16 GB or better). It does NOT fit on
-the 4 GB RTX 2050 dev box.
+LoRA Trainer — Qwen → MITRE ATT&CK specialist
+=============================================
+Run this on a Cloud GPU (Kaggle / Colab T4/P100 16 GB or better). It does NOT fit
+on the 4 GB RTX 2050 dev box.
+
+Current default (ft_config.py): Qwen3.5-4B with **16-bit LoRA** (Qwen3.5 must NOT
+be 4-bit QLoRA'd — Unsloth: quant error too high). The 4-bit/full-FT/thinking
+behaviour is all driven by ft_config flags, so the same script also trains the
+legacy Qwen2.5-7B (4-bit QLoRA).
 
 Pipeline:
-  1. Load Qwen2.5-7B-Instruct in 4-bit (Unsloth)
-  2. Attach a LoRA adapter
-  3. SFT on data/output/train.jsonl (chat format), masking the prompt so loss is
-     computed on assistant tokens only
+  1. Load the base (16-bit LoRA / 4-bit QLoRA / full-FT per ft_config) via Unsloth
+  2. Attach a LoRA adapter (skipped when FULL_FINETUNING)
+  3. SFT on data/output/train.jsonl (chat format, thinking disabled), masking the
+     prompt so loss is computed on assistant tokens only
   4. Save the LoRA adapter (+ optional GGUF for Ollama)
 
 Usage (on the GPU box, from the finetune/ directory):
-    pip install -r requirements.txt        # or the Colab one-liner (see file)
+    pip install --upgrade --force-reinstall --no-cache-dir unsloth unsloth_zoo
     python train/train_unsloth.py                       # full run
     python train/train_unsloth.py --max-steps 5         # smoke test the loop
     python train/train_unsloth.py --gguf                # also export GGUF Q4_K_M
@@ -53,44 +58,72 @@ def main():
     except ImportError as e:  # pragma: no cover - environment guard
         sys.exit(
             f"[FATAL] Missing training dependency: {e}\n"
-            "Install on a GPU box: pip install -r requirements.txt\n"
-            "(Colab: pip install 'unsloth[colab-new] @ "
-            "git+https://github.com/unslothai/unsloth.git')"
+            "Install on a GPU box. Qwen3.5 needs transformers v5 + a recent unsloth:\n"
+            "  pip install --upgrade --force-reinstall --no-cache-dir unsloth unsloth_zoo\n"
+            "(Qwen2.5 path: pip install -r requirements.txt)"
         )
 
-    # ── 1. Model + tokenizer (4-bit) ─────────────────────────────────────────
-    print(f"[TRAIN] Loading {args.base_model} in 4-bit ...")
-    model, tokenizer = FastLanguageModel.from_pretrained(
+    full_ft = getattr(C, "FULL_FINETUNING", False)
+
+    # ── 1. Model + tokenizer ─────────────────────────────────────────────────
+    mode = "4-bit QLoRA" if C.LOAD_IN_4BIT else ("FULL 16-bit" if full_ft
+                                                 else "16-bit LoRA")
+    print(f"[TRAIN] Loading {args.base_model} ({mode}) ...")
+    load_kwargs = dict(
         model_name=args.base_model,
         max_seq_length=C.MAX_SEQ_LEN,
         load_in_4bit=C.LOAD_IN_4BIT,
-        dtype=None,                       # auto (bf16/fp16)
+        dtype=None,                       # auto: bf16 where supported, else fp16 (T4)
     )
+    # These kwargs exist on the recent unsloth required for Qwen3.5; older unsloth
+    # (Qwen2.5 path) doesn't know them, so fall back gracefully.
+    if not C.LOAD_IN_4BIT:
+        load_kwargs["load_in_16bit"] = getattr(C, "LOAD_IN_16BIT", True)
+    if full_ft:
+        load_kwargs["full_finetuning"] = True
+    try:
+        model, tokenizer = FastLanguageModel.from_pretrained(**load_kwargs)
+    except TypeError:
+        for k in ("load_in_16bit", "full_finetuning"):
+            load_kwargs.pop(k, None)
+        model, tokenizer = FastLanguageModel.from_pretrained(**load_kwargs)
 
-    # ── 2. LoRA adapter ──────────────────────────────────────────────────────
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=C.LORA_R,
-        target_modules=C.LORA_TARGET_MODULES,
-        lora_alpha=C.LORA_ALPHA,
-        lora_dropout=C.LORA_DROPOUT,
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=C.RANDOM_SEED,
-    )
+    # ── 2. LoRA adapter (skipped for a full fine-tune) ───────────────────────
+    if not full_ft:
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=C.LORA_R,
+            target_modules=C.LORA_TARGET_MODULES,
+            lora_alpha=C.LORA_ALPHA,
+            lora_dropout=C.LORA_DROPOUT,
+            bias="none",
+            use_gradient_checkpointing="unsloth",
+            random_state=C.RANDOM_SEED,
+        )
 
-    # ── 3. Data — apply Qwen2.5 chat template ────────────────────────────────
+    # ── 3. Data — apply the base model's chat template ───────────────────────
     data_files = {"train": args.train_file}
     if Path(args.val_file).exists():
         data_files["validation"] = args.val_file
     ds = load_dataset("json", data_files=data_files)
 
-    def to_text(ex):
-        return {
-            "text": tokenizer.apply_chat_template(
-                ex["messages"], tokenize=False, add_generation_prompt=False
+    # Qwen3.5 is a thinking model — render with thinking disabled so the training
+    # text matches our direct-answer data (no <think> blocks). Probe once because
+    # the Qwen2.5 template doesn't accept the kwarg.
+    tmpl_kwargs = {"tokenize": False, "add_generation_prompt": False}
+    want_thinking = getattr(C, "ENABLE_THINKING", None)
+    if want_thinking is not None:
+        try:
+            tokenizer.apply_chat_template(
+                ds["train"][0]["messages"], enable_thinking=want_thinking, **tmpl_kwargs
             )
-        }
+            tmpl_kwargs["enable_thinking"] = want_thinking
+            print(f"[TRAIN] chat template: enable_thinking={want_thinking}")
+        except TypeError:
+            print("[TRAIN] base chat template ignores enable_thinking (Qwen2.5)")
+
+    def to_text(ex):
+        return {"text": tokenizer.apply_chat_template(ex["messages"], **tmpl_kwargs)}
 
     ds = ds.map(to_text, remove_columns=ds["train"].column_names)
 
@@ -123,7 +156,8 @@ def main():
         args=sft_args,
     )
 
-    # Compute loss on assistant responses only (mask the prompt) — Qwen2.5 ChatML.
+    # Compute loss on assistant responses only (mask the prompt). Qwen2.5, Qwen3
+    # and Qwen3.5 all use ChatML, so these <|im_start|> markers are shared.
     trainer = train_on_responses_only(
         trainer,
         instruction_part="<|im_start|>user\n",
@@ -149,7 +183,7 @@ def main():
             str(gguf_dir), tokenizer, quantization_method=C.GGUF_QUANT.lower()
         )
         print("[TRAIN] GGUF export done. Download the .gguf and run:")
-        print(f"        ollama create {C.FT_MODEL_OLLAMA} -f export/Modelfile")
+        print(f"        ollama create {C.FT_MODEL_OLLAMA} -f export/Modelfile.qwen35")
 
 
 if __name__ == "__main__":

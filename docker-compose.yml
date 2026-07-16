@@ -16,15 +16,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-cybercase_framework}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-cybercase_framework}",
-        ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-cybercase_framework}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -33,8 +29,8 @@ services:
   # ── FastAPI Backend ─────────────────────────────────────────────────────────
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: cybercase-backend
     restart: always
     environment:
@@ -62,8 +58,8 @@ services:
   # ── RAG Service ─────────────────────────────────────────────────────────────
   rag-service:
     build:
-      context: .
-      dockerfile: rag_service/Dockerfile
+      context: ./rag_service
+      dockerfile: Dockerfile
     container_name: cybercase-rag-service
     restart: always
     environment:
@@ -80,6 +76,7 @@ services:
       - "8001:8001"
     volumes:
       - ./rag_service/app:/app/app
+      - ./backend/app:/app/backend/app:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   # ── Next.js Frontend ────────────────────────────────────────────────────────
@@ -87,16 +84,27 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: development
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    command: npm run dev -- --webpack
     container_name: cybercase-frontend
     restart: always
+
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+      WATCHPACK_POLLING: "true"
     ports:
       - "3000:3000"
+
     depends_on:
       - backend
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
 
 volumes:
   postgres_data:
+  frontend_node_modules:
+  frontend_next:

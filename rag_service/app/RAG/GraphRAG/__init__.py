@@ -29,16 +29,17 @@ from .models import (
 )
 from .pipeline import (
     AgentResponse,
+    ChainResponse,
     ContextEvaluator,
     CrossLingualLayer,
-    CyberCaseReport,
     EvaluationResult,
     GraphRAGAgent,
     GraphRAGChain,
+    MitreTableRow,
     QueryRouter,
-    ReportGenerator,
     build_context,
     build_generation_prompt,
+    build_mitre_table,
     build_retrieval_queries,
 )
 from .retrieval import (
@@ -53,6 +54,9 @@ from .retrieval import (
 __all__ = [
     "AgentResponse",
     "AttackEntity",
+    "ChainResponse",
+    "MitreTableRow",
+    "build_mitre_table",
     "AttackRelationship",
     "Campaign",
     "ContextEvaluator",
@@ -76,8 +80,6 @@ __all__ = [
     "VectorResult",
     "GraphRAGAgent",
     "GraphRAGChain",
-    "ReportGenerator",
-    "CyberCaseReport",
     "build_context",
     "build_generation_prompt",
     "build_retrieval_queries",

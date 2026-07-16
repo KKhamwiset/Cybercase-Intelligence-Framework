@@ -55,12 +55,20 @@ STATS_FILE = OUTPUT_DIR / "dataset_stats.json"
 # ──────────────────────────────────────────────────────────────────────────────
 # MODELS
 # ──────────────────────────────────────────────────────────────────────────────
-# Original — kept untouched for comparison.
-BASE_MODEL_OLLAMA = "qwen2.5:7b"
-# HF checkpoint used for training (same family/size as the Ollama base).
-BASE_MODEL_HF = "Qwen/Qwen2.5-7B-Instruct"
-# Fine-tuned model name registered in Ollama (see export/Modelfile).
-FT_MODEL_OLLAMA = "mitre-qwen:7b"
+# Active target = Qwen3.5-4B, trained with 16-bit LoRA. Qwen3.5 is a NEW
+# architecture (Gated DeltaNet, bf16-native, thinking-by-default); Unsloth
+# explicitly warns AGAINST 4-bit QLoRA for it (quantization error too high), so
+# we load the base in 16-bit and train a LoRA on top. Needs transformers v5 + a
+# recent unsloth/unsloth_zoo (see requirements.txt).
+BASE_MODEL_OLLAMA = "qwen3.5:4b"            # stock model in Ollama = A/B baseline
+BASE_MODEL_HF = "Qwen/Qwen3.5-4B"           # HF checkpoint used for training
+FT_MODEL_OLLAMA = "mitre-qwen3.5:4b"        # fine-tuned model registered in Ollama
+
+# Previous target — kept for reference (the committed Qwen2.5-7B GGUFs/Modelfiles
+# still work; swap these back in to reproduce the v1/v3 7B specialist):
+#   BASE_MODEL_OLLAMA = "qwen2.5:7b"
+#   BASE_MODEL_HF     = "Qwen/Qwen2.5-7B-Instruct"
+#   FT_MODEL_OLLAMA   = "mitre-qwen:7b"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # DATASET
@@ -90,15 +98,32 @@ SPECIALIST_SYSTEM_PROMPT = (
 
 GROUNDED_SYSTEM_PROMPT = (
     "You are a MITRE ATT&CK cybersecurity specialist. Using ONLY the provided "
-    "context, answer the question. Cite the ATT&CK ID for every technique you "
-    "mention. If the context does not contain the answer, say so plainly."
+    "context, answer the question. Only use ATT&CK IDs (e.g. T1059, G0016, S0154, "
+    "M1037, TA0001) that appear in the context; never invent, guess, or recall an "
+    "ID from memory — if a name has no ID in the context, write the name without "
+    "an ID. Do not add any technique, group, software, mitigation, or fact that is "
+    "not in the context. If the context does not contain the answer, say so plainly "
+    "and do not guess."
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TRAINING (QLoRA) — defaults tuned for a free Colab/Kaggle T4 (16 GB)
+# TRAINING — 16-bit LoRA, tuned for a free Kaggle/Colab T4 or P100 (16 GB)
 # ──────────────────────────────────────────────────────────────────────────────
 MAX_SEQ_LEN = 2048
-LOAD_IN_4BIT = True
+# Qwen3.5: 4-bit QLoRA is NOT recommended (Unsloth) → load the base in 16-bit and
+# train a LoRA on top. A 4.7B base in 16-bit (~9.4 GB) + LoRA + activations fits a
+# single free T4/P100. (T4 has no bf16 → Unsloth auto-uses fp16; LoRA keeps the
+# frozen base stable, unlike a fp16 FULL fine-tune of a bf16-native model.)
+LOAD_IN_4BIT = False
+LOAD_IN_16BIT = True
+# Full fine-tune of a bf16-native 4.7B on fp16-only T4 is unstable and needs
+# 2xT4 + DeepSpeed ZeRO-3 — left off by default. Flip to True only on a >=40 GB
+# bf16 GPU (A100/H100) or a properly sharded 2xT4 setup.
+FULL_FINETUNING = False
+# Qwen3.5 is a thinking model (thinking ON by default). Our dataset is direct
+# English answers with no <think> blocks, so render the chat template with
+# thinking DISABLED at train time to match the pipeline's inference shape.
+ENABLE_THINKING = False
 
 LORA_R = 16
 LORA_ALPHA = 16
@@ -108,7 +133,10 @@ LORA_TARGET_MODULES = [
     "gate_proj", "up_proj", "down_proj",
 ]
 
-NUM_EPOCHS = 2
+# 1 epoch for Qwen3.5: the base is already strong and the SFT answers are
+# template-shaped — a 2nd pass mostly memorises the templates (robotic answers +
+# erodes general fluency). Bump back to 2 if the A/B shows under-fitting.
+NUM_EPOCHS = 1
 LEARNING_RATE = 2e-4
 PER_DEVICE_BATCH = 2
 GRAD_ACCUM = 8            # effective batch = 16
