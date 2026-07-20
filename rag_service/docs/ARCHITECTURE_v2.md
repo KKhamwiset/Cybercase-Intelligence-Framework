@@ -25,7 +25,7 @@ flowchart LR
   RS --> QD[("Qdrant Cloud<br/>BGE-M3 vectors<br/>entities + relationships")]
   RS --> NEO[("Neo4j Cloud<br/>MITRE ATT&CK<br/>STIX graph")]
   RS --> LLM["Claude Haiku<br/>Anthropic API"]
-  RS -.optional.-> OLL["Ollama<br/>local models (--local)"]
+  RS -.->|optional| OLL["Ollama<br/>local models (--local)"]
 ```
 
 **หลักภาษา (Language contract):** input เป็นสำนวนคดี**ไทย**เสมอ, output **ไทย**เสมอ;
@@ -54,17 +54,17 @@ override `RAG_DEVICE=cpu|cuda`. **Production (Railway) = CPU** (torch CPU wheel 
 
 ```mermaid
 flowchart TD
-  START([POST /query · use_agent=true]) --> RQ[route_query]
-  RQ -->|incident| PREP["prepare<br/>lang detect · english_query = query<br/>(no input translation)"]
-  RQ -.->|general (disabled)| GE[general_explanation] --> E1([END])
+  START(["POST /query · use_agent=true"]) --> RQ["route_query"]
+  RQ -->|incident| PREP["prepare<br/>lang detect · no input translation"]
+  RQ -.->|"general (disabled)"| GE["general_explanation"] --> E1(["END"])
   PREP --> RET["retrieve<br/>decompose → retrieve_multi_quota → build_context"]
-  RET --> EV{evaluate_context}
-  EV -->|SUFFICIENT| RE[reasoning]
-  EV -->|INSUFFICIENT| FU["prepare_followup<br/>(_DEFAULT_FOLLOWUP_QUESTION ถ้าว่าง)"]
-  FU --> PAUSE([END — pause<br/>status=followup + session_id])
-  EV -->|BROADEN_SEARCH| BR[broaden_search] --> RET
-  RE -->|"single-call (default): answer_is_final"| E2([END — Thai answer])
-  RE -->|"two-stage: respond_in_thai"| TR[translate_output] --> E3([END — Thai answer])
+  RET --> EV{"evaluate_context"}
+  EV -->|SUFFICIENT| RE["reasoning"]
+  EV -->|INSUFFICIENT| FU["prepare_followup<br/>default question ถ้าว่าง"]
+  FU --> PAUSE(["END — pause<br/>status=followup + session_id"])
+  EV -->|BROADEN_SEARCH| BR["broaden_search"] --> RET
+  RE -->|"single-call default: answer_is_final"| E2(["END — Thai answer"])
+  RE -->|"two-stage: respond_in_thai"| TR["translate_output"] --> E3(["END — Thai answer"])
 ```
 
 - **prepare:** ตรวจว่าตอบไทยไหม, ตั้ง `english_query = query` (ไม่แปลขาเข้า)

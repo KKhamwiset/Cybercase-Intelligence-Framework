@@ -120,7 +120,7 @@ Backend gateway เป็น proxy บางๆ ที่ forward RAG call ม�
   RS --&gt; QD[(&quot;Qdrant Cloud&lt;br/&gt;BGE-M3 vectors&lt;br/&gt;entities + relationships&quot;)]
   RS --&gt; NEO[(&quot;Neo4j Cloud&lt;br/&gt;MITRE ATT&amp;CK&lt;br/&gt;STIX graph&quot;)]
   RS --&gt; LLM[&quot;Claude Haiku&lt;br/&gt;Anthropic API&quot;]
-  RS -.optional.-&gt; OLL[&quot;Ollama&lt;br/&gt;local models (--local)&quot;]
+  RS -.-&gt;|optional| OLL[&quot;Ollama&lt;br/&gt;local models (--local)&quot;]
 </pre>
 <p><strong>หลักภาษา (Language contract):</strong> input เป็นสำนวนคดี<strong>ไทย</strong>เสมอ, output <strong>ไทย</strong>เสมอ;
 context จาก MITRE เป็น<strong>อังกฤษ</strong> (ไม่แปล query ขาเข้า — BGE-M3 multilingual)</p>
@@ -177,17 +177,17 @@ override <code>RAG_DEVICE=cpu|cuda</code>. <strong>Production (Railway) = CPU</s
 <hr />
 <h2 id="3-request-lifecycle-post-query-agent">3. Request lifecycle — <code>POST /query</code> (agent)</h2>
 <pre class="mermaid">flowchart TD
-  START([POST /query · use_agent=true]) --&gt; RQ[route_query]
-  RQ --&gt;|incident| PREP[&quot;prepare&lt;br/&gt;lang detect · english_query = query&lt;br/&gt;(no input translation)&quot;]
-  RQ -.-&gt;|general (disabled)| GE[general_explanation] --&gt; E1([END])
+  START([&quot;POST /query · use_agent=true&quot;]) --&gt; RQ[&quot;route_query&quot;]
+  RQ --&gt;|incident| PREP[&quot;prepare&lt;br/&gt;lang detect · no input translation&quot;]
+  RQ -.-&gt;|&quot;general (disabled)&quot;| GE[&quot;general_explanation&quot;] --&gt; E1([&quot;END&quot;])
   PREP --&gt; RET[&quot;retrieve&lt;br/&gt;decompose → retrieve_multi_quota → build_context&quot;]
-  RET --&gt; EV{evaluate_context}
-  EV --&gt;|SUFFICIENT| RE[reasoning]
-  EV --&gt;|INSUFFICIENT| FU[&quot;prepare_followup&lt;br/&gt;(_DEFAULT_FOLLOWUP_QUESTION ถ้าว่าง)&quot;]
-  FU --&gt; PAUSE([END — pause&lt;br/&gt;status=followup + session_id])
-  EV --&gt;|BROADEN_SEARCH| BR[broaden_search] --&gt; RET
-  RE --&gt;|&quot;single-call (default): answer_is_final&quot;| E2([END — Thai answer])
-  RE --&gt;|&quot;two-stage: respond_in_thai&quot;| TR[translate_output] --&gt; E3([END — Thai answer])
+  RET --&gt; EV{&quot;evaluate_context&quot;}
+  EV --&gt;|SUFFICIENT| RE[&quot;reasoning&quot;]
+  EV --&gt;|INSUFFICIENT| FU[&quot;prepare_followup&lt;br/&gt;default question ถ้าว่าง&quot;]
+  FU --&gt; PAUSE([&quot;END — pause&lt;br/&gt;status=followup + session_id&quot;])
+  EV --&gt;|BROADEN_SEARCH| BR[&quot;broaden_search&quot;] --&gt; RET
+  RE --&gt;|&quot;single-call default: answer_is_final&quot;| E2([&quot;END — Thai answer&quot;])
+  RE --&gt;|&quot;two-stage: respond_in_thai&quot;| TR[&quot;translate_output&quot;] --&gt; E3([&quot;END — Thai answer&quot;])
 </pre>
 <ul>
 <li><strong>prepare:</strong> ตรวจว่าตอบไทยไหม, ตั้ง <code>english_query = query</code> (ไม่แปลขาเข้า)</li>
