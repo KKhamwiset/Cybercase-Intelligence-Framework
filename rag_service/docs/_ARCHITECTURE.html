@@ -105,6 +105,7 @@
 และคำอธิบาย <strong>ทุกฟังก์ชัน/คลาส</strong> แยกตามไฟล์</p>
 <p>ขอบเขต: <code>rag_service/app/RAG/GraphRAG</code> (pipeline RAG หลัก), <code>rag_service/app</code> (FastAPI + CLI + utilities),
 <code>rag_service/docs</code>, และ <code>rag_service/finetune</code> (โมดูล fine-tune MITRE specialist)</p>
+<p>📘 <strong>เพิ่งเข้าโปรเจกต์?</strong> อ่าน <a href="docs/PRIMER.md">docs/PRIMER.md</a> ก่อน — ปูพื้น MITRE ATT&amp;CK / RAG / GraphRAG / Agentic / ศัพท์เฉพาะ ที่ต้องรู้ก่อนเอกสารนี้</p>
 </blockquote>
 <hr />
 <h2 id="สารบญ">สารบัญ</h2>
@@ -127,17 +128,57 @@
    - <a href="#79-finetune">7.9 finetune/</a></li>
 </ol>
 <hr />
+<h2 id="0-อปเดตลาสด-2026-07-changelog">0. อัปเดตล่าสุด (2026-07 — Changelog)</h2>
+<p>การเปลี่ยนแปลงสำคัญที่ทำหลังเอกสารรุ่นก่อน (สะท้อนใน main แล้ว):</p>
+<table>
+<thead>
+<tr>
+<th>การเปลี่ยนแปลง</th>
+<th>ไฟล์</th>
+<th>สาระ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Single-call generation (variant C)</strong></td>
+<td><code>agent_graph._node_reasoning</code>, <code>cross_lingual.get_fast_system_prompt</code>, <code>config.SINGLE_CALL_GENERATION</code></td>
+<td>สำหรับ query ไทย: reason บน context อังกฤษ + เขียนคำตอบไทยใน <strong>call เดียว</strong> (ตั้ง <code>answer_is_final=True</code> → ข้าม <code>translate_output</code>) แทน two-stage reason→translate เดิม พิสูจน์ด้วย benchmark ว่าคุณภาพเท่ากันแต่ latency/ต้นทุนครึ่งเดียว ตั้ง <code>SINGLE_CALL_GENERATION=false</code> เพื่อกลับ two-stage</td>
+</tr>
+<tr>
+<td><strong>Follow-up ไม่ตอบเปล่า</strong></td>
+<td><code>agent_graph._node_prepare_followup</code>, <code>query()</code></td>
+<td><code>_DEFAULT_FOLLOWUP_QUESTION</code> fallback เมื่อ evaluator คืน follow-up ว่าง + guard ใน <code>query()</code> ไม่ให้หลุดเป็น completed+เปล่า</td>
+</tr>
+<tr>
+<td><strong>resume() รองรับ multi-turn follow-up</strong></td>
+<td><code>agent_graph._park_or_complete</code>, <code>resume()</code></td>
+<td>resume คืน <code>status="followup"</code> ได้ (พร้อม session_id ใหม่) เมื่อ context ยังไม่พอหลังตอบ — ไม่ใช่ completed+เปล่า <strong>⚠️ caller (backend/frontend) ต้อง loop จนกว่า status=="completed"</strong></td>
+</tr>
+<tr>
+<td><strong>Batched Neo4j expansion</strong></td>
+<td><code>graph_retriever.expand_batch</code></td>
+<td><code>expand()</code> เดิมวน <code>_expand_single</code> ทีละ seed (3N round-trip) → รวมเป็น 3 Cypher UNWIND ต่อ seed list (เร็ว 3.5× ที่ชั้น expand, ผลเหมือนเดิม)</td>
+</tr>
+<tr>
+<td><strong>Device-aware model loading</strong></td>
+<td><code>config.DEVICE</code>, <code>config.USE_FP16</code>, <code>reranker</code></td>
+<td>auto GPU/CPU; <code>USE_FP16 = (DEVICE=="cuda")</code> — fp16 เฉพาะ GPU (prod Railway = CPU → fp32); override ด้วย <code>RAG_DEVICE=cpu\|cuda</code></td>
+</tr>
+</tbody>
+</table>
+<p>รายงานประกอบ: <code>docs/retrieval_perf_optimization.md</code>, <code>evaluation/results/</code></p>
+<hr />
 <h2 id="1-ภาพรวมสถาปตยกรรม">1. ภาพรวมสถาปัตยกรรม</h2>
 <p><code>rag_service</code> เป็น <strong>FastAPI microservice (พอร์ต 8001)</strong> ที่โฮสต์ GraphRAG pipeline ทั้งหมด
 Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที่เรียกบริการนี้ผ่าน HTTP ส่วน RAG ทั้งหมดอยู่ที่นี่</p>
 <pre><code>                       ┌──────────────────────────────────────────────┐
    Thai case file ───▶ │  FastAPI (app/main.py, :8001)                 │
-                       │  /query  /resume  /generate-report  /health   │
+                       │  /query  /resume  /health                     │
                        └───────────────┬──────────────────────────────┘
                                        │ (โหลดโมเดล + เชื่อม DB ครั้งเดียวตอน startup)
           ┌────────────────────────────┼─────────────────────────────────┐
-          ▼                            ▼                                  ▼
-   GraphRAGAgent              HybridRetriever                       ReportGenerator
+          ▼                            ▼
+   GraphRAGAgent              HybridRetriever
    (LangGraph state machine)  ├─ VectorRetriever ─▶ Qdrant (BGE-M3 dense+sparse)
    route→prepare→retrieve     ├─ Reranker (bge-reranker-v2-m3)
    →evaluate→(followup|        └─ GraphRetriever ─▶ Neo4j (STIX graph, 1-hop expand)
@@ -148,18 +189,14 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
     A[&quot;Thai case file&quot;] --&gt; API[&quot;FastAPI :8001&lt;br/&gt;app/main.py&quot;]
     API --&gt;|&quot;/query use_agent=True&quot;| AG[&quot;GraphRAGAgent&lt;br/&gt;(LangGraph)&quot;]
     API --&gt;|&quot;/query use_agent=False&quot;| CH[&quot;GraphRAGChain&lt;br/&gt;(linear LCEL)&quot;]
-    API --&gt;|&quot;/generate-report&quot;| RG[&quot;ReportGenerator&quot;]
     API --&gt;|&quot;/resume&quot;| AG
     AG --&gt; HR[&quot;HybridRetriever&quot;]
     CH --&gt; HR
-    RG --&gt; HR
     HR --&gt; VR[&quot;VectorRetriever&quot;] --&gt; QD[(&quot;Qdrant&lt;br/&gt;BGE-M3 dense+sparse&quot;)]
     HR --&gt; RR[&quot;Reranker&lt;br/&gt;bge-reranker-v2-m3&quot;]
     HR --&gt; GR[&quot;GraphRetriever&quot;] --&gt; NEO[(&quot;Neo4j&lt;br/&gt;STIX graph&quot;)]
     AG --&gt; LLM[&quot;Claude Haiku&lt;br/&gt;/ Ollama&quot;]
     CH --&gt; LLM
-    RG --&gt; LLM
-    RG -.-&gt;|&quot;legal=true&quot;| THA[&quot;Thanoy&lt;br/&gt;Thai legal API&quot;]
 </pre>
 <p><strong>3 เส้นทางหลักของบริการ</strong></p>
 <table>
@@ -174,7 +211,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <tr>
 <td><code>POST /query</code> (<code>use_agent=True</code>)</td>
 <td><code>GraphRAGAgent</code></td>
-<td>agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → reason → translate</td>
+<td>agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → <strong>generate</strong> (default: single-call ไทย; fallback: reason→translate)</td>
 </tr>
 <tr>
 <td><code>POST /query</code> (<code>use_agent=False</code>)</td>
@@ -186,16 +223,12 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <td><code>GraphRAGAgent.resume</code></td>
 <td>ดำเนิน session ที่ pause เพื่อถาม follow-up ต่อ</td>
 </tr>
-<tr>
-<td><code>POST /generate-report</code></td>
-<td><code>HybridRetriever</code> + <code>ReportGenerator</code> (+<code>thanoy_client</code>)</td>
-<td>รายงานคดี 3 ส่วน: case summary + faithful MITRE table + (optional) Thai legal</td>
-</tr>
 </tbody>
 </table>
+<p><strong>หมายเหตุ</strong>: Endpoint การสร้างรายงาน (<code>/generate-report</code>) และองค์ประกอบรายงานถูกย้ายไปที่ Backend Service (Phase 2A refactor)</p>
 <p><strong>สอง pipeline ที่ขนานกันในโค้ด</strong>
 - <code>GraphRAGAgent</code> (<code>pipeline/agent_graph.py</code>) — เส้นทาง production agentic ใหม่ (decomposer + quota + self-reflection + follow-up)
-- <code>GraphRAGChain</code> (<code>pipeline/chain.py</code>) — เส้นทาง linear เดิม (ยังใช้ใน <code>/generate-report</code> เพื่อแปล query และใน eval generation)</p>
+- <code>GraphRAGChain</code> (<code>pipeline/chain.py</code>) — เส้นทาง linear เดิม (ยังใช้ใน eval generation)</p>
 <hr />
 <h2 id="2-เทคนคmethod-ทใช">2. เทคนิค/Method ที่ใช้</h2>
 <table>
@@ -268,18 +301,18 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <td>รวม query เดิม + คำตอบ follow-up เป็น query เดียวที่ MITRE-aligned</td>
 </tr>
 <tr>
-<td><strong>3-stage cross-lingual generation</strong></td>
-<td><code>cross_lingual</code> prompts</td>
-<td>(1) translate query → EN, (2) reasoning LLM → simplified EN, (3) translation LLM → Thai</td>
+<td><strong>Cross-lingual generation</strong></td>
+<td><code>cross_lingual</code> prompts, <code>agent_graph._node_reasoning</code></td>
+<td><strong>Default (agent, variant C):</strong> call เดียว — reason บน EN context + เขียนไทยเลย (<code>get_fast_system_prompt</code>, <code>answer_is_final=True</code>). <strong>Fallback (<code>SINGLE_CALL_GENERATION=false</code> / chain path):</strong> two-stage — reasoning LLM → EN แล้ว translation LLM → Thai. หมายเหตุ: agent path ไม่แปล query ขาเข้า (ไทยเข้า retrieval ตรงๆ)</td>
 </tr>
 <tr>
 <td><strong>Faithful MITRE table</strong></td>
-<td><code>report_generator.extract_mitre_entities</code></td>
+<td><code>Backend ReportGenerator</code></td>
 <td>สร้างตารางจาก entity ที่ retrieve จริง (ไม่ใช่จาก LLM) → ID ไม่ถูก hallucinate</td>
 </tr>
 <tr>
 <td><strong>CJK Thai-only guard</strong></td>
-<td><code>report_generator._sanitize_thai</code></td>
+<td><code>Backend ReportGenerator</code></td>
 <td>ตรวจ token จีน/ญี่ปุ่น/เกาหลีหลุดในรายงาน → re-translate field เป็นไทยล้วน</td>
 </tr>
 <tr>
@@ -300,17 +333,22 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <tr>
 <td><strong>Eval: retriever metrics</strong></td>
 <td><code>evaluation/retriever_metrics.py</code></td>
-<td>Hit@K, Recall@K, Precision@K, MRR, NDCG@K, MAP</td>
+<td>Hit@K, capped Recall@K, Precision@K, MRR, NDCG@K, MAP, <strong>step-coverage@k (named/described)</strong></td>
 </tr>
 <tr>
 <td><strong>Eval: generation metrics</strong></td>
-<td><code>evaluation/generation_metrics.py</code></td>
-<td>RAGAS (faithfulness, answer_correctness) + fallback Token-F1/ROUGE-L/BERTScore</td>
+<td><code>evaluation/generation_metrics.py</code>, <strong><code>attack_id_metrics.py</code></strong></td>
+<td>RAGAS + fallback Token-F1/ROUGE-L/BERTScore; <strong>technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival</strong></td>
+</tr>
+<tr>
+<td><strong>Eval: 5-variant crosslingual harness</strong></td>
+<td><code>evaluation/crosslingual_generation_benchmark.py</code></td>
+<td>เทียบ generation variant บน frozen context; 3-layer (retrieval/mapping/generation) บน gold เดียวกัน + paired stats</td>
 </tr>
 <tr>
 <td><strong>Graph-grounded eval dataset</strong></td>
-<td><code>evaluation/generate_eval_dataset.py</code></td>
-<td>สร้าง ground-truth จาก Cypher (กราฟ = ground truth) → ไม่ label มือ</td>
+<td><code>evaluation/generate_eval_dataset.py</code>, <strong><code>make_incident_dataset.py</code></strong></td>
+<td>ground-truth จาก Cypher (กราฟ = ground truth); incident สำนวนคดีไทยเรียงเวลา (kill-chain + named/described cue)</td>
 </tr>
 <tr>
 <td><strong>MITRE specialist fine-tune</strong></td>
@@ -496,12 +534,17 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 │           ├── main.py              # CLI (--ingest/--test/--agent/--retrieve-only)
 │           ├── pipeline/            # agent_graph, chain, router, cross_lingual,
 │           │                        #   query_decomposer, evaluator, query_merger,
-│           │                        #   context_builder, report_generator, thanoy_client
+│           │                        #   context_builder
 │           ├── retrieval/           # vector_retriever, graph_retriever, reranker, hybrid_retriever
 │           ├── ingestion/           # stix_parser, graph_loader, vector_loader
-│           └── evaluation/          # ground_truth, retriever_metrics, generation_metrics,
-│                                    #   eval_runner, crosslingual_benchmark,
-│                                    #   generate_eval_dataset, test_metrics
+│           └── evaluation/          # ground_truth, retriever_metrics (step-coverage),
+│                                    #   generation_metrics, attack_id_metrics,
+│                                    #   crosslingual_generation_benchmark (5-variant harness),
+│                                    #   make_incident_dataset, generate_eval_dataset,
+│                                    #   build_deprecated_blocklist, export_alias_tables,
+│                                    #   eval_runner, crosslingual_benchmark, test_metrics
+│                                    #   data/ (contexts cache, incident_draft, attack_lookup)
+│                                    #   results/ (benchmark reports + PDFs)
 ├── docs/
 │   └── _build_pdf.py                # render RAG_Module.md → HTML (mermaid) → PDF
 └── finetune/                        # MITRE specialist fine-tune (QLoRA/LoRA)
@@ -518,7 +561,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <p>โหลด BGE-M3 ครั้งเดียว → สร้าง <code>GraphRAGChain</code>, <code>GraphRAGAgent</code>, <code>HybridRetriever</code>, <code>ReportGenerator</code> (แชร์ embed model) → เชื่อม Neo4j/Qdrant → เก็บไว้ใน <code>app.state</code>. ถ้าพังจะ set เป็น <code>None</code> (endpoint คืน 503)</p>
 <h3 id="62-post-query-agent">6.2 <code>POST /query</code> (agent)</h3>
 <p><code>route_query</code> → <code>prepare</code> (ตรวจภาษา) → <code>retrieve</code> (decompose → <code>retrieve_multi_quota</code> → <code>build_context</code>) → <code>evaluate_context</code> →
-- <strong>SUFFICIENT</strong> → <code>reasoning</code> → (ถ้าไทย) <code>translate_output</code> → END
+- <strong>SUFFICIENT</strong> → <code>reasoning</code> → END (single-call เขียนไทยเลย) / หรือ → <code>translate_output</code> → END (two-stage เมื่อ <code>SINGLE_CALL_GENERATION=false</code>)
 - <strong>INSUFFICIENT</strong> → <code>prepare_followup</code> → END (pause, คืน <code>status="followup"</code> + <code>session_id</code>)
 - <strong>BROADEN</strong> → <code>broaden_search</code> → วน <code>retrieve</code></p>
 <pre class="mermaid">flowchart TD
@@ -530,37 +573,15 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
     EVAL --&gt;|SUFFICIENT| REASON[&quot;reasoning LLM&quot;]
     EVAL --&gt;|INSUFFICIENT| FU[&quot;prepare_followup&quot;] --&gt; E2([END — pause/await user])
     EVAL --&gt;|BROADEN_SEARCH| BRD[&quot;broaden_search&quot;] --&gt; RET
-    REASON --&gt;|respond_in_thai| TR[&quot;translate_output&quot;] --&gt; E3([END])
-    REASON --&gt;|else| E4([END])
+    REASON --&gt;|respond_in_thai และไม่ answer_is_final| TR[&quot;translate_output&quot;] --&gt; E3([END])
+    REASON --&gt;|single-call / else| E4([END])
 </pre>
 <blockquote>
-<p>resume: <code>/resume</code> ดึง state ที่ pause → <code>_resume_with_answer</code> (เก็บ slot + merge query + rewrite) → invoke graph ใหม่จากต้น (route → … ) จนถึง END</p>
+<p><strong>single-call (default):</strong> node <code>reasoning</code> เขียนไทยเลย ตั้ง <code>answer_is_final=True</code> → ข้าม <code>translate_output</code>
+resume: <code>/resume</code> ดึง state ที่ pause → <code>_resume_with_answer</code> (เก็บ slot + merge query + rewrite) → invoke graph ใหม่จากต้น (route → … ) จนถึง END</p>
 </blockquote>
 <h3 id="63-post-resume">6.3 <code>POST /resume</code></h3>
-<p>ดึง state ที่ pause จาก <code>_sessions[session_id]</code> → <code>_resume_with_answer</code> (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่จนจบ → คืน <code>status="completed"</code></p>
-<h3 id="64-post-generate-report">6.4 <code>POST /generate-report</code></h3>
-<p><code>translator.translate_query</code> (TH→EN) → <code>build_retrieval_queries</code> (dual-query) → <code>retrieve_multi</code> → <code>build_context</code> → <code>report_gen.generate</code> (structured output 7 ส่วน + CJK guard) → <code>extract_mitre_entities</code> (เขียนทับตารางด้วย entity จริง) → (ถ้า <code>legal=true</code>) <code>get_legal_advice</code> (Thanoy)</p>
-<pre class="mermaid">sequenceDiagram
-    participant U as Client
-    participant API as FastAPI
-    participant CH as Chain.translator
-    participant HR as HybridRetriever
-    participant RG as ReportGenerator
-    participant TH as Thanoy
-    U-&gt;&gt;API: POST /generate-report (Thai)
-    API-&gt;&gt;CH: translate_query (TH-&gt;EN)
-    API-&gt;&gt;HR: retrieve_multi (dual-query)
-    HR--&gt;&gt;API: GraphRAGResult
-    API-&gt;&gt;RG: generate(query, context)
-    RG-&gt;&gt;RG: structured output + CJK Thai-only guard
-    RG--&gt;&gt;API: CyberCaseReport
-    API-&gt;&gt;API: extract_mitre_entities (faithful table from retrieval)
-    opt legal == true
-        API-&gt;&gt;TH: get_legal_advice(case_summary)
-        TH--&gt;&gt;API: advice + disclaimer (or None)
-    end
-    API--&gt;&gt;U: CyberCaseReport
-</pre>
+<p>ดึง state ที่ pause จาก <code>_sessions[session_id]</code> → <code>_resume_with_answer</code> (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่ → <code>_park_or_complete</code>: ถ้า context ยังไม่พอ <strong>คืน <code>status="followup"</code> รอบใหม่</strong> (session_id ใหม่), ไม่งั้นคืน <code>status="completed"</code>. <strong>⚠️ caller ต้อง loop resume จนกว่า status=="completed"</strong> (bounded โดย <code>MAX_FOLLOWUP_RETRIES=2</code>)</p>
 <hr />
 <h2 id="7-อางองโคดทกฟงกชน">7. อ้างอิงโค้ดทุกฟังก์ชัน</h2>
 <blockquote>
@@ -577,7 +598,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <tbody>
 <tr>
 <td><code>lifespan(app)</code> <em>(async ctx)</em></td>
-<td>โหลด BGE-M3 ครั้งเดียว, สร้าง chain/agent/retriever/report_gen ตาม <code>USE_LOCAL</code>, เก็บใน <code>app.state</code>; ตอน shutdown ปิดทุกตัว</td>
+<td>โหลด BGE-M3 ครั้งเดียว, สร้าง chain/agent/retriever ตาม <code>USE_LOCAL</code>, เก็บใน <code>app.state</code>; ตอน shutdown ปิดทุกตัว</td>
 </tr>
 <tr>
 <td><code>QueryRequest</code></td>
@@ -604,10 +625,6 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <td>endpoint <code>/resume</code>: เรียก <code>rag_agent.resume(session_id, answer)</code>; KeyError → 404</td>
 </tr>
 <tr>
-<td><code>generate_report(request, req)</code> <em>(async)</em></td>
-<td>endpoint <code>/generate-report</code>: translate → retrieve_multi → build_context → generate → overwrite <code>mitre_entities</code> ด้วย retrieval จริง → (optional) Thanoy legal</td>
-</tr>
-<tr>
 <td><code>__main__</code></td>
 <td><code>uvicorn.run(app, host=0.0.0.0, port=8001)</code></td>
 </tr>
@@ -616,7 +633,9 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <h3 id="72-configpy">7.2 <code>config.py</code></h3>
 <p>ค่าคอนฟิกทั้งหมด (โหลด <code>.env</code> ด้วย <code>python-dotenv</code>):
 - <strong>Paths</strong>: <code>_SCRIPT_DIR</code>, <code>_PROJECT_ROOT</code>, <code>_STIX_DATA_DIR</code>, <code>ENTERPRISE/MOBILE/ICS_ATTACK_DIR</code>
-- <strong>Embedding</strong>: <code>EMBED_MODEL="BAAI/bge-m3"</code>, <code>EMBED_DIM=1024</code>, <code>USE_FP16=True</code>
+- <strong>Embedding</strong>: <code>EMBED_MODEL="BAAI/bge-m3"</code>, <code>EMBED_DIM=1024</code>
+- <strong>Device (auto)</strong>: <code>DEVICE</code> = cuda ถ้ามี GPU ไม่งั้น cpu (<code>_resolve_device()</code>, override <code>RAG_DEVICE=cpu|cuda</code>); <code>USE_FP16 = (DEVICE=="cuda")</code> — fp16 เฉพาะ GPU, prod Railway (CPU) ใช้ fp32
+- <strong>Generation</strong>: <code>SINGLE_CALL_GENERATION=True</code> (env) — agent path เขียนไทยใน call เดียว; <code>false</code> = two-stage reason→translate
 - <strong>Qdrant</strong>: <code>QDRANT_HOST/PORT/API_KEY/URL</code>, <code>QDRANT_COLLECTION_ENTITIES/RELATIONSHIPS</code>
 - <strong>RRF</strong>: <code>RRF_K=60</code>, <code>DENSE_WEIGHT=1.0</code>, <code>SPARSE_WEIGHT=1.0</code>
 - <strong>Neo4j</strong>: <code>NEO4J_URI/USER/PASSWORD</code>
@@ -738,7 +757,11 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>.resume(session_id, user_answer, verbose)</code></td>
-<td>ดึง session ที่ pop ออก → resume ด้วยคำตอบ → คืน completed (KeyError ถ้าไม่พบ)</td>
+<td>ดึง session ที่ pop ออก → resume ด้วยคำตอบ → <code>_park_or_complete</code> (คืน <code>completed</code> <strong>หรือ <code>followup</code> รอบใหม่</strong> ถ้า context ยังไม่พอ); KeyError ถ้าไม่พบ session</td>
+</tr>
+<tr>
+<td><code>._park_or_complete(result, verbose)</code></td>
+<td>ถ้า graph ยัง <code>awaiting_followup</code> → park session ใหม่ + คืน <code>status="followup"</code>; ไม่งั้นคืน <code>completed</code>. ใช้ร่วม <code>query()</code>/<code>resume()</code> กัน 2nd-follow-up หลุดเป็น completed+เปล่า</td>
 </tr>
 <tr>
 <td><code>._resume_with_answer(state, user_answer)</code></td>
@@ -774,7 +797,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>._node_prepare_followup(state)</code></td>
-<td>ตั้ง <code>awaiting_followup=True</code> + <code>followup_question</code></td>
+<td>ตั้ง <code>awaiting_followup=True</code> + <code>followup_question</code> (fallback <code>_DEFAULT_FOLLOWUP_QUESTION</code> ถ้า evaluator คืนคำถามว่าง — กัน completed+เปล่า)</td>
 </tr>
 <tr>
 <td><code>._node_broaden_search(state)</code></td>
@@ -782,11 +805,11 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>._node_reasoning(state)</code></td>
-<td>reasoning LLM → คำตอบอังกฤษ (มี fast-path ACKNOWLEDGE_LIMIT เมื่อ retry หมด); ใช้ <code>build_generation_prompt</code> + <code>get_reasoning_system_prompt</code></td>
+<td><strong>Single-call (default, query ไทย):</strong> <code>get_fast_system_prompt</code> → คำตอบไทยเลย ตั้ง <code>answer_is_final=True</code>. <strong>Two-stage (<code>SINGLE_CALL_GENERATION=false</code>):</strong> <code>get_reasoning_system_prompt</code> → คำตอบอังกฤษ. มี fast-path ACKNOWLEDGE_LIMIT เมื่อ retry หมด; ใช้ <code>build_generation_prompt</code></td>
 </tr>
 <tr>
 <td><code>._node_translate_output(state)</code></td>
-<td>translation LLM → ไทย (ใช้ <code>get_translation_system_prompt</code>)</td>
+<td>translation LLM → ไทย (<code>get_translation_system_prompt</code>); <strong>ถูกข้ามเมื่อ <code>answer_is_final=True</code></strong> (single-call เขียนไทยแล้ว)</td>
 </tr>
 <tr>
 <td><code>._edge_after_route(state)</code> <em>(static)</em></td>
@@ -798,7 +821,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>._edge_after_reasoning(state)</code> <em>(static)</em></td>
-<td>ถ้า <code>respond_in_thai</code>→translate ไม่งั้น→done</td>
+<td>ถ้า <code>respond_in_thai</code> <strong>และไม่ <code>answer_is_final</code></strong> → translate; ไม่งั้น → done (single-call ข้าม translate)</td>
 </tr>
 </tbody>
 </table>
@@ -1027,84 +1050,8 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 </tbody>
 </table>
-<h4 id="report_generatorpy"><code>report_generator.py</code></h4>
-<table>
-<thead>
-<tr>
-<th>สัญลักษณ์</th>
-<th>หน้าที่</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>_CJK_RE</code></td>
-<td>regex จับอักษรจีน/ญี่ปุ่น/เกาหลี (กัน code-switch)</td>
-</tr>
-<tr>
-<td><code>MitreEntity</code> <em>(pydantic)</em></td>
-<td>1 แถวตาราง MITRE: <code>id</code>, <code>name</code>, <code>type</code></td>
-</tr>
-<tr>
-<td><code>CyberCaseReport</code> <em>(pydantic)</em></td>
-<td>รายงาน 7 ส่วน: case_summary, detected_indicators, mitre_mapping, mitre_entities, mapping_justification, evidence_to_investigate, preliminary_recommendations, system_limitations, + legal_advice (optional)</td>
-</tr>
-<tr>
-<td><code>_MAPPING_TABLE_TYPES</code>, <code>_MAPPING_TABLE_MAX=25</code></td>
-<td>type ที่อนุญาตในตาราง (Technique/Subtechnique/Tactic) + เพดานแถว</td>
-</tr>
-<tr>
-<td><code>ReportGenerator.__init__(use_local)</code></td>
-<td>สร้าง LLM (Claude/Ollama) + <code>with_structured_output(CyberCaseReport)</code> + prompt (Thai-only constraint)</td>
-</tr>
-<tr>
-<td><code>.generate(query, context)</code></td>
-<td>invoke structured chain → <code>_sanitize_thai</code></td>
-</tr>
-<tr>
-<td><code>._rewrite_to_thai(text)</code></td>
-<td>ถ้า field มี CJK: เรียก LLM แปลเป็นไทยล้วน; fallback strip CJK</td>
-</tr>
-<tr>
-<td><code>._sanitize_thai(report)</code></td>
-<td>สแกนทุก field (str + list[str]) ถ้าเจอ CJK → repair</td>
-</tr>
-<tr>
-<td><code>extract_mitre_entities(rag_result, max_rows=25)</code></td>
-<td>สร้างตารางจาก vector hits + graph <strong>center nodes</strong> เท่านั้น (ไม่เอา neighbors), filter เฉพาะ Technique/Subtechnique/Tactic, dedup by ID</td>
-</tr>
-</tbody>
-</table>
-<h4 id="thanoy_clientpy"><code>thanoy_client.py</code></h4>
-<table>
-<thead>
-<tr>
-<th>สัญลักษณ์</th>
-<th>หน้าที่</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>LEGAL_DISCLAIMER</code></td>
-<td>ข้อความ disclaimer ไทย (AI ไม่ผูกพันทางกฎหมาย)</td>
-</tr>
-<tr>
-<td><code>_QUERY_TEMPLATE</code></td>
-<td>prompt ถาม Thanoy ว่าเข้าข่ายกฎหมายไทยฉบับ/มาตราใด + ประเมินความเสียหาย</td>
-</tr>
-<tr>
-<td><code>_build_query(case_summary)</code></td>
-<td>ใส่ summary ลง template</td>
-</tr>
-<tr>
-<td><code>_parse_response(data)</code></td>
-<td>ดึงข้อความ advice จาก response (รองรับหลาย shape)</td>
-</tr>
-<tr>
-<td><code>get_legal_advice(case_summary, timeout)</code> <em>(async)</em></td>
-<td>เรียก Thanoy REST; คืน advice+disclaimer หรือ None (ไม่มี key/ว่าง/error) — ไม่เคย raise</td>
-</tr>
-</tbody>
-</table>
+<h4 id="report_generatorpy-thanoy_clientpy-moved"><code>report_generator.py</code> &amp; <code>thanoy_client.py</code> (Moved)</h4>
+<p>ส่วนระบบ Report Generator และ Thanoy Client ถูกย้ายไปที่ <code>backend/app/services/reporting/</code> อย่างสมบูรณ์ใน Phase 2A เพื่อให้ RAG ทำหน้าที่จัดการ Retrieval-only</p>
 <h3 id="75-retrieval">7.5 <code>retrieval/</code></h3>
 <h4 id="vector_retrieverpy"><code>vector_retriever.py</code></h4>
 <table>
@@ -1180,11 +1127,15 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>.expand(stix_ids)</code></td>
-<td>ขยาย subgraph ของแต่ละ id (dedup) → <code>SubgraphResult[]</code></td>
+<td>ขยาย subgraph ของ seed list (dedup) → <code>SubgraphResult[]</code> — delegate ไป <code>expand_batch</code></td>
+</tr>
+<tr>
+<td><code>.expand_batch(stix_ids)</code></td>
+<td><strong>batched:</strong> 3 Cypher UNWIND (center + outgoing + incoming) ต่อทั้ง list ใน session เดียว แทน 3N round-trip; ผลเท่ากับวน <code>_expand_single</code> (center + neighbor/edge sets เหมือนเดิม) เร็ว ~3.5×</td>
 </tr>
 <tr>
 <td><code>._expand_single(stix_id)</code></td>
-<td>ดึง center node + outgoing + incoming relationships (Cypher)</td>
+<td>ดึง center node + outgoing + incoming relationships (Cypher) — เก็บไว้เป็น reference/equivalence check</td>
 </tr>
 <tr>
 <td><code>.query_cypher(cypher, params)</code></td>
@@ -1417,6 +1368,48 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tbody>
 </table>
 <h3 id="77-evaluation">7.7 <code>evaluation/</code></h3>
+<h4 id="ภาพรวม-evaluation-pipeline">ภาพรวม Evaluation Pipeline</h4>
+<p>โมดูล eval วัดคุณภาพ <strong>3 ชั้นของ Knowledge Retrieval &amp; Mapping module บน ground truth ชุดเดียวกัน</strong> (<code>gold_attack_ids</code> / <code>relevant_stix_ids</code> / <code>attack_steps</code> ต่อ sample) — ชี้ได้ว่าปัญหาอยู่ชั้นไหน:</p>
+<table>
+<thead>
+<tr>
+<th>ชั้น</th>
+<th>วัดอะไร</th>
+<th>Metric</th>
+<th>ไฟล์</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Retrieval</strong></td>
+<td>หลักฐานแต่ละขั้นเหตุการณ์ถึงมือ LLM ไหม</td>
+<td>step-coverage@k (แยก named/described cue), capped recall@k, Hit/NDCG/MRR/MAP</td>
+<td><code>retriever_metrics.py</code></td>
+</tr>
+<tr>
+<td><strong>Mapping</strong></td>
+<td>ตาราง MITRE ที่ส่ง backend (หลังกรอง noise) แม่นแค่ไหน</td>
+<td>ID precision/recall/F1 vs gold + threshold sweep</td>
+<td><code>crosslingual_generation_benchmark.py</code> (<code>--phase score-mapping</code>), เรียก <code>pipeline/mitre_table.build_mitre_table</code> จริง</td>
+</tr>
+<tr>
+<td><strong>Generation</strong></td>
+<td>คำตอบอ้าง technique ถูก/ครบ/เป็นไทยดีไหม</td>
+<td>technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival + faithfulness</td>
+<td><code>attack_id_metrics.py</code>, <code>generation_metrics.py</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dataset:</strong> <code>data/incident_draft.json</code> (สำนวนคดีไทยเรียงเวลา + <code>attack_steps</code> named/described) สร้างโดย <code>make_incident_dataset.py</code>; dataset lookup เดิม (<code>Thai_dataset*.json</code>) สร้างโดย <code>generate_eval_dataset.py</code> (graph = ground truth)</p>
+<p><strong>Harness หลัก:</strong> <code>crosslingual_generation_benchmark.py</code> — เทียบ 5 generation variant (A baseline two-stage, B +MT query, C single-call, D Haiku translator, E EN ceiling) บน <strong>frozen retrieval context</strong> (retrieve ครั้งเดียว ทุก variant ใช้ context เดียวกัน) 3 เฟส resumable:</p>
+<pre><code>--phase retrieve   # retrieve + cache context (+ mapping_raw) → data/gen_bench/contexts.json
+--phase generate   # 5 variant บน context แช่แข็ง → generations.jsonl (resume ข้ามที่ทำแล้ว)
+--phase score      # ID-F1/guards + paired bootstrap CI + Wilcoxon เทียบ baseline A
+--phase score-mapping    # mitre_table vs gold + threshold sweep
+--phase score-retrieval  # step-coverage@k จาก cache (ฟรี)
+--reasoning-model / --cheap-model / --run-tag / &quot;ollama:&lt;name&gt;&quot; (local arm)
+</code></pre>
+<p>ผลลัพธ์: <code>evaluation/results/*.md</code></p>
 <h4 id="ground_truthpy"><code>ground_truth.py</code></h4>
 <table>
 <thead>
@@ -1459,7 +1452,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 <tr>
 <td><code>recall_at_k(...)</code></td>
-<td>สัดส่วน relevant ที่เจอใน top-K</td>
+<td><strong>capped recall:</strong> hits / <code>min(|relevant|, k)</code> — กัน sample ที่ gold &gt;&gt; k (เช่น tactic 180 เทคนิค) โดนล็อกเพดานคะแนน</td>
 </tr>
 <tr>
 <td><code>precision_at_k(...)</code></td>
@@ -1476,6 +1469,22 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <tr>
 <td><code>average_precision(...)</code></td>
 <td>Average Precision</td>
+</tr>
+<tr>
+<td><code>step_coverage_at_k(retrieved, steps, k)</code></td>
+<td><strong>S-recall@k (Zhai et al. 2003):</strong> สัดส่วน attack step ที่มี gold id ≥1 ตัวใน top-K — วัดสำนวนคดีเรียงเวลา</td>
+</tr>
+<tr>
+<td><code>strict_step_coverage_at_k(...)</code></td>
+<td>สัดส่วน step ที่ gold id <strong>ครบทุกตัว</strong> อยู่ใน top-K</td>
+</tr>
+<tr>
+<td><code>step_best_rank(retrieved, step)</code></td>
+<td>rank แรกที่เจอ gold ของ step (แยก search vs ranking problem)</td>
+</tr>
+<tr>
+<td><code>step_coverage_by_cue_type(retrieved, steps, k)</code></td>
+<td>step-coverage แยก <code>named</code> (ระบุชื่อเทคนิค) vs <code>described</code> (เล่าพฤติการณ์) — described คือ value จริงของ RAG</td>
 </tr>
 <tr>
 <td><code>RetrieverEvalResult</code> <em>(dataclass)</em></td>
@@ -1534,6 +1543,128 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tr>
 </tbody>
 </table>
+<h4 id="attack_id_metricspy-deterministic-id-based-generation-metrics-tramctibench-style"><code>attack_id_metrics.py</code> — Deterministic ID-based generation metrics (TRAM/CTIBench-style)</h4>
+<table>
+<thead>
+<tr>
+<th>ฟังก์ชัน</th>
+<th>หน้าที่</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>extract_attack_ids(text)</code> / <code>extract_technique_ids(text)</code></td>
+<td>regex ดึง ATT&amp;CK ID (<code>T####(.###)</code>, TA/G/S/M####) จาก prose — ใช้ Latin-alnum lookaround (ไม่ใช่ <code>\b</code>) ให้จับ ID ที่ฝังในภาษาไทยได้</td>
+</tr>
+<tr>
+<td><code>extract_technique_names(text, alias_map)</code></td>
+<td>จับ technique จากชื่อ canonical (alias จาก Neo4j) ที่โผล่ในคำตอบแม้ไม่แปะ ID</td>
+</tr>
+<tr>
+<td><code>extract_all_techniques(text, alias_map)</code></td>
+<td>union ของ ID-cited + name-cited</td>
+</tr>
+<tr>
+<td><code>technique_set_score(predicted, gold)</code></td>
+<td>precision/recall/F1 แบบ greedy 1-1: ตรง ID = 1.0, ตระกูลเดียวกัน (parent/sub) = 0.5; คืน exact/partial/spurious/missed</td>
+</tr>
+<tr>
+<td><code>tactic_level_score(predicted, gold, technique_to_tactics)</code></td>
+<td>P/R/F1 ระดับ tactic (fallback ผ่าน base technique)</td>
+</tr>
+<tr>
+<td><code>thai_char_ratio(text)</code></td>
+<td>สัดส่วนอักษรไทย/(ไทย+ละติน) — จับ language drift</td>
+</tr>
+<tr>
+<td><code>structure_compliance(text, required_headings)</code></td>
+<td>หัวข้อครบไหม</td>
+</tr>
+<tr>
+<td><code>id_survival(source_text, translated_text)</code></td>
+<td>ID รอดข้ามชั้นแปลไหม + <code>gained</code> (ID งอกตอนแปล = hallucination flag)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>ตาราง alias/tactic มาจาก <code>export_alias_tables.py</code> → <code>data/attack_lookup.json</code> (816 alias + 1033 technique→tactic)</p>
+</blockquote>
+<h4 id="crosslingual_generation_benchmarkpy-5-variant-harness-ดภาพรวมดานบน"><code>crosslingual_generation_benchmark.py</code> — 5-variant harness (ดูภาพรวมด้านบน)</h4>
+<table>
+<thead>
+<tr>
+<th>สัญลักษณ์</th>
+<th>หน้าที่</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>load_samples(dataset_path, max_samples)</code></td>
+<td>โหลด incident sample ไทยที่มี gold + query_en</td>
+</tr>
+<tr>
+<td><code>phase_retrieve(samples, use_local)</code></td>
+<td>mirror <code>_node_retrieve</code>: decompose → <code>retrieve_multi_quota</code> → cache context + retrieved ids + <code>mapping_raw</code> (สำหรับ replay mapping) + MT query</td>
+</tr>
+<tr>
+<td><code>run_variant(variant, ctx, reasoning_llm, cheap_llm)</code></td>
+<td>A/B/C/D/E บน cached context; log <code>intermediate_en</code> + tokens + latency</td>
+</tr>
+<tr>
+<td><code>phase_generate(variants, reasoning_model, cheap_model, max_samples)</code></td>
+<td>รันทุก variant → JSONL (resume ข้ามคู่ที่ทำแล้ว); <code>ollama:</code> prefix = local model</td>
+</tr>
+<tr>
+<td><code>score_row(row, sample, lookup)</code></td>
+<td>ID-F1/tactic/step-coverage-by-cue/thai/structure/id_survival ต่อคำตอบ</td>
+</tr>
+<tr>
+<td><code>phase_score(dataset_path)</code></td>
+<td>รวมผล + paired bootstrap CI (<code>_bootstrap_ci</code>) + Wilcoxon (<code>_wilcoxon_p</code>) เทียบ baseline A → report</td>
+</tr>
+<tr>
+<td><code>phase_score_mapping(dataset_path, thresholds)</code></td>
+<td>replay <code>build_mitre_table</code> (ผ่าน <code>_shim_rag_result</code>) เทียบ gold + threshold sweep</td>
+</tr>
+<tr>
+<td><code>phase_score_retrieval(dataset_path, k_values)</code></td>
+<td>step-coverage@k จาก cache (ฟรี)</td>
+</tr>
+<tr>
+<td><code>main()</code></td>
+<td>CLI <code>--phase retrieve/generate/score/score-mapping/score-retrieval/all</code> + <code>--reasoning-model/--cheap-model/--run-tag/--variants/--thresholds/--local</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="make_incident_datasetpy-chronological-incident-builder-semi-automated"><code>make_incident_dataset.py</code> — Chronological incident builder (semi-automated)</h4>
+<table>
+<thead>
+<tr>
+<th>สัญลักษณ์</th>
+<th>หน้าที่</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sample_kill_chains(neo4j, num, rng, min/max_steps, blocked_ids)</code></td>
+<td>สุ่ม kill-chain จากเทคนิคที่ <strong>กลุ่มโจมตีจริงกลุ่มเดียว</strong> ใช้ร่วมกัน (≥3 tactic ที่เหยื่อสังเกตได้), 1 เทคนิค/tactic, กรอง deprecated</td>
+</tr>
+<tr>
+<td><code>draft_narrative(llm, chain)</code></td>
+<td>Claude ร่างสำนวนไทยเรียงเวลา (named cue แปะชื่อเทคนิค / described cue เล่าพฤติการณ์) + คู่อังกฤษ + cue ต่อ step</td>
+</tr>
+<tr>
+<td><code>build_sample(idx, chain, draft)</code></td>
+<td>ประกอบ <code>GeneratedSample</code> + auto-flag (cue ไม่ตรง verbatim / described เผลอบอกชื่อเทคนิค / ID หลุดใน narrative)</td>
+</tr>
+<tr>
+<td><code>main()</code></td>
+<td>CLI <code>--num/--seed/--dry-run/--resume</code> → <code>data/incident_draft.json</code> + review sheet</td>
+</tr>
+</tbody>
+</table>
+<h4 id="build_deprecated_blocklistpy-export_alias_tablespy"><code>build_deprecated_blocklist.py</code> / <code>export_alias_tables.py</code></h4>
+<p><code>build_deprecated_blocklist.main()</code> — ดึง ATT&amp;CK ID ที่ revoked/deprecated จาก STIX bundle v19 (Neo4j ไม่เก็บ flag นี้) → <code>data/deprecated_attack_ids.json</code> · <code>export_alias_tables.main()</code> — export alias + technique→tactic จาก Neo4j → <code>data/attack_lookup.json</code></p>
 <h4 id="eval_runnerpy"><code>eval_runner.py</code></h4>
 <table>
 <thead>
@@ -1655,7 +1786,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <tbody>
 <tr>
 <td><code>GeneratedSample</code> <em>(dataclass)</em> + <code>.to_dict()</code></td>
-<td>sample ที่ gen (query/ids/answer/lang/category)</td>
+<td>sample ที่ gen (query/ids/answer/lang/category <strong>+ <code>query_en</code>, <code>gold_attack_ids</code>, <code>attack_steps</code></strong> สำหรับ incident)</td>
 </tr>
 <tr>
 <td><code>Neo4jGroundTruthBuilder.__init__/.close/.run_query</code></td>
@@ -1686,8 +1817,8 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 <td>registry template query → Cypher</td>
 </tr>
 <tr>
-<td><code>.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / software_type_query / campaign_attribution(...)</code></td>
-<td>สร้าง <code>GeneratedSample</code> 1 รายการ/template โดย ground truth มาจาก Cypher</td>
+<td><code>.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / campaign_attribution(...)</code></td>
+<td>สร้าง <code>GeneratedSample</code> 1 รายการ/template โดย ground truth มาจาก Cypher (หมายเหตุ: <code>software_type_query</code> ถูกตัด — enumeration ล้วน; <code>group_techniques</code> ตัด <code>LIMIT 20</code> ออกให้ gold ครบ)</td>
 </tr>
 <tr>
 <td><code>THAI_QUERY_TEMPLATES</code>, <code>THAI_ANSWER_PREFIX</code></td>
@@ -1732,7 +1863,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 </tbody>
 </table>
 <h4 id="test_metricspy"><code>test_metrics.py</code></h4>
-<p><code>test_hit_at_k</code>, <code>test_recall_at_k</code>, <code>test_precision_at_k</code>, <code>test_reciprocal_rank</code>, <code>test_ndcg_at_k</code>, <code>test_average_precision</code>, <code>test_token_f1</code>, <code>test_rouge_l</code>, <code>test_ground_truth_io</code> — unit test ของ metric แต่ละตัว (ไม่พึ่ง DB); <code>run_all_tests()</code> รันทั้งหมด สรุป pass/fail</p>
+<p>unit test ของ metric แต่ละตัว (ไม่พึ่ง DB): <code>test_hit_at_k</code>, <code>test_recall_at_k</code> (capped), <code>test_step_coverage_at_k</code>, <code>test_precision_at_k</code>, <code>test_reciprocal_rank</code>, <code>test_ndcg_at_k</code>, <code>test_average_precision</code>, <code>test_token_f1</code>, <code>test_rouge_l</code>, <code>test_extract_attack_ids</code>, <code>test_extract_technique_names</code>, <code>test_technique_set_score</code>, <code>test_tactic_level_score</code>, <code>test_guard_metrics</code>, <code>test_ground_truth_io</code>; <code>run_all_tests()</code> รันทั้งหมด (15 tests) สรุป pass/fail</p>
 <h4 id="__init__py"><code>__init__.py</code></h4>
 <p>re-export <code>EvalSample</code>, <code>load_ground_truth</code>, <code>save_ground_truth</code>, <code>evaluate_retriever</code>, <code>evaluate_generation</code></p>
 <h3 id="78-cli-utilities">7.8 CLI &amp; utilities</h3>
@@ -1821,7 +1952,6 @@ Grounded helpers: <code>build_entity_context(...)</code> (semantic block), <code
 <li><strong>Router ถูกปิดชั่วคราว</strong>: <code>_edge_after_route</code> คืน "incident" เสมอ → ทุก query เข้า incident analysis (โค้ด GENERAL ถูก comment)</li>
 <li><strong><code>config.ATTACK_DOMAINS</code></strong> ชี้ path STIX ใต้ <code>rag_service/</code> ซึ่งไม่ตรงตำแหน่งจริง (<code>Mitre_ATT&amp;CK Doc/</code> อยู่ที่ repo root) — <code>finetune/ft_config.py</code> resolve เองด้วย <code>STIX_DOMAIN_DIRS</code></li>
 <li><strong>Domain filter</strong> กรองได้เฉพาะ entity vector hits (relationships ไม่มี payload <code>domain</code>) → mobile ยังหลุดผ่าน graph center/relationship ได้บ้าง; แก้ 100% ต้อง re-ingest enterprise-only</li>
-<li><strong><code>/generate-report</code></strong> ใช้เส้นทางเดิม (translate + dual-query + <code>retrieve_multi</code>) ต่างจาก agent path (decompose + quota)</li>
 <li><strong>CJK guard</strong> เป็น belt-and-suspenders เพราะ prompt Thai-only อย่างเดียวกัน code-switch ของ Haiku ไม่อยู่</li>
 <li><strong><code>_perf_probe.py</code></strong> ~~อ้าง node เดิมที่ rename แล้ว~~ → แก้แล้ว: ใช้ <code>_node_prepare</code> (เดิม <code>_node_translate_query</code>)</li>
 <li><strong><code>download_model.py</code></strong> ~~cache reranker ตัวเก่า~~ → แก้แล้ว: cache <code>BAAI/bge-reranker-v2-m3</code> ให้ตรงกับ <code>RERANKER_MODEL</code> ที่ runtime ใช้</li>

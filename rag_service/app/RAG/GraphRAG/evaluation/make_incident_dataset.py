@@ -76,6 +76,7 @@ KILL_CHAIN_ORDER = [
     "command-and-control", "exfiltration", "impact",
 ]
 
+# Group source: techniques a threat GROUP has ever used (broad).
 CHAIN_CYPHER = """
 MATCH (g:Group)-[:USES]->(t:Technique)-[:IN_TACTIC]->(tac:Tactic)
 WHERE t.attack_id IS NOT NULL
@@ -85,10 +86,30 @@ WITH g, coalesce(tac.shortname, tac.name) AS tactic,
                        attack_id: t.attack_id}) AS techniques
 WITH g, collect({tactic: tactic, techniques: techniques}) AS by_tactic
 WHERE size(by_tactic) >= $min_tactics
-RETURN g.name AS group_name, g.attack_id AS group_id, by_tactic
+RETURN g.name AS source_name, g.attack_id AS source_id, by_tactic
 ORDER BY size(by_tactic) DESC
-LIMIT $limit_groups
+LIMIT $limit_sources
 """
+
+# Campaign source: techniques OBSERVED IN ONE REAL documented intrusion
+# (e.g. C0024 SolarWinds, C0022 Operation Dream Job). More realistic
+# co-occurrence than a group's full arsenal, and carries real provenance.
+CAMPAIGN_CYPHER = """
+MATCH (c:Campaign)-[:USES]->(t:Technique)-[:IN_TACTIC]->(tac:Tactic)
+WHERE t.attack_id IS NOT NULL
+  AND (t.is_subtechnique IS NULL OR t.is_subtechnique = false)
+  AND coalesce(t.domain, 'enterprise') = 'enterprise'
+WITH c, coalesce(tac.shortname, tac.name) AS tactic,
+     collect(DISTINCT {stix_id: t.stix_id, name: t.name,
+                       attack_id: t.attack_id}) AS techniques
+WITH c, collect({tactic: tactic, techniques: techniques}) AS by_tactic
+WHERE size(by_tactic) >= $min_tactics
+RETURN c.name AS source_name, c.attack_id AS source_id, by_tactic
+ORDER BY size(by_tactic) DESC
+LIMIT $limit_sources
+"""
+
+_SOURCE_CYPHER = {"group": CHAIN_CYPHER, "campaign": CAMPAIGN_CYPHER}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -110,11 +131,13 @@ def sample_kill_chains(
     min_steps: int = 3,
     max_steps: int = 6,
     blocked_ids: set[str] | None = None,
+    source: str = "group",
 ) -> list[dict]:
-    """Sample up to num_chains kill-chains, cycling through groups."""
+    """Sample up to num_chains kill-chains from a Group or a real Campaign."""
     blocked_ids = blocked_ids or set()
-    rows = neo4j.run_query(CHAIN_CYPHER, {"min_tactics": min_steps, "limit_groups": 60})
-    print(f"[CHAIN] {len(rows)} groups with >= {min_steps} tactics")
+    cypher = _SOURCE_CYPHER[source]
+    rows = neo4j.run_query(cypher, {"min_tactics": min_steps, "limit_sources": 80})
+    print(f"[CHAIN] {len(rows)} {source}s with >= {min_steps} observable tactics")
 
     chains: list[dict] = []
     seen: set[tuple] = set()
@@ -165,7 +188,7 @@ def sample_kill_chains(
             if len(steps) < min_steps:
                 continue
 
-            key = (row["group_id"], tuple(s["attack_id"] for s in steps))
+            key = (row["source_id"], tuple(s["attack_id"] for s in steps))
             if key in seen:
                 continue
             seen.add(key)
@@ -180,8 +203,9 @@ def sample_kill_chains(
                 )
 
             chains.append({
-                "group_name": row["group_name"],
-                "group_id": row["group_id"],
+                "source": source,
+                "source_name": row["source_name"],
+                "source_id": row["source_id"],
                 "steps": steps,
             })
 
@@ -327,11 +351,11 @@ def _entry_from_stored(sid: str, stored: dict, id_to_name: dict[str, str]) -> di
         chain_steps.append({"attack_id": aid, "name": name})
     return {
         "id": sid,
-        "group_name": stored.get("source_group", "(previous run)"),
-        "group_id": "",
+        "source_name": stored.get("source_prov", "(previous run)"),
+        "source_id": "",
         "chain_steps": chain_steps,
         "flags": flags,
-        "sample": {k: v for k, v in stored.items() if k not in ("id", "source_group")},
+        "sample": {k: v for k, v in stored.items() if k not in ("id", "source_prov")},
     }
 
 
@@ -389,7 +413,7 @@ def write_review_md(path: Path, entries: list[dict]) -> None:
     ]
     for e in entries:
         s = e["sample"]
-        lines.append(f"## {e['id']}  (source group: {e['group_name']} {e['group_id']})")
+        lines.append(f"## {e['id']}  (source: {e['source_name']} {e['source_id']})")
         if e["flags"]:
             lines.append("")
             lines.append("**AUTO-FLAGS: " + "; ".join(e["flags"]) + "**")
@@ -419,17 +443,29 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true",
                         help="Sample chains only, no LLM drafting")
     parser.add_argument("--resume", action="store_true",
-                        help="Keep existing drafts in incident_draft.json; "
+                        help="Keep existing drafts in the output file; "
                              "only draft chain indices that have none")
+    parser.add_argument("--source", choices=["group", "campaign"], default="group",
+                        help="Seed chains from a threat Group's arsenal, or "
+                             "from a real documented Campaign (grounded incident)")
+    parser.add_argument("--out", type=str, default="incident_draft.json",
+                        help="Output filename under data/ (use a distinct name "
+                             "per source so runs don't overwrite each other)")
+    parser.add_argument("--id-prefix", type=str, default="inc_auto",
+                        help="Sample id prefix (use a distinct one per source "
+                             "to avoid id collisions when merging datasets)")
     args = parser.parse_args()
 
     rng = random.Random(args.seed)
     blocked = load_deprecated_blocklist()
     print(f"[CHAIN] Blocklist: {len(blocked)} deprecated/revoked IDs excluded")
+    print(f"[CHAIN] Source: {args.source}")
     neo4j = Neo4jGroundTruthBuilder()
 
     try:
-        chains = sample_kill_chains(neo4j, args.num, rng, blocked_ids=blocked)
+        chains = sample_kill_chains(
+            neo4j, args.num, rng, blocked_ids=blocked, source=args.source
+        )
     finally:
         neo4j.close()
     print(f"[CHAIN] Sampled {len(chains)} chains")
@@ -439,10 +475,10 @@ def main() -> None:
             steps = " -> ".join(
                 f"{s['attack_id']}({s['cue_type'][:4]})" for s in c["steps"]
             )
-            print(f"  {c['group_name']:<20} {steps}")
+            print(f"  {c['source_id'] or '-':7} {c['source_name'][:22]:24} {steps}")
         return
 
-    draft_path = OUT_DIR / "incident_draft.json"
+    draft_path = OUT_DIR / args.out
 
     existing: dict[str, dict] = {}
     id_to_name: dict[str, str] = {}
@@ -468,7 +504,7 @@ def main() -> None:
     entries: list[dict] = []
     failed = 0
     for i, chain in enumerate(chains):
-        sid = f"inc_auto_{i+1:03d}"
+        sid = f"{args.id_prefix}_{i+1:03d}"
         if sid in existing:
             entries.append(_entry_from_stored(sid, existing[sid], id_to_name))
             continue
@@ -480,26 +516,40 @@ def main() -> None:
         sample, flags = build_sample(i, chain, draft)
         entries.append({
             "id": sid,
-            "group_name": chain["group_name"],
-            "group_id": chain["group_id"],
+            "source_name": chain["source_name"],
+            "source_id": chain["source_id"],
             "chain_steps": chain["steps"],
             "flags": flags,
             "sample": sample.to_dict(),
         })
         flag_note = f"  FLAGS: {len(flags)}" if flags else ""
-        print(f"  [{i+1}/{len(chains)}] {chain['group_name']}: "
-              f"{len(chain['steps'])} steps{flag_note}")
+        print(f"  [{i+1}/{len(chains)}] {chain['source_id'] or ''} "
+              f"{chain['source_name']}: {len(chain['steps'])} steps{flag_note}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(draft_path, "w", encoding="utf-8") as f:
         json.dump(
             [
-                {"id": e["id"], "source_group": e["group_name"], **e["sample"]}
+                {
+                    "id": e["id"],
+                    # readable provenance: "SolarWinds Compromise (C0024, campaign)".
+                    # On --resume the stored provenance is already formatted
+                    # (source_id empty, name already parenthesized) — keep as-is
+                    # instead of re-wrapping (which doubled the "(campaign)" tag).
+                    "source_prov": (
+                        e["source_name"]
+                        if not e["source_id"] and "(" in e["source_name"]
+                        else f"{e['source_name']} ({e['source_id']}, {args.source})"
+                        if e["source_id"]
+                        else f"{e['source_name']} ({args.source})"
+                    ),
+                    **e["sample"],
+                }
                 for e in entries
             ],
             f, indent=2, ensure_ascii=False,
         )
-    review_path = OUT_DIR / "incident_draft_review.md"
+    review_path = OUT_DIR / (Path(args.out).stem + "_review.md")
     write_review_md(review_path, entries)
 
     flagged = sum(1 for e in entries if e["flags"])

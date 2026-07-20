@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>RAG Module — Technical Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  @page { size: A4; margin: 18mm 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #1a1a1a;
+    max-width: 100%;
+    margin: 0;
+  }
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    line-height: 1.25;
+    margin-top: 1.4em;
+    margin-bottom: 0.5em;
+    color: #0b3d5c;
+  }
+  h1 { font-size: 22pt; border-bottom: 3px solid #0b3d5c; padding-bottom: 6px; }
+  h2 { font-size: 16pt; border-bottom: 1px solid #c9d6df; padding-bottom: 4px; margin-top: 1.6em; page-break-after: avoid; }
+  h3 { font-size: 13pt; color: #11597f; page-break-after: avoid; }
+  h4 { font-size: 11.5pt; color: #11597f; }
+  p { margin: 0.5em 0; }
+  a { color: #1565a6; text-decoration: none; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 1.5em 0; }
+
+  code {
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 9pt;
+    background: #f0f3f6;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: #b5197a;
+  }
+  pre {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: #24292f;
+    font-size: 8.7pt;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.8em 0;
+    font-size: 9.3pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #c9d6df;
+    padding: 6px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #0b3d5c; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #f4f8fb; }
+
+  blockquote {
+    border-left: 4px solid #1565a6;
+    background: #eef5fb;
+    margin: 0.8em 0;
+    padding: 6px 14px;
+    color: #33475b;
+    border-radius: 0 6px 6px 0;
+  }
+  ul, ol { margin: 0.5em 0; padding-left: 1.6em; }
+  li { margin: 0.2em 0; }
+
+  pre.mermaid {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    white-space: normal;
+  }
+  pre.mermaid svg { max-width: 100%; height: auto; }
+
+  /* table-of-contents list at top */
+  body > ol:first-of-type { }
+</style>
+</head>
+<body>
+<h1 id="cybercase-rag-service-architecture-v20">CyberCase RAG Service — Architecture v2.0</h1>
+<blockquote>
+<p>เอกสารนี้เขียนใหม่ทั้งหมดจากการอ่านซอร์สโค้ดปัจจุบันของ <code>rag_service/</code> (กรกฎาคม 2569)
+เน้น <strong>สถาปัตยกรรม + diagram + design ที่เป็นปัจจุบัน</strong> (single-call generation, multi-turn
+follow-up, batched retrieval, device-aware) — สำหรับรายละเอียดระดับ <em>ทุกฟังก์ชัน</em> ดู
+<a href="../ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a> (per-function reference)</p>
+</blockquote>
+<p><strong>การเปลี่ยนแปลงหลักจาก v1 → v2</strong> (diagram v1 ยัง reflect ของเก่า):
+- <strong>Generation:</strong> two-stage (reason EN → translate TH) → <strong>single-call variant C</strong> (call เดียว เขียนไทยเลย)
+- <strong>Follow-up resume:</strong> คืน completed เสมอ → <strong>multi-turn</strong> (คืน followup รอบใหม่ได้)
+- <strong>Graph expansion:</strong> วนทีละ seed (3N round-trip) → <strong>batched</strong> (3 UNWIND Cypher)
+- <strong>Model device:</strong> fp16 hardcoded → <strong>auto GPU/CPU</strong> (fp16 เฉพาะ GPU)</p>
+<hr />
+<h2 id="1-บรบทระบบ-3-services">1. บริบทระบบ (3 services)</h2>
+<p><code>rag_service</code> เป็น FastAPI microservice (พอร์ต 8001) ที่โฮสต์ GraphRAG pipeline ทั้งหมด
+Backend gateway เป็น proxy บางๆ ที่ forward RAG call มาที่นี่ผ่าน HTTP</p>
+<pre class="mermaid">flowchart LR
+  FE[&quot;Frontend&lt;br/&gt;Next.js :3000&quot;] --&gt; BE[&quot;Backend Gateway&lt;br/&gt;FastAPI :8000&lt;br/&gt;users · reports · PostgreSQL&quot;]
+  BE --&gt;|HTTP RAG_SERVICE_URL| RS[&quot;RAG Service :8001&lt;br/&gt;GraphRAG pipeline&quot;]
+  RS --&gt; QD[(&quot;Qdrant Cloud&lt;br/&gt;BGE-M3 vectors&lt;br/&gt;entities + relationships&quot;)]
+  RS --&gt; NEO[(&quot;Neo4j Cloud&lt;br/&gt;MITRE ATT&amp;CK&lt;br/&gt;STIX graph&quot;)]
+  RS --&gt; LLM[&quot;Claude Haiku&lt;br/&gt;Anthropic API&quot;]
+  RS -.-&gt;|optional| OLL[&quot;Ollama&lt;br/&gt;local models (--local)&quot;]
+</pre>
+<p><strong>หลักภาษา (Language contract):</strong> input เป็นสำนวนคดี<strong>ไทย</strong>เสมอ, output <strong>ไทย</strong>เสมอ;
+context จาก MITRE เป็น<strong>อังกฤษ</strong> (ไม่แปล query ขาเข้า — BGE-M3 multilingual)</p>
+<hr />
+<h2 id="2-tech-stack-models">2. Tech stack &amp; Models</h2>
+<table>
+<thead>
+<tr>
+<th>ชั้น</th>
+<th>เทคโนโลยี</th>
+<th>หมายเหตุ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API</td>
+<td>FastAPI (lifespan โหลดโมเดล/ต่อ DB ครั้งเดียว)</td>
+<td><code>/query</code>, <code>/resume</code>, <code>/health</code>, <code>/retrieval-context/{id}</code></td>
+</tr>
+<tr>
+<td>Agentic engine</td>
+<td>LangGraph <code>StateGraph</code></td>
+<td>node + conditional edges + in-memory session store</td>
+</tr>
+<tr>
+<td>Embedding</td>
+<td><code>BAAI/bge-m3</code> (1024-d dense + sparse)</td>
+<td>fp16 บน GPU / fp32 บน CPU</td>
+</tr>
+<tr>
+<td>Vector DB</td>
+<td>Qdrant Cloud (native RRF fusion)</td>
+<td>collection: entities, relationships</td>
+</tr>
+<tr>
+<td>Reranker</td>
+<td><code>BAAI/bge-reranker-v2-m3</code> (cross-encoder)</td>
+<td>device-aware; คอขวด latency บน CPU</td>
+</tr>
+<tr>
+<td>Graph DB</td>
+<td>Neo4j Cloud (STIX 2.1)</td>
+<td>Technique/Tactic/Group/Software/Campaign/Mitigation/DataComponent</td>
+</tr>
+<tr>
+<td>LLM (reasoning/translation/eval)</td>
+<td>Claude Haiku 4.5 (<code>LLM_MODEL</code>)</td>
+<td>temp 0; local Ollama optional</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Device selection:</strong> <code>config.DEVICE</code> = cuda ถ้ามี GPU ไม่งั้น cpu; <code>USE_FP16 = (DEVICE=="cuda")</code>;
+override <code>RAG_DEVICE=cpu|cuda</code>. <strong>Production (Railway) = CPU</strong> (torch CPU wheel + <code>python:3.11-slim</code>)</p>
+<hr />
+<h2 id="3-request-lifecycle-post-query-agent">3. Request lifecycle — <code>POST /query</code> (agent)</h2>
+<pre class="mermaid">flowchart TD
+  START([&quot;POST /query · use_agent=true&quot;]) --&gt; RQ[&quot;route_query&quot;]
+  RQ --&gt;|incident| PREP[&quot;prepare&lt;br/&gt;lang detect · no input translation&quot;]
+  RQ -.-&gt;|&quot;general (disabled)&quot;| GE[&quot;general_explanation&quot;] --&gt; E1([&quot;END&quot;])
+  PREP --&gt; RET[&quot;retrieve&lt;br/&gt;decompose → retrieve_multi_quota → build_context&quot;]
+  RET --&gt; EV{&quot;evaluate_context&quot;}
+  EV --&gt;|SUFFICIENT| RE[&quot;reasoning&quot;]
+  EV --&gt;|INSUFFICIENT| FU[&quot;prepare_followup&lt;br/&gt;default question ถ้าว่าง&quot;]
+  FU --&gt; PAUSE([&quot;END — pause&lt;br/&gt;status=followup + session_id&quot;])
+  EV --&gt;|BROADEN_SEARCH| BR[&quot;broaden_search&quot;] --&gt; RET
+  RE --&gt;|&quot;single-call default: answer_is_final&quot;| E2([&quot;END — Thai answer&quot;])
+  RE --&gt;|&quot;two-stage: respond_in_thai&quot;| TR[&quot;translate_output&quot;] --&gt; E3([&quot;END — Thai answer&quot;])
+</pre>
+<ul>
+<li><strong>prepare:</strong> ตรวจว่าตอบไทยไหม, ตั้ง <code>english_query = query</code> (ไม่แปลขาเข้า)</li>
+<li><strong>retrieve:</strong> full query เป็น channel แรก + sub-queries (decompose) + rewrites → quota retrieval</li>
+<li><strong>evaluate_context:</strong> LLM ประเมิน context พอไหม → SUFFICIENT / INSUFFICIENT / BROADEN_SEARCH
+  (self-reflection loop, bounded <code>MAX_FOLLOWUP_RETRIES = 2</code>)</li>
+<li><strong>reasoning:</strong> <em>single-call (default)</em> — <code>get_fast_system_prompt</code> เขียนไทยเลย ตั้ง <code>answer_is_final=True</code>
+  → ข้าม translate_output; <em>two-stage</em> (<code>SINGLE_CALL_GENERATION=false</code>) — reason EN แล้ว translate_output → TH</li>
+</ul>
+<hr />
+<h2 id="4-multi-turn-follow-up-post-resume">4. Multi-turn follow-up — <code>POST /resume</code></h2>
+<p>เมื่อ context ไม่พอ agent หยุดถาม follow-up (status=followup + session_id เก็บใน <code>_sessions</code>)
+Frontend ส่งคำตอบกลับผ่าน <code>/resume</code> — <strong>อาจถูกถามซ้ำได้หลายรอบ</strong> (แก้ v2: <code>_park_or_complete</code>)</p>
+<pre class="mermaid">sequenceDiagram
+  participant FE as Frontend/Backend
+  participant RS as RAG Agent
+  FE-&gt;&gt;RS: POST /query (สำนวนคดีไทย)
+  RS--&gt;&gt;FE: status=followup · session_id · Q1 (เช่น &quot;เข้าถึงระบบยังไง?&quot;)
+  FE-&gt;&gt;RS: POST /resume (session_id, answer1)
+  Note over RS: _resume_with_answer&lt;br/&gt;เก็บ slot + merge query + re-run graph&lt;br/&gt;→ _park_or_complete
+  RS--&gt;&gt;FE: status=followup · session_id2 · Q2 (context ยังไม่พอ)
+  FE-&gt;&gt;RS: POST /resume (session_id2, answer2)
+  RS--&gt;&gt;FE: status=completed · คำตอบไทย (≤ 2 รอบ แล้วบังคับตอบ)
+</pre>
+<blockquote>
+<p>⚠️ <strong>Integration:</strong> caller (backend proxy + frontend) ต้อง <strong>loop <code>/resume</code> จนกว่า <code>status=="completed"</code></strong>
+ไม่ใช่สมมติว่า resume จบเสมอ — ยังไม่ได้ verify ฝั่ง backend/frontend (งานค้าง)</p>
+</blockquote>
+<hr />
+<h2 id="5-retrieval-subsystem">5. Retrieval subsystem</h2>
+<pre class="mermaid">flowchart TD
+  Q[&quot;Thai incident + rewrites&quot;] --&gt; DEC[&quot;QueryDecomposer&lt;br/&gt;→ atomic sub-queries (native lang)&quot;]
+  DEC --&gt; RMQ[&quot;retrieve_multi_quota&lt;br/&gt;per-query quota + round-robin interleave&quot;]
+  subgraph perSubQuery[&quot;ต่อ sub-query&quot;]
+    VEC[&quot;VectorRetriever&lt;br/&gt;BGE-M3 dense+sparse → Qdrant RRF&quot;] --&gt; DOM[&quot;domain filter (enterprise)&quot;]
+    DOM --&gt; RR[&quot;Reranker&lt;br/&gt;cross-encoder (device-aware)&quot;]
+    RR --&gt; RW[&quot;reweight by node type&lt;br/&gt;(technique ลอยขึ้น)&quot;]
+  end
+  RMQ --&gt; perSubQuery
+  RW --&gt; SEED[&quot;รวม seed ข้าม sub-query (dedup)&quot;]
+  SEED --&gt; EXP[&quot;GraphRetriever.expand_batch&lt;br/&gt;3 UNWIND Cypher (แทน 3N round-trip)&quot;]
+  EXP --&gt; CTX[&quot;build_context → EN MITRE context (15 vec / 8 graph)&quot;]
+</pre>
+<p><strong>Per-query quota</strong> เก็บ top-k ของแต่ละ sub-query แล้ว round-robin → ทุก technique มีที่ใน context
+(กัน final top-K ตัดทั้ง technique) · <strong>batched expand</strong> ลด Neo4j round-trip 3.5× (behavior-preserving)</p>
+<hr />
+<h2 id="6-generation-single-call-variant-c">6. Generation (single-call variant C)</h2>
+<pre class="mermaid">flowchart LR
+  CTX[&quot;EN MITRE context&quot;] --&gt; RE
+  Q[&quot;Thai query&quot;] --&gt; RE
+  RE{&quot;SINGLE_CALL_GENERATION?&quot;}
+  RE --&gt;|&quot;true (default)&quot;| SC[&quot;1 call: get_fast_system_prompt&lt;br/&gt;reason internally + write Thai&lt;br/&gt;answer_is_final=True&quot;]
+  RE --&gt;|false| TS[&quot;2 calls: reason EN&lt;br/&gt;→ translate_output TH&quot;]
+  SC --&gt; OUT[&quot;คำตอบไทย 4 หัวข้อ&lt;br/&gt;(ATT&amp;CK ID/ชื่อ = อังกฤษ)&quot;]
+  TS --&gt; OUT
+</pre>
+<p><strong>หลักฐาน (benchmark 45 sample):</strong> single-call ≈ two-stage (ID-F1 Δ−0.011, CI คร่อม 0) แต่ latency ครึ่งเดียว,
+token −44%; ชั้นแปลไม่เคยทำ ATT&amp;CK ID หาย (id_survival = 1.0). 4 หัวข้อ: สรุปเหตุการณ์ / ลำดับการโจมตี /
+เทคนิคที่ตรวจพบ / ผลกระทบ</p>
+<hr />
+<h2 id="7-mapping-ตาราง-mitre-สง-backend">7. Mapping — ตาราง MITRE ส่ง backend</h2>
+<p><code>pipeline/mitre_table.build_mitre_table(rag_result, answer)</code> แปลง raw retrieval → ตาราง technique
+ที่กรอง noise 2 ชั้น:
+1. <strong>Answer-grounded:</strong> เก็บ entity ที่ ID/ชื่อโผล่ในคำตอบ (LLM เลือกให้ฟรี)
+2. <strong>Score threshold:</strong> ตัด vector hit ที่ไม่ถูกอ้าง + คะแนน rerank ต่ำ; ทิ้ง graph neighbor ที่ไม่ถูกอ้าง</p>
+<p>ผล eval: raw retrieval ~64 ID/ข้อ (precision 0.08) → ตารางกรอง ~8 ID/ข้อ (precision 0.40)</p>
+<hr />
+<h2 id="8-evaluation-pipeline-3-ชนบน-gold-เดยวกน">8. Evaluation pipeline (3 ชั้นบน gold เดียวกัน)</h2>
+<pre class="mermaid">flowchart LR
+  GOLD[&quot;gold ต่อ sample&lt;br/&gt;attack_steps (named/described)&lt;br/&gt;gold_attack_ids&quot;]
+  GOLD --&gt; R[&quot;Retrieval&lt;br/&gt;step-coverage@k&lt;br/&gt;(named vs described)&quot;]
+  GOLD --&gt; M[&quot;Mapping&lt;br/&gt;build_mitre_table vs gold&lt;br/&gt;P/R/F1 + threshold sweep&quot;]
+  GOLD --&gt; G[&quot;Generation&lt;br/&gt;ID-F1 (partial credit)&lt;br/&gt;tactic F1 · guards · faithfulness&quot;]
+</pre>
+<p><strong>Harness:</strong> <code>crosslingual_generation_benchmark.py</code> — เทียบ 5 variant (A baseline / B +MT query /
+C single-call / D Haiku translator / E EN ceiling) บน <strong>frozen context</strong>, 3 เฟส resumable
+(<code>retrieve</code> / <code>generate</code> / <code>score</code> + <code>score-mapping</code> + <code>score-retrieval</code>), paired bootstrap CI + Wilcoxon</p>
+<p><strong>Dataset:</strong> สำนวนคดีไทยเรียงเวลา — 45 group-sourced + 20 campaign-sourced (เหตุการณ์จริง เช่น SolarWinds
+C0024, Operation Dream Job C0022) สร้างโดย <code>make_incident_dataset.py</code> (kill-chain + named/described cue);
+lookup dataset เดิมโดย <code>generate_eval_dataset.py</code> (graph = ground truth)</p>
+<hr />
+<h2 id="9-configuration-deployment">9. Configuration &amp; Deployment</h2>
+<table>
+<thead>
+<tr>
+<th>หมวด</th>
+<th>ค่า/ตัวแปร</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generation</td>
+<td><code>SINGLE_CALL_GENERATION=true</code> (default)</td>
+</tr>
+<tr>
+<td>Device</td>
+<td><code>DEVICE</code> (auto), <code>USE_FP16=(cuda)</code>, override <code>RAG_DEVICE=cpu\|cuda</code></td>
+</tr>
+<tr>
+<td>Retrieval</td>
+<td><code>VECTOR_TOP_K=10</code>, <code>FINAL_TOP_K=5</code>, <code>GRAPH_EXPANSION_DEPTH=2</code>, <code>ATTACK_DOMAIN_FILTER=enterprise</code></td>
+</tr>
+<tr>
+<td>LLM</td>
+<td><code>LLM_MODEL=claude-haiku-4-5</code>, <code>LLM_TEMPERATURE=0</code></td>
+</tr>
+<tr>
+<td>Follow-up</td>
+<td><code>MAX_FOLLOWUP_RETRIES=2</code></td>
+</tr>
+<tr>
+<td>Deploy</td>
+<td>Docker (<code>python:3.11-slim</code>, torch CPU wheel) → <strong>Railway = CPU inference</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>คอขวด latency บน production (CPU):</strong> cross-encoder reranker (~7-8s/sub-query) — batch ไม่ช่วย
+(พิสูจน์แล้ว); งานปรับปรุงคนละก้อน (ลด sub-query / reranker เล็กลง / GPU host)</p>
+<hr />
+<h2 id="10-โครงสรางไดเรกทอร-rag_serviceappraggraphrag">10. โครงสร้างไดเรกทอรี (rag_service/app/RAG/GraphRAG)</h2>
+<pre><code>config.py                 # DEVICE/USE_FP16, SINGLE_CALL_GENERATION, model/DB settings
+pipeline/
+  agent_graph.py          # LangGraph state machine (query/resume, _park_or_complete)
+  chain.py                # linear LCEL (legacy, two-stage; ใช้ใน eval generation)
+  cross_lingual.py        # prompts: reasoning / translation / fast / ultrafast
+  context_builder.py      # build_context, build_generation_prompt
+  evaluator.py            # context sufficiency + slot-aware follow-up
+  query_decomposer.py     # incident → atomic sub-queries
+  query_merger.py         # merge follow-up answer → MITRE-aligned rewrite
+  mitre_table.py          # answer-grounded MITRE mapping table
+  router.py               # general vs incident (ปิดชั่วคราว)
+retrieval/
+  hybrid_retriever.py     # retrieve / retrieve_multi / retrieve_multi_quota
+  vector_retriever.py     # BGE-M3 + Qdrant hybrid RRF
+  reranker.py             # cross-encoder (device-aware)
+  graph_retriever.py      # expand_batch (batched Neo4j)
+ingestion/                # STIX parse → Neo4j + Qdrant
+evaluation/               # metrics, benchmark harness, dataset builders (ดู §8)
+</code></pre>
+<hr />
+<h2 id="11-อางองเพมเตม">11. อ้างอิงเพิ่มเติม</h2>
+<ul>
+<li><a href="../ARCHITECTURE.md"><code>ARCHITECTURE.md</code></a> — per-function reference ทุกไฟล์ (รายละเอียดระดับฟังก์ชัน)</li>
+<li><a href="retrieval_perf_optimization.md"><code>docs/retrieval_perf_optimization.md</code></a> — งาน batched expand + device (CPU/GPU)</li>
+<li><code>evaluation/results/</code> — รายงาน benchmark (generation / mapping / retrieval)</li>
+</ul>
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose', flowchart: { htmlLabels: true, useMaxWidth: true } });
+  window.addEventListener('load', async () => {
+    try { await mermaid.run({ querySelector: 'pre.mermaid' }); }
+    catch (e) { console.error('mermaid error', e); }
+    document.title = 'RENDER_DONE';
+  });
+</script>
+</body>
+</html>

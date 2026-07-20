@@ -32,6 +32,22 @@
 
 ---
 
+## 0. อัปเดตล่าสุด (2026-07 — Changelog)
+
+การเปลี่ยนแปลงสำคัญที่ทำหลังเอกสารรุ่นก่อน (สะท้อนใน main แล้ว):
+
+| การเปลี่ยนแปลง | ไฟล์ | สาระ |
+|---|---|---|
+| **Single-call generation (variant C)** | `agent_graph._node_reasoning`, `cross_lingual.get_fast_system_prompt`, `config.SINGLE_CALL_GENERATION` | สำหรับ query ไทย: reason บน context อังกฤษ + เขียนคำตอบไทยใน **call เดียว** (ตั้ง `answer_is_final=True` → ข้าม `translate_output`) แทน two-stage reason→translate เดิม พิสูจน์ด้วย benchmark ว่าคุณภาพเท่ากันแต่ latency/ต้นทุนครึ่งเดียว ตั้ง `SINGLE_CALL_GENERATION=false` เพื่อกลับ two-stage |
+| **Follow-up ไม่ตอบเปล่า** | `agent_graph._node_prepare_followup`, `query()` | `_DEFAULT_FOLLOWUP_QUESTION` fallback เมื่อ evaluator คืน follow-up ว่าง + guard ใน `query()` ไม่ให้หลุดเป็น completed+เปล่า |
+| **resume() รองรับ multi-turn follow-up** | `agent_graph._park_or_complete`, `resume()` | resume คืน `status="followup"` ได้ (พร้อม session_id ใหม่) เมื่อ context ยังไม่พอหลังตอบ — ไม่ใช่ completed+เปล่า **⚠️ caller (backend/frontend) ต้อง loop จนกว่า status=="completed"** |
+| **Batched Neo4j expansion** | `graph_retriever.expand_batch` | `expand()` เดิมวน `_expand_single` ทีละ seed (3N round-trip) → รวมเป็น 3 Cypher UNWIND ต่อ seed list (เร็ว 3.5× ที่ชั้น expand, ผลเหมือนเดิม) |
+| **Device-aware model loading** | `config.DEVICE`, `config.USE_FP16`, `reranker` | auto GPU/CPU; `USE_FP16 = (DEVICE=="cuda")` — fp16 เฉพาะ GPU (prod Railway = CPU → fp32); override ด้วย `RAG_DEVICE=cpu\|cuda` |
+
+รายงานประกอบ: `docs/retrieval_perf_optimization.md`, `evaluation/results/`
+
+---
+
 ## 1. ภาพรวมสถาปัตยกรรม
 
 `rag_service` เป็น **FastAPI microservice (พอร์ต 8001)** ที่โฮสต์ GraphRAG pipeline ทั้งหมด
@@ -72,7 +88,7 @@ flowchart TD
 
 | Endpoint | คลาสที่ใช้ | เส้นทาง |
 |---|---|---|
-| `POST /query` (`use_agent=True`) | `GraphRAGAgent` | agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → reason → translate |
+| `POST /query` (`use_agent=True`) | `GraphRAGAgent` | agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → **generate** (default: single-call ไทย; fallback: reason→translate) |
 | `POST /query` (`use_agent=False`) | `GraphRAGChain` | linear LCEL: translate → dual-query retrieve → reason → translate |
 | `POST /resume` | `GraphRAGAgent.resume` | ดำเนิน session ที่ pause เพื่อถาม follow-up ต่อ |
 
@@ -100,15 +116,16 @@ flowchart TD
 | **Self-reflection / Self-RAG loop** | `pipeline/evaluator.py` + agent edges | LLM ประเมิน context พอหรือไม่ → SUFFICIENT / INSUFFICIENT(ถาม follow-up) / BROADEN_SEARCH |
 | **Slot-aware Follow-up** | `evaluator.py` + `agent_graph._resume_with_answer` | ถามทีละ slot (initial_access → credential_theft → priv_esc → lateral → impact) ไม่ถามซ้ำ |
 | **Query Merger** | `pipeline/query_merger.py` | รวม query เดิม + คำตอบ follow-up เป็น query เดียวที่ MITRE-aligned |
-| **3-stage cross-lingual generation** | `cross_lingual` prompts | (1) translate query → EN, (2) reasoning LLM → simplified EN, (3) translation LLM → Thai |
+| **Cross-lingual generation** | `cross_lingual` prompts, `agent_graph._node_reasoning` | **Default (agent, variant C):** call เดียว — reason บน EN context + เขียนไทยเลย (`get_fast_system_prompt`, `answer_is_final=True`). **Fallback (`SINGLE_CALL_GENERATION=false` / chain path):** two-stage — reasoning LLM → EN แล้ว translation LLM → Thai. หมายเหตุ: agent path ไม่แปล query ขาเข้า (ไทยเข้า retrieval ตรงๆ) |
 | **Faithful MITRE table** | `Backend ReportGenerator` | สร้างตารางจาก entity ที่ retrieve จริง (ไม่ใช่จาก LLM) → ID ไม่ถูก hallucinate |
 | **CJK Thai-only guard** | `Backend ReportGenerator` | ตรวจ token จีน/ญี่ปุ่น/เกาหลีหลุดในรายงาน → re-translate field เป็นไทยล้วน |
 | **Domain filter (mobile กันปน)** | `vector_retriever.search_entities` + `config.ATTACK_DOMAIN_FILTER` | กรอง entity ให้เหลือ domain enterprise หลัง retrieval |
 | **Agentic state machine** | `pipeline/agent_graph.py` (LangGraph) | StateGraph: node + conditional edges + in-memory session store สำหรับ pause/resume |
 | **Thai legal delegation** | `pipeline/thanoy_client.py` | ไม่สอนกฎหมายไทยให้ MITRE model (กัน hallucinate มาตรา) → เรียก Thanoy API แทน |
-| **Eval: retriever metrics** | `evaluation/retriever_metrics.py` | Hit@K, Recall@K, Precision@K, MRR, NDCG@K, MAP |
-| **Eval: generation metrics** | `evaluation/generation_metrics.py` | RAGAS (faithfulness, answer_correctness) + fallback Token-F1/ROUGE-L/BERTScore |
-| **Graph-grounded eval dataset** | `evaluation/generate_eval_dataset.py` | สร้าง ground-truth จาก Cypher (กราฟ = ground truth) → ไม่ label มือ |
+| **Eval: retriever metrics** | `evaluation/retriever_metrics.py` | Hit@K, capped Recall@K, Precision@K, MRR, NDCG@K, MAP, **step-coverage@k (named/described)** |
+| **Eval: generation metrics** | `evaluation/generation_metrics.py`, **`attack_id_metrics.py`** | RAGAS + fallback Token-F1/ROUGE-L/BERTScore; **technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival** |
+| **Eval: 5-variant crosslingual harness** | `evaluation/crosslingual_generation_benchmark.py` | เทียบ generation variant บน frozen context; 3-layer (retrieval/mapping/generation) บน gold เดียวกัน + paired stats |
+| **Graph-grounded eval dataset** | `evaluation/generate_eval_dataset.py`, **`make_incident_dataset.py`** | ground-truth จาก Cypher (กราฟ = ground truth); incident สำนวนคดีไทยเรียงเวลา (kill-chain + named/described cue) |
 | **MITRE specialist fine-tune** | `finetune/` | QLoRA/16-bit LoRA บน Qwen, dataset จาก STIX, A/B เทียบ base vs fine-tune ผ่าน env-swap |
 
 ---
@@ -221,9 +238,14 @@ rag_service/
 │           │                        #   context_builder
 │           ├── retrieval/           # vector_retriever, graph_retriever, reranker, hybrid_retriever
 │           ├── ingestion/           # stix_parser, graph_loader, vector_loader
-│           └── evaluation/          # ground_truth, retriever_metrics, generation_metrics,
-│                                    #   eval_runner, crosslingual_benchmark,
-│                                    #   generate_eval_dataset, test_metrics
+│           └── evaluation/          # ground_truth, retriever_metrics (step-coverage),
+│                                    #   generation_metrics, attack_id_metrics,
+│                                    #   crosslingual_generation_benchmark (5-variant harness),
+│                                    #   make_incident_dataset, generate_eval_dataset,
+│                                    #   build_deprecated_blocklist, export_alias_tables,
+│                                    #   eval_runner, crosslingual_benchmark, test_metrics
+│                                    #   data/ (contexts cache, incident_draft, attack_lookup)
+│                                    #   results/ (benchmark reports + PDFs)
 ├── docs/
 │   └── _build_pdf.py                # render RAG_Module.md → HTML (mermaid) → PDF
 └── finetune/                        # MITRE specialist fine-tune (QLoRA/LoRA)
@@ -244,7 +266,7 @@ rag_service/
 
 ### 6.2 `POST /query` (agent)
 `route_query` → `prepare` (ตรวจภาษา) → `retrieve` (decompose → `retrieve_multi_quota` → `build_context`) → `evaluate_context` →
-- **SUFFICIENT** → `reasoning` → (ถ้าไทย) `translate_output` → END
+- **SUFFICIENT** → `reasoning` → END (single-call เขียนไทยเลย) / หรือ → `translate_output` → END (two-stage เมื่อ `SINGLE_CALL_GENERATION=false`)
 - **INSUFFICIENT** → `prepare_followup` → END (pause, คืน `status="followup"` + `session_id`)
 - **BROADEN** → `broaden_search` → วน `retrieve`
 
@@ -258,14 +280,15 @@ flowchart TD
     EVAL -->|SUFFICIENT| REASON["reasoning LLM"]
     EVAL -->|INSUFFICIENT| FU["prepare_followup"] --> E2([END — pause/await user])
     EVAL -->|BROADEN_SEARCH| BRD["broaden_search"] --> RET
-    REASON -->|respond_in_thai| TR["translate_output"] --> E3([END])
-    REASON -->|else| E4([END])
+    REASON -->|respond_in_thai และไม่ answer_is_final| TR["translate_output"] --> E3([END])
+    REASON -->|single-call / else| E4([END])
 ```
 
+> **single-call (default):** node `reasoning` เขียนไทยเลย ตั้ง `answer_is_final=True` → ข้าม `translate_output`
 > resume: `/resume` ดึง state ที่ pause → `_resume_with_answer` (เก็บ slot + merge query + rewrite) → invoke graph ใหม่จากต้น (route → … ) จนถึง END
 
 ### 6.3 `POST /resume`
-ดึง state ที่ pause จาก `_sessions[session_id]` → `_resume_with_answer` (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่จนจบ → คืน `status="completed"`
+ดึง state ที่ pause จาก `_sessions[session_id]` → `_resume_with_answer` (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่ → `_park_or_complete`: ถ้า context ยังไม่พอ **คืน `status="followup"` รอบใหม่** (session_id ใหม่), ไม่งั้นคืน `status="completed"`. **⚠️ caller ต้อง loop resume จนกว่า status=="completed"** (bounded โดย `MAX_FOLLOWUP_RETRIES=2`)
 
 
 
@@ -292,7 +315,9 @@ flowchart TD
 
 ค่าคอนฟิกทั้งหมด (โหลด `.env` ด้วย `python-dotenv`):
 - **Paths**: `_SCRIPT_DIR`, `_PROJECT_ROOT`, `_STIX_DATA_DIR`, `ENTERPRISE/MOBILE/ICS_ATTACK_DIR`
-- **Embedding**: `EMBED_MODEL="BAAI/bge-m3"`, `EMBED_DIM=1024`, `USE_FP16=True`
+- **Embedding**: `EMBED_MODEL="BAAI/bge-m3"`, `EMBED_DIM=1024`
+- **Device (auto)**: `DEVICE` = cuda ถ้ามี GPU ไม่งั้น cpu (`_resolve_device()`, override `RAG_DEVICE=cpu|cuda`); `USE_FP16 = (DEVICE=="cuda")` — fp16 เฉพาะ GPU, prod Railway (CPU) ใช้ fp32
+- **Generation**: `SINGLE_CALL_GENERATION=True` (env) — agent path เขียนไทยใน call เดียว; `false` = two-stage reason→translate
 - **Qdrant**: `QDRANT_HOST/PORT/API_KEY/URL`, `QDRANT_COLLECTION_ENTITIES/RELATIONSHIPS`
 - **RRF**: `RRF_K=60`, `DENSE_WEIGHT=1.0`, `SPARSE_WEIGHT=1.0`
 - **Neo4j**: `NEO4J_URI/USER/PASSWORD`
@@ -336,7 +361,8 @@ flowchart TD
 | `.close()` | ปิด retriever (Neo4j + Qdrant) |
 | `.retrieve_only(user_query)` | เฉพาะ retrieval: decompose → `retrieve_multi_quota` → `build_context` (debug) |
 | `.query(user_query, verbose, followup_callback)` | รัน graph; ถ้า pause: CLI โหมดเรียก callback วน, API โหมดเก็บ session แล้วคืน `status="followup"` |
-| `.resume(session_id, user_answer, verbose)` | ดึง session ที่ pop ออก → resume ด้วยคำตอบ → คืน completed (KeyError ถ้าไม่พบ) |
+| `.resume(session_id, user_answer, verbose)` | ดึง session ที่ pop ออก → resume ด้วยคำตอบ → `_park_or_complete` (คืน `completed` **หรือ `followup` รอบใหม่** ถ้า context ยังไม่พอ); KeyError ถ้าไม่พบ session |
+| `._park_or_complete(result, verbose)` | ถ้า graph ยัง `awaiting_followup` → park session ใหม่ + คืน `status="followup"`; ไม่งั้นคืน `completed`. ใช้ร่วม `query()`/`resume()` กัน 2nd-follow-up หลุดเป็น completed+เปล่า |
 | `._resume_with_answer(state, user_answer)` | เก็บ answer ลง slot ที่ขาด, `query_merger.merge` ได้ rewrite, append `rewritten_queries`, เพิ่ม retry/followup count, invoke graph ใหม่ |
 | `._force_continue(state)` | ข้าม follow-up: เคลียร์ evaluation บังคับ path SUFFICIENT แล้ว invoke graph |
 | `._build_graph()` | สร้าง `StateGraph`: register node, ตั้ง entry `route_query`, ผูก conditional/normal edges, `compile()` |
@@ -345,13 +371,13 @@ flowchart TD
 | `._node_prepare(state)` | ตรวจว่าตอบไทยไหม (`should_respond_in_thai`), set `english_query = query` (ไม่แปล input) |
 | `._node_retrieve(state)` | full query เป็น channel แรก + decompose sub-queries + rewrites → `retrieve_multi_quota` → `build_context` |
 | `._node_evaluate_context(state)` | เรียก `evaluator.evaluate` พร้อม incident_facts/asked_slots/total_retries → set evaluation/strategy/gap/ack |
-| `._node_prepare_followup(state)` | ตั้ง `awaiting_followup=True` + `followup_question` |
+| `._node_prepare_followup(state)` | ตั้ง `awaiting_followup=True` + `followup_question` (fallback `_DEFAULT_FOLLOWUP_QUESTION` ถ้า evaluator คืนคำถามว่าง — กัน completed+เปล่า) |
 | `._node_broaden_search(state)` | append `new_query` จาก evaluation, เพิ่ม broaden_count แล้ววน retrieve |
-| `._node_reasoning(state)` | reasoning LLM → คำตอบอังกฤษ (มี fast-path ACKNOWLEDGE_LIMIT เมื่อ retry หมด); ใช้ `build_generation_prompt` + `get_reasoning_system_prompt` |
-| `._node_translate_output(state)` | translation LLM → ไทย (ใช้ `get_translation_system_prompt`) |
+| `._node_reasoning(state)` | **Single-call (default, query ไทย):** `get_fast_system_prompt` → คำตอบไทยเลย ตั้ง `answer_is_final=True`. **Two-stage (`SINGLE_CALL_GENERATION=false`):** `get_reasoning_system_prompt` → คำตอบอังกฤษ. มี fast-path ACKNOWLEDGE_LIMIT เมื่อ retry หมด; ใช้ `build_generation_prompt` |
+| `._node_translate_output(state)` | translation LLM → ไทย (`get_translation_system_prompt`); **ถูกข้ามเมื่อ `answer_is_final=True`** (single-call เขียนไทยแล้ว) |
 | `._edge_after_route(state)` *(static)* | ปัจจุบันคืน "incident" เสมอ (router ถูกปิดชั่วคราว) |
 | `._edge_after_evaluation(state)` *(static)* | SUFFICIENT→reasoning; ถึงเพดาน+BROADEN(<2)→broaden, ไม่งั้น→sufficient; ไม่งั้น→followup |
-| `._edge_after_reasoning(state)` *(static)* | ถ้า `respond_in_thai`→translate ไม่งั้น→done |
+| `._edge_after_reasoning(state)` *(static)* | ถ้า `respond_in_thai` **และไม่ `answer_is_final`** → translate; ไม่งั้น → done (single-call ข้าม translate) |
 
 #### `chain.py` — Linear LCEL pipeline
 
@@ -453,8 +479,9 @@ flowchart TD
 | `SubgraphResult.to_text()` | render subgraph เป็นข้อความ (จัดกลุ่มตาม edge type, map ชื่อแสดงผล เช่น USES→"Used by") |
 | `GraphRetriever.__init__()` | เชื่อม Neo4j driver |
 | `.close()` | ปิด driver |
-| `.expand(stix_ids)` | ขยาย subgraph ของแต่ละ id (dedup) → `SubgraphResult[]` |
-| `._expand_single(stix_id)` | ดึง center node + outgoing + incoming relationships (Cypher) |
+| `.expand(stix_ids)` | ขยาย subgraph ของ seed list (dedup) → `SubgraphResult[]` — delegate ไป `expand_batch` |
+| `.expand_batch(stix_ids)` | **batched:** 3 Cypher UNWIND (center + outgoing + incoming) ต่อทั้ง list ใน session เดียว แทน 3N round-trip; ผลเท่ากับวน `_expand_single` (center + neighbor/edge sets เหมือนเดิม) เร็ว ~3.5× |
+| `._expand_single(stix_id)` | ดึง center node + outgoing + incoming relationships (Cypher) — เก็บไว้เป็น reference/equivalence check |
 | `.query_cypher(cypher, params)` | รัน Cypher ใดๆ คืน list[dict] |
 | `.get_multi_hop_path(start_name, end_name, max_hops=4)` | หา shortestPath ระหว่าง 2 entity แบบ format อ่านง่าย |
 
@@ -528,6 +555,29 @@ flowchart TD
 
 ### 7.7 `evaluation/`
 
+#### ภาพรวม Evaluation Pipeline
+
+โมดูล eval วัดคุณภาพ **3 ชั้นของ Knowledge Retrieval & Mapping module บน ground truth ชุดเดียวกัน** (`gold_attack_ids` / `relevant_stix_ids` / `attack_steps` ต่อ sample) — ชี้ได้ว่าปัญหาอยู่ชั้นไหน:
+
+| ชั้น | วัดอะไร | Metric | ไฟล์ |
+|---|---|---|---|
+| **Retrieval** | หลักฐานแต่ละขั้นเหตุการณ์ถึงมือ LLM ไหม | step-coverage@k (แยก named/described cue), capped recall@k, Hit/NDCG/MRR/MAP | `retriever_metrics.py` |
+| **Mapping** | ตาราง MITRE ที่ส่ง backend (หลังกรอง noise) แม่นแค่ไหน | ID precision/recall/F1 vs gold + threshold sweep | `crosslingual_generation_benchmark.py` (`--phase score-mapping`), เรียก `pipeline/mitre_table.build_mitre_table` จริง |
+| **Generation** | คำตอบอ้าง technique ถูก/ครบ/เป็นไทยดีไหม | technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival + faithfulness | `attack_id_metrics.py`, `generation_metrics.py` |
+
+**Dataset:** `data/incident_draft.json` (สำนวนคดีไทยเรียงเวลา + `attack_steps` named/described) สร้างโดย `make_incident_dataset.py`; dataset lookup เดิม (`Thai_dataset*.json`) สร้างโดย `generate_eval_dataset.py` (graph = ground truth)
+
+**Harness หลัก:** `crosslingual_generation_benchmark.py` — เทียบ 5 generation variant (A baseline two-stage, B +MT query, C single-call, D Haiku translator, E EN ceiling) บน **frozen retrieval context** (retrieve ครั้งเดียว ทุก variant ใช้ context เดียวกัน) 3 เฟส resumable:
+```
+--phase retrieve   # retrieve + cache context (+ mapping_raw) → data/gen_bench/contexts.json
+--phase generate   # 5 variant บน context แช่แข็ง → generations.jsonl (resume ข้ามที่ทำแล้ว)
+--phase score      # ID-F1/guards + paired bootstrap CI + Wilcoxon เทียบ baseline A
+--phase score-mapping    # mitre_table vs gold + threshold sweep
+--phase score-retrieval  # step-coverage@k จาก cache (ฟรี)
+--reasoning-model / --cheap-model / --run-tag / "ollama:<name>" (local arm)
+```
+ผลลัพธ์: `evaluation/results/*.md`
+
 #### `ground_truth.py`
 
 | สัญลักษณ์ | หน้าที่ |
@@ -542,11 +592,15 @@ flowchart TD
 | ฟังก์ชัน | หน้าที่ |
 |---|---|
 | `hit_at_k(retrieved, relevant, k)` | มี relevant ใน top-K ไหม (1/0) |
-| `recall_at_k(...)` | สัดส่วน relevant ที่เจอใน top-K |
+| `recall_at_k(...)` | **capped recall:** hits / `min(|relevant|, k)` — กัน sample ที่ gold >> k (เช่น tactic 180 เทคนิค) โดนล็อกเพดานคะแนน |
 | `precision_at_k(...)` | สัดส่วน top-K ที่ relevant |
 | `reciprocal_rank(retrieved, relevant)` | 1/rank ของ relevant ตัวแรก |
 | `ndcg_at_k(...)` | NDCG@K (binary relevance) |
 | `average_precision(...)` | Average Precision |
+| `step_coverage_at_k(retrieved, steps, k)` | **S-recall@k (Zhai et al. 2003):** สัดส่วน attack step ที่มี gold id ≥1 ตัวใน top-K — วัดสำนวนคดีเรียงเวลา |
+| `strict_step_coverage_at_k(...)` | สัดส่วน step ที่ gold id **ครบทุกตัว** อยู่ใน top-K |
+| `step_best_rank(retrieved, step)` | rank แรกที่เจอ gold ของ step (แยก search vs ranking problem) |
+| `step_coverage_by_cue_type(retrieved, steps, k)` | step-coverage แยก `named` (ระบุชื่อเทคนิค) vs `described` (เล่าพฤติการณ์) — described คือ value จริงของ RAG |
 | `RetrieverEvalResult` *(dataclass)* | metric รวม (per-K dict + MRR/MAP + latency) |
 | `RetrieverEvalResult.to_table()` | format ตารางผล |
 | `evaluate_retriever(retriever_fn, samples, k_values, name)` | รัน retriever ต่อทุก sample, วัด metric (มี inner `mean()`) |
@@ -563,6 +617,48 @@ flowchart TD
 | `GenerationEvalResult` *(dataclass)* | RAGAS + fallback metrics + latency + per_sample |
 | `GenerationEvalResult.to_table()` | format ตาราง |
 | `evaluate_generation(query_fn, samples, use_local)` | รัน generation ต่อ sample, fallback metrics, RAGAS (มี inner `_safe_mean`) |
+
+#### `attack_id_metrics.py` — Deterministic ID-based generation metrics (TRAM/CTIBench-style)
+
+| ฟังก์ชัน | หน้าที่ |
+|---|---|
+| `extract_attack_ids(text)` / `extract_technique_ids(text)` | regex ดึง ATT&CK ID (`T####(.###)`, TA/G/S/M####) จาก prose — ใช้ Latin-alnum lookaround (ไม่ใช่ `\b`) ให้จับ ID ที่ฝังในภาษาไทยได้ |
+| `extract_technique_names(text, alias_map)` | จับ technique จากชื่อ canonical (alias จาก Neo4j) ที่โผล่ในคำตอบแม้ไม่แปะ ID |
+| `extract_all_techniques(text, alias_map)` | union ของ ID-cited + name-cited |
+| `technique_set_score(predicted, gold)` | precision/recall/F1 แบบ greedy 1-1: ตรง ID = 1.0, ตระกูลเดียวกัน (parent/sub) = 0.5; คืน exact/partial/spurious/missed |
+| `tactic_level_score(predicted, gold, technique_to_tactics)` | P/R/F1 ระดับ tactic (fallback ผ่าน base technique) |
+| `thai_char_ratio(text)` | สัดส่วนอักษรไทย/(ไทย+ละติน) — จับ language drift |
+| `structure_compliance(text, required_headings)` | หัวข้อครบไหม |
+| `id_survival(source_text, translated_text)` | ID รอดข้ามชั้นแปลไหม + `gained` (ID งอกตอนแปล = hallucination flag) |
+
+> ตาราง alias/tactic มาจาก `export_alias_tables.py` → `data/attack_lookup.json` (816 alias + 1033 technique→tactic)
+
+#### `crosslingual_generation_benchmark.py` — 5-variant harness (ดูภาพรวมด้านบน)
+
+| สัญลักษณ์ | หน้าที่ |
+|---|---|
+| `load_samples(dataset_path, max_samples)` | โหลด incident sample ไทยที่มี gold + query_en |
+| `phase_retrieve(samples, use_local)` | mirror `_node_retrieve`: decompose → `retrieve_multi_quota` → cache context + retrieved ids + `mapping_raw` (สำหรับ replay mapping) + MT query |
+| `run_variant(variant, ctx, reasoning_llm, cheap_llm)` | A/B/C/D/E บน cached context; log `intermediate_en` + tokens + latency |
+| `phase_generate(variants, reasoning_model, cheap_model, max_samples)` | รันทุก variant → JSONL (resume ข้ามคู่ที่ทำแล้ว); `ollama:` prefix = local model |
+| `score_row(row, sample, lookup)` | ID-F1/tactic/step-coverage-by-cue/thai/structure/id_survival ต่อคำตอบ |
+| `phase_score(dataset_path)` | รวมผล + paired bootstrap CI (`_bootstrap_ci`) + Wilcoxon (`_wilcoxon_p`) เทียบ baseline A → report |
+| `phase_score_mapping(dataset_path, thresholds)` | replay `build_mitre_table` (ผ่าน `_shim_rag_result`) เทียบ gold + threshold sweep |
+| `phase_score_retrieval(dataset_path, k_values)` | step-coverage@k จาก cache (ฟรี) |
+| `main()` | CLI `--phase retrieve/generate/score/score-mapping/score-retrieval/all` + `--reasoning-model/--cheap-model/--run-tag/--variants/--thresholds/--local` |
+
+#### `make_incident_dataset.py` — Chronological incident builder (semi-automated)
+
+| สัญลักษณ์ | หน้าที่ |
+|---|---|
+| `sample_kill_chains(neo4j, num, rng, min/max_steps, blocked_ids)` | สุ่ม kill-chain จากเทคนิคที่ **กลุ่มโจมตีจริงกลุ่มเดียว** ใช้ร่วมกัน (≥3 tactic ที่เหยื่อสังเกตได้), 1 เทคนิค/tactic, กรอง deprecated |
+| `draft_narrative(llm, chain)` | Claude ร่างสำนวนไทยเรียงเวลา (named cue แปะชื่อเทคนิค / described cue เล่าพฤติการณ์) + คู่อังกฤษ + cue ต่อ step |
+| `build_sample(idx, chain, draft)` | ประกอบ `GeneratedSample` + auto-flag (cue ไม่ตรง verbatim / described เผลอบอกชื่อเทคนิค / ID หลุดใน narrative) |
+| `main()` | CLI `--num/--seed/--dry-run/--resume` → `data/incident_draft.json` + review sheet |
+
+#### `build_deprecated_blocklist.py` / `export_alias_tables.py`
+
+`build_deprecated_blocklist.main()` — ดึง ATT&CK ID ที่ revoked/deprecated จาก STIX bundle v19 (Neo4j ไม่เก็บ flag นี้) → `data/deprecated_attack_ids.json` · `export_alias_tables.main()` — export alias + technique→tactic จาก Neo4j → `data/attack_lookup.json`
 
 #### `eval_runner.py`
 
@@ -600,7 +696,7 @@ flowchart TD
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `GeneratedSample` *(dataclass)* + `.to_dict()` | sample ที่ gen (query/ids/answer/lang/category) |
+| `GeneratedSample` *(dataclass)* + `.to_dict()` | sample ที่ gen (query/ids/answer/lang/category **+ `query_en`, `gold_attack_ids`, `attack_steps`** สำหรับ incident) |
 | `Neo4jGroundTruthBuilder.__init__/.close/.run_query` | เชื่อม Neo4j + รัน Cypher |
 | `.get_top_techniques/groups/software(limit)` | หา node ที่ degree สูง |
 | `.get_all_tactics()` | ดึง tactics ทั้งหมด |
@@ -608,7 +704,7 @@ flowchart TD
 | `.get_techniques_with_detection(limit)` | technique ที่มี DataComponent detect |
 | `.get_techniques_by_attack_ids(ids)` | map `{attack_id: stix_id}` |
 | `QueryTemplateRegistry.__init__(neo4j)` | registry template query → Cypher |
-| `.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / software_type_query / campaign_attribution(...)` | สร้าง `GeneratedSample` 1 รายการ/template โดย ground truth มาจาก Cypher |
+| `.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / campaign_attribution(...)` | สร้าง `GeneratedSample` 1 รายการ/template โดย ground truth มาจาก Cypher (หมายเหตุ: `software_type_query` ถูกตัด — enumeration ล้วน; `group_techniques` ตัด `LIMIT 20` ออกให้ gold ครบ) |
 | `THAI_QUERY_TEMPLATES`, `THAI_ANSWER_PREFIX` | template ไทย deterministic |
 | `_make_thai_variant(sample, seed_node)` | สร้าง variant ไทยจาก sample อังกฤษ |
 | `INCIDENT_SCENARIOS` | scenario incident แบบ bilingual (กำกับ technique_ids + คำตอบ TH/EN) |
@@ -622,7 +718,7 @@ flowchart TD
 
 #### `test_metrics.py`
 
-`test_hit_at_k`, `test_recall_at_k`, `test_precision_at_k`, `test_reciprocal_rank`, `test_ndcg_at_k`, `test_average_precision`, `test_token_f1`, `test_rouge_l`, `test_ground_truth_io` — unit test ของ metric แต่ละตัว (ไม่พึ่ง DB); `run_all_tests()` รันทั้งหมด สรุป pass/fail
+unit test ของ metric แต่ละตัว (ไม่พึ่ง DB): `test_hit_at_k`, `test_recall_at_k` (capped), `test_step_coverage_at_k`, `test_precision_at_k`, `test_reciprocal_rank`, `test_ndcg_at_k`, `test_average_precision`, `test_token_f1`, `test_rouge_l`, `test_extract_attack_ids`, `test_extract_technique_names`, `test_technique_set_score`, `test_tactic_level_score`, `test_guard_metrics`, `test_ground_truth_io`; `run_all_tests()` รันทั้งหมด (15 tests) สรุป pass/fail
 
 #### `__init__.py`
 re-export `EvalSample`, `load_ground_truth`, `save_ground_truth`, `evaluate_retriever`, `evaluate_generation`
