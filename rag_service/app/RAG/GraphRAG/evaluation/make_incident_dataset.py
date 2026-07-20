@@ -532,10 +532,17 @@ def main() -> None:
             [
                 {
                     "id": e["id"],
-                    # readable provenance: "SolarWinds Compromise (C0024, campaign)"
-                    "source_prov": f"{e['source_name']}"
-                    + (f" ({e['source_id']}, {args.source})" if e["source_id"]
-                       else f" ({args.source})"),
+                    # readable provenance: "SolarWinds Compromise (C0024, campaign)".
+                    # On --resume the stored provenance is already formatted
+                    # (source_id empty, name already parenthesized) — keep as-is
+                    # instead of re-wrapping (which doubled the "(campaign)" tag).
+                    "source_prov": (
+                        e["source_name"]
+                        if not e["source_id"] and "(" in e["source_name"]
+                        else f"{e['source_name']} ({e['source_id']}, {args.source})"
+                        if e["source_id"]
+                        else f"{e['source_name']} ({args.source})"
+                    ),
                     **e["sample"],
                 }
                 for e in entries
