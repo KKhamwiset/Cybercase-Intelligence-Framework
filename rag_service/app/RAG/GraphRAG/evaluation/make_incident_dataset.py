@@ -542,7 +542,7 @@ def main() -> None:
             ],
             f, indent=2, ensure_ascii=False,
         )
-    review_path = OUT_DIR / "incident_draft_review.md"
+    review_path = OUT_DIR / (Path(args.out).stem + "_review.md")
     write_review_md(review_path, entries)
 
     flagged = sum(1 for e in entries if e["flags"])
