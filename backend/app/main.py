@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine
-from app.routers import health, rag, user
+from app.middleware.report_body_limit import ReportBodyLimitMiddleware
+from app.routers import health, rag, user, chat
 
 
 @asynccontextmanager
@@ -45,8 +46,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(ReportBodyLimitMiddleware)
 
 # ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(user.router, prefix="/api/v1")
 app.include_router(rag.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")

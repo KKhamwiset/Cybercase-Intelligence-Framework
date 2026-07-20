@@ -86,7 +86,7 @@ async def get_legal_advice(case_summary: str, *, timeout: float | None = None) -
     if not THANOY_ENABLED or not case_summary or not case_summary.strip():
         return None
 
-    headers = {"apikey": THANOY_API_KEY, "Content-Type": "application/json"}
+    headers = {"apikey": THANOY_API_KEY}
     payload = {"query": _build_query(case_summary)}
 
     try:

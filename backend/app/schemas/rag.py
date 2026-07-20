@@ -1,4 +1,47 @@
-from pydantic import BaseModel, Field
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.case_analysis import CaseAnalysisArtifact
+
+
+class QueryRequest(BaseModel):
+    """Compatibility request forwarded to the existing RAG service."""
+
+    model_config = ConfigDict(extra="allow")
+
+    query: str
+    use_agent: bool = True
+
+
+class ResumeRequest(BaseModel):
+    """Compatibility request for an existing RAG follow-up session."""
+
+    model_config = ConfigDict(extra="allow")
+
+    session_id: str
+    answer: str
+
+
+class QueryResponse(BaseModel):
+    """Lossless-enough response contract for the fields consumed by this backend."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: str
+    answer: str = ""
+    followup_question: str = ""
+    session_id: str = ""
+    retrieval_context_id: UUID | None = None
+    mitre_table: list[dict[str, Any]] = Field(default_factory=list)
+
+    @field_validator("retrieval_context_id", mode="before")
+    @classmethod
+    def normalize_empty_retrieval_context_id(cls, value: Any) -> Any:
+        """Treat the RAG service's empty-string sentinel as no frozen context."""
+
+        return None if value == "" else value
 
 
 class CyberCaseReport(BaseModel):
@@ -32,3 +75,11 @@ class CyberCaseReport(BaseModel):
         ...,
         description="5.7 System Limitations (ข้อจำกัดของระบบ): Caveats or missing data that limit the accuracy of this report.",
     )
+
+
+class ExperimentalAnalysisResponse(BaseModel):
+    """Server-owned analysis artifact and its deterministic report decision."""
+
+    analysis: CaseAnalysisArtifact
+    report: CyberCaseReport | None = None
+    reportability_reasons: list[str] = Field(default_factory=list)

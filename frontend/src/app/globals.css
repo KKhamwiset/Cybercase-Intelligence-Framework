@@ -3,11 +3,18 @@
 @theme {
     --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
-    --color-primary: #000000;
-    --color-secondary: #1f2937;
-    --color-neutral: #777777;
+    --color-primary: #171717;
+    --color-secondary: #171717;
+    --color-neutral: #6B6A66;
 
-    --color-background: #f3f4f6;
+    --color-ink: #171717;
+    --color-workspace: #F7F6F2;
+    --color-sidebar: #F4F3EF;
+    --color-line: #DEDCD5;
+    --color-muted: #6B6A66;
+    --color-danger: #B42318;
+
+    --color-background: #f7f6f2;
     --color-surface: #ffffff;
 }
 
@@ -19,6 +26,22 @@
 body {
     background-color: var(--background);
     color: var(--foreground);
+}
+
+::selection {
+    background: #171717;
+    color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @utility card {

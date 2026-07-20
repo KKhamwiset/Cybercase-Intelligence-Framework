@@ -1,0 +1,96 @@
+{
+  "dataset_name": "cybercase_synthetic_citation_validation_pilot_v1",
+  "purpose": "Synthetic oracle and wiring validation only; not empirical LLM performance.",
+  "cases": [
+    {
+      "case_id": "PILOT-001",
+      "source_id": "DOC-001",
+      "source_type": "case_description",
+      "source_text": "The victim reported transferring 50,000 THB.",
+      "claim_text": "The victim reported transferring 50,000 THB.",
+      "exact_quote": "The victim reported transferring 50,000 THB.",
+      "semantic_label": "entailed",
+      "oracle_class": "supported"
+    },
+    {
+      "case_id": "PILOT-002",
+      "source_id": "DOC-002",
+      "source_type": "case_description",
+      "source_text": "The login originated from 192.0.2.10.",
+      "claim_text": "The login originated from 192.0.2.10.",
+      "exact_quote": "The login originated from 192.0.2.10.",
+      "semantic_label": "entailed",
+      "oracle_class": "supported"
+    },
+    {
+      "case_id": "PILOT-003",
+      "source_id": "DOC-003",
+      "source_type": "case_description",
+      "source_text": "The logs did not show a successful login.",
+      "claim_text": "The logs showed a successful login.",
+      "exact_quote": "The logs did not show a successful login.",
+      "semantic_label": "contradicted",
+      "oracle_class": "contradicted"
+    },
+    {
+      "case_id": "PILOT-004",
+      "source_id": "DOC-004",
+      "source_type": "case_description",
+      "source_text": "The victim reported transferring funds to account 1234.",
+      "claim_text": "The suspect owned account 1234.",
+      "exact_quote": "The victim reported transferring funds to account 1234.",
+      "semantic_label": "not_enough_information",
+      "oracle_class": "unsupported"
+    },
+    {
+      "case_id": "PILOT-005",
+      "source_id": "DOC-005",
+      "source_type": "case_description",
+      "source_text": "The victim reported an account alert.",
+      "claim_text": "The victim identified the suspect.",
+      "exact_quote": "The victim identified the suspect.",
+      "semantic_label": "entailed",
+      "oracle_class": "unsupported"
+    },
+    {
+      "case_id": "PILOT-006",
+      "source_id": "DOC-006",
+      "source_type": "case_description",
+      "source_text": "The victim reported transferring 50,000 THB.",
+      "claim_text": "The victim reported transferring 500,000 THB.",
+      "exact_quote": "The victim reported transferring 50,000 THB.",
+      "semantic_label": "entailed",
+      "oracle_class": "unsupported"
+    },
+    {
+      "case_id": "PILOT-007",
+      "source_id": "retrieval:context",
+      "source_type": "retrieved_context",
+      "source_text": "T1566.001 describes spearphishing attachments.",
+      "claim_text": "T1566.001 describes spearphishing attachments.",
+      "exact_quote": "T1566.001 describes spearphishing attachments.",
+      "semantic_label": "entailed",
+      "oracle_class": "unsupported"
+    },
+    {
+      "case_id": "PILOT-008",
+      "source_id": "DOC-008",
+      "source_type": "case_description",
+      "source_text": "The transfer was reported. The transfer was reported.",
+      "claim_text": "The transfer was reported.",
+      "exact_quote": "The transfer was reported.",
+      "semantic_label": "entailed",
+      "oracle_class": "unsupported"
+    },
+    {
+      "case_id": "PILOT-009",
+      "source_id": "DOC-009",
+      "source_type": "case_description",
+      "source_text": "The attachment name was invoice.pdf.",
+      "claim_text": "The attachment was malicious.",
+      "exact_quote": "",
+      "semantic_label": "not_enough_information",
+      "oracle_class": "unsupported"
+    }
+  ]
+}

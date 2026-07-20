@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────────────────
     debug: bool = True
     anthropic_api_key: str = ""
+    analysis_llm_model: str = "claude-haiku-4-5"
+    analysis_llm_timeout_seconds: float = 60.0
+    analysis_llm_max_output_tokens: int = 4096
+    analysis_semantic_max_output_tokens: int = 128
+    analysis_retrieval_timeout_seconds: float = 30.0
+    anthropic_messages_url: str = "https://api.anthropic.com/v1/messages"
+    experimental_analysis_enabled: bool = False
     rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
 
 
