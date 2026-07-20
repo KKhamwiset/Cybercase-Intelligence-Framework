@@ -1,40 +1,46 @@
-from typing import Any
-from uuid import UUID
+from __future__ import annotations
+
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.case_analysis import CaseAnalysisArtifact
 
 
-class QueryRequest(BaseModel):
-    """Compatibility request forwarded to the existing RAG service."""
-
-    model_config = ConfigDict(extra="allow")
+class RagQueryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
     query: str
     use_agent: bool = True
 
 
-class ResumeRequest(BaseModel):
-    """Compatibility request for an existing RAG follow-up session."""
+class QueryRequest(RagQueryRequest):
+    pass
 
-    model_config = ConfigDict(extra="allow")
 
-    session_id: str
-    answer: str
+class MitreTableRow(BaseModel):
+    """One entry of the MITRE mapping table produced by the RAG service."""
+
+    technique_id: str = ""
+    name: str
+    entity_type: str = ""
+    tactic: str | None = None
+    score: float | None = None
+    source: Literal["vector", "graph"] = "vector"
+    relevance: Literal["cited_in_answer", "retrieved_only"] = "retrieved_only"
+    description: str = ""
+    mitre_url: str | None = None
 
 
 class QueryResponse(BaseModel):
-    """Lossless-enough response contract for the fields consumed by this backend."""
-
     model_config = ConfigDict(extra="allow")
 
-    status: str
+    status: Literal["completed", "followup"]
     answer: str = ""
     followup_question: str = ""
     session_id: str = ""
-    retrieval_context_id: UUID | None = None
-    mitre_table: list[dict[str, Any]] = Field(default_factory=list)
+    retrieval_context_id: str | None = None
+    mitre_table: list[MitreTableRow] = Field(default_factory=list)
 
     @field_validator("retrieval_context_id", mode="before")
     @classmethod
@@ -44,8 +50,13 @@ class QueryResponse(BaseModel):
         return None if value == "" else value
 
 
+class ResumeRequest(BaseModel):
+    session_id: str
+    answer: str
+
+
 class CyberCaseReport(BaseModel):
-    """Structured incident report matching the 7 required sections."""
+    """Legacy seven-section report returned by experimental case analysis."""
 
     case_summary: str = Field(
         ...,
@@ -83,3 +94,14 @@ class ExperimentalAnalysisResponse(BaseModel):
     analysis: CaseAnalysisArtifact
     report: CyberCaseReport | None = None
     reportability_reasons: list[str] = Field(default_factory=list)
+
+
+__all__ = [
+    "CyberCaseReport",
+    "ExperimentalAnalysisResponse",
+    "MitreTableRow",
+    "QueryRequest",
+    "QueryResponse",
+    "RagQueryRequest",
+    "ResumeRequest",
+]

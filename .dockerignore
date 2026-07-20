@@ -11,8 +11,8 @@
 **/storage
 **/advanced_index
 # We need these for the RAG engine in Docker
-# **/Documents
-# **/Mitre_ATT&CK Doc
+**/Documents
+**/Mitre_ATT&CK Doc
 README.md
 SKILL.md
 docker-compose.yml

@@ -111,20 +111,116 @@ class GraphRetriever:
         """Expand subgraphs for a list of STIX IDs.
 
         For each ID, fetches the center node and its immediate neighborhood.
+        Delegates to the batched implementation: instead of 3 Cypher queries
+        per seed in its own session (3N round-trips to a cloud DB — the
+        dominant retrieval cost), it issues 3 UNWIND queries total.
         """
-        results = []
-        seen_ids = set()
+        return self.expand_batch(stix_ids)
 
-        for stix_id in stix_ids:
-            if stix_id in seen_ids:
-                continue
-            seen_ids.add(stix_id)
+    def expand_batch(self, stix_ids: list[str]) -> list[SubgraphResult]:
+        """Batched graph expansion — 3 Cypher queries for the whole seed list.
 
-            subgraph = self._expand_single(stix_id)
-            if subgraph and subgraph.center_node:
-                results.append(subgraph)
+        Behaviour-equivalent to looping ``_expand_single`` (same center nodes,
+        same neighbour/edge sets, subgraphs in input order, only ids with a
+        matching center returned), but collapses 3N sequential Neo4j
+        round-trips into 3. Neo4j's row order within a seed is not guaranteed
+        identical to the per-seed query, so neighbour LIST order within a
+        subgraph may differ; the retrieved-id SET is unchanged.
+        """
+        ordered = list(dict.fromkeys(stix_ids))  # dedupe, preserve order
+        if not ordered:
+            return []
 
-        return results
+        with self.driver.session() as session:
+            # ── 1. Center nodes ───────────────────────────────────────────
+            by_sid: dict[str, SubgraphResult] = {}
+            centers = session.run(
+                Query("""
+                UNWIND $ids AS sid
+                MATCH (n {stix_id: sid})
+                RETURN sid AS sid, n AS n, labels(n) AS labels
+                """),
+                ids=ordered,
+            )
+            for rec in centers:
+                node_data = dict(rec["n"])
+                labels = rec["labels"]
+                sr = SubgraphResult()
+                sr.center_node = GraphNode(
+                    stix_id=node_data.get("stix_id", ""),
+                    name=node_data.get("name", ""),
+                    label=labels[0] if labels else "Unknown",
+                    attack_id=node_data.get("attack_id", ""),
+                    description=(node_data.get("description") or "")[:300],
+                )
+                by_sid.setdefault(rec["sid"], sr)
+
+            hit_ids = list(by_sid.keys())
+
+            # ── 2. Outgoing relationships ─────────────────────────────────
+            outgoing = session.run(
+                Query("""
+                UNWIND $ids AS sid
+                MATCH (n {stix_id: sid})-[r]->(m)
+                RETURN sid AS sid, type(r) AS rel_type, r.description AS rel_desc,
+                       m.stix_id AS target_id, m.name AS target_name,
+                       m.attack_id AS target_attack_id, labels(m) AS target_labels
+                """),
+                ids=hit_ids,
+            )
+            for rec in outgoing:
+                sr = by_sid.get(rec["sid"])
+                if not sr:
+                    continue
+                target_label = (
+                    rec["target_labels"][0] if rec["target_labels"] else "Unknown"
+                )
+                sr.neighbors.append(GraphNode(
+                    stix_id=rec["target_id"] or "",
+                    name=rec["target_name"] or "",
+                    label=target_label,
+                    attack_id=rec["target_attack_id"] or "",
+                ))
+                sr.edges.append(GraphEdge(
+                    edge_label=rec["rel_type"] or "",
+                    source_name=sr.center_node.name,
+                    target_name=rec["target_name"] or "",
+                    description=rec["rel_desc"] or "",
+                ))
+
+            # ── 3. Incoming relationships ─────────────────────────────────
+            incoming = session.run(
+                Query("""
+                UNWIND $ids AS sid
+                MATCH (m)-[r]->(n {stix_id: sid})
+                RETURN sid AS sid, type(r) AS rel_type, r.description AS rel_desc,
+                       m.stix_id AS source_id, m.name AS source_name,
+                       m.attack_id AS source_attack_id, labels(m) AS source_labels
+                """),
+                ids=hit_ids,
+            )
+            for rec in incoming:
+                sr = by_sid.get(rec["sid"])
+                if not sr:
+                    continue
+                source_label = (
+                    rec["source_labels"][0] if rec["source_labels"] else "Unknown"
+                )
+                sr.neighbors.append(GraphNode(
+                    stix_id=rec["source_id"] or "",
+                    name=rec["source_name"] or "",
+                    label=source_label,
+                    attack_id=rec["source_attack_id"] or "",
+                ))
+                sr.edges.append(GraphEdge(
+                    edge_label=rec["rel_type"] or "",
+                    source_name=rec["source_name"] or "",
+                    target_name=sr.center_node.name,
+                    description=rec["rel_desc"] or "",
+                ))
+
+        # Preserve input order, only ids that matched a center node.
+        return [by_sid[sid] for sid in ordered if sid in by_sid]
 
     def _expand_single(self, stix_id: str) -> SubgraphResult:
         """Expand a single node's subgraph."""

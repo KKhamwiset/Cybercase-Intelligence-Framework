@@ -6,12 +6,12 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import type { ChatMessage, ThreadStatus } from "@/lib/api";
+import type { PersistedChatMessage, ThreadStatus } from "@/lib/api";
 import { Icon } from "./icons";
 import type { RunPhase } from "./types";
 
 interface ChatPanelProps {
-  messages: ChatMessage[];
+  messages: PersistedChatMessage[];
   input: string;
   threadStatus: ThreadStatus | null;
   phase: RunPhase;

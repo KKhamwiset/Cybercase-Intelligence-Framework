@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import Providers from "./providers";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -15,9 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CyberCase Framework - Thai Security & Regulation Platform",
+  title: "CyberCase Framework - Incident Intelligence",
   description:
-    "AI-powered Thai law research platform with RAG pipelines, document analysis, and regulatory intelligence.",
+    "A professional agentic RAG workspace for cybersecurity case analysis, MITRE ATT&CK mapping, and evidence-traceable reporting.",
 };
 
 export default function RootLayout({
@@ -26,8 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${jetbrainsMono.variable}`}>
+      <body className="font-sans antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

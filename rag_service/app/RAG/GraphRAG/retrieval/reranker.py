@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 from .vector_retriever import VectorResult
-from ..config import FINAL_TOP_K, RERANKER_MODEL
+from ..config import DEVICE, FINAL_TOP_K, RERANKER_MODEL
 
 
 class Reranker:
@@ -19,8 +19,8 @@ class Reranker:
 
     def __init__(self, model_name: str = RERANKER_MODEL) -> None:
         from sentence_transformers import CrossEncoder
-        print(f"[RERANKER] Loading {model_name}...")
-        self.model = CrossEncoder(model_name, max_length=512)
+        print(f"[RERANKER] Loading {model_name} on {DEVICE}...")
+        self.model = CrossEncoder(model_name, max_length=512, device=DEVICE)
         print(f"[RERANKER] Ready")
 
     def rerank(

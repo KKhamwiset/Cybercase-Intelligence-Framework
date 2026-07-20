@@ -29,7 +29,36 @@ ICS_ATTACK_DIR = _STIX_DATA_DIR / "ics-attack"
 # ──────────────────────────────────────────────────────────────────────────────
 EMBED_MODEL = "BAAI/bge-m3"
 EMBED_DIM = 1024  # BGE-M3 dense vector dimension
-USE_FP16 = True  # Halve memory usage (~2.3GB → ~1.2GB)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# INFERENCE DEVICE — auto-detect GPU, else CPU
+# ──────────────────────────────────────────────────────────────────────────────
+# BGE-M3 and the cross-encoder reranker run on GPU when one is available (local
+# dev), else CPU (Railway prod ships the CPU torch wheel + a slim base image, so
+# there is no GPU there). fp16 is a GPU optimization — on CPU it is emulated and
+# slower, so it is enabled ONLY on CUDA. Override with RAG_DEVICE=cpu|cuda (set
+# in the shell BEFORE start so it takes effect before torch initializes CUDA).
+def _resolve_device() -> str:
+    forced = os.getenv("RAG_DEVICE", "").strip().lower()
+    if forced == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # hide GPU from all torch models
+        return "cpu"
+    try:
+        import torch
+        if forced == "cuda":
+            if not torch.cuda.is_available():
+                print("[CONFIG] RAG_DEVICE=cuda but no CUDA device; using CPU")
+                return "cpu"
+            return "cuda"
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
+
+
+DEVICE = _resolve_device()
+USE_FP16 = DEVICE == "cuda"  # fp16 only on GPU; CPU uses fp32
+print(f"[CONFIG] Inference device: {DEVICE} (fp16={USE_FP16})")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — E5 Configuration (kept for reference / rollback)

@@ -1,11 +1,11 @@
-# TSR Mitre - AI Agent Context & Skills Guide
+# CyberCase Intelligence Framework - AI Agent Context & Skills Guide
 
-This document defines the scope, technical stack, and conventions for AI Agents working on the TSR Mitre project. It helps ensure consistency and prevents regressions.
+This document defines the scope, technical stack, and conventions for AI Agents working on the CyberCase Intelligence Framework project. It helps ensure consistency and prevents regressions.
 
 
 ## 1. Project Architecture
 
-The TSR Mitre project is a full-stack web application designed for retrieving and analyzing Thai legal documents (Cybersecurity Act, PDPA, Electronic Transactions Act, etc.) using Retrieval-Augmented Generation (RAG).
+The CyberCase Intelligence Framework is a full-stack web application designed for interactive cybercrime case analysis, RAG-grounded MITRE ATT&CK knowledge retrieval, follow-up question handling, and structured investigation report generation.
 
 **Tech Stack:**
 *   **Frontend:** Next.js 15 (App Router, TypeScript, React). Tailwind CSS Modules.
@@ -19,6 +19,7 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 *   `/rag_service/app/RAG/GraphRAG/` - Core GraphRAG pipeline and evaluation.
 *   `/rag_service/` - Standalone RAG service.
 *   `/frontend/` - Next.js application. All UI work happens here.
+    *   `src/test/` - Contains all unit and integration test files, organized in subfolders mirroring the components, hooks, and app directories.
 *   `/backend/` - FastAPI application. All API and database logic happens here.
 
 ## 3. Coding Conventions & Constraints
@@ -45,6 +46,7 @@ The TSR Mitre project is a full-stack web application designed for retrieving an
 ## 4. Common Commands
 
 *   **Run Frontend:** `cd frontend && npm run dev`
+*   **Run Frontend Tests:** `cd frontend && npm run test`
 *   **Run Backend:** `cd backend && uvicorn app.main:app --reload`
 *   **Run RAG Service:** `cd rag_service/app && uvicorn main:app --port 8001`
 *   **Apply Migrations:** `cd backend && alembic upgrade head`
@@ -76,7 +78,7 @@ We use Doppler for centralized secret management.
 **Important:** Never commit `.env` files to Git. Doppler allows us to keep secrets out of the codebase while sharing them across the team.
 ## 8. Purpose of the Framework
 
-This framework is designed to translate cybercrime investigation records from highly technical language into legally understandable descriptions suitable for prosecutors and legal professionals.
+This framework is designed to turn unstructured cybercrime case details into clearer investigation support outputs, including LLM-assisted analysis, follow-up questions, MITRE ATT&CK-grounded explanations, and structured reports.
 
 ### Problem Context
 
@@ -91,7 +93,7 @@ These descriptions are typically accurate from a technical standpoint but are no
 
 ### Objective
 
-The objective of this project is to bridge the gap between cybersecurity terminology and legal interpretation by using a web-based LLM interface combined with a Retrieval-Augmented Generation (RAG) pipeline.
+The objective of this project is to bridge the gap between technical cybercrime evidence and user-understandable investigation outputs by using an interactive web-based LLM interface combined with a Retrieval-Augmented Generation (RAG) pipeline.
 ### System Architecture
 
 This framework consists of two main modules:

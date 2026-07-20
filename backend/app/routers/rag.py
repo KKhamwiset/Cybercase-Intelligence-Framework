@@ -1,10 +1,8 @@
-
-import httpx
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.config import settings
-# pyrefly: ignore [missing-import]
-from app.schemas.rag import QueryRequest, QueryResponse, ResumeRequest
+from app.services.report_request_helpers import build_document_query
+from app.schemas.rag import QueryRequest, QueryResponse, RagQueryRequest, ResumeRequest
+from app.services.rag_client import RagServiceClient
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
 router = APIRouter(prefix="/rag", tags=["rag"])
@@ -12,22 +10,11 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.post(
-                f"{settings.rag_service_url}/query",
-                json=request.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return QueryResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error calling RAG service: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().post_json(
+        "/query",
+        request.model_dump(mode="json"),
+    )
+    return QueryResponse(**payload)
 
 
 @router.post("/query-file", response_model=QueryResponse)
@@ -40,19 +27,16 @@ async def query_rag_file(
     try:
         extracted_markdown = await extract_markdown_from_upload(file, page_num=page_num)
         document_query = build_document_query(extracted_markdown, query)
-
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(
-                f"{settings.rag_service_url}/query",
-                json={"query": document_query, "use_agent": False, "legal": legal},
-            )
-            response.raise_for_status()
-            return QueryResponse(**response.json())
+        request = RagQueryRequest(query=document_query, use_agent=False)
+        payload = request.model_dump(mode="json")
+        payload["legal"] = legal
+        payload = await RagServiceClient().post_json(
+            "/query",
+            payload,
+        )
+        return QueryResponse(**payload)
     except HTTPException:
         raise
-    except httpx.HTTPStatusError as e:
-        print(f"[RAG] Service error: {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
     except Exception as e:
         print(f"[RAG] Error processing OCR query: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -60,19 +44,8 @@ async def query_rag_file(
 
 @router.post("/resume", response_model=QueryResponse)
 async def resume_agent(request: ResumeRequest):
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        try:
-            response = await client.post(
-                f"{settings.rag_service_url}/resume",
-                json=request.model_dump(mode="json"),
-            )
-            response.raise_for_status()
-            return QueryResponse(**response.json())
-        except httpx.HTTPStatusError as e:
-            print(f"[RAG] Service error: {e.response.text}")
-            raise HTTPException(
-                status_code=e.response.status_code, detail=e.response.text
-            )
-        except Exception as e:
-            print(f"[RAG] Error calling RAG service: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+    payload = await RagServiceClient().post_json(
+        "/resume",
+        request.model_dump(mode="json"),
+    )
+    return QueryResponse(**payload)

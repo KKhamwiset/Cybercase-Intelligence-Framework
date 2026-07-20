@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import type { CyberCaseReport } from "@/lib/api";
+import type { ExperimentalCyberCaseReport } from "@/lib/api";
 import type { AnalysisAvailability } from "./types";
 
 interface ReportPanelProps {
-  report: CyberCaseReport | null;
+  report: ExperimentalCyberCaseReport | null;
   reportabilityReasons: string[];
   availability: AnalysisAvailability;
   inlineInspector: ReactNode;

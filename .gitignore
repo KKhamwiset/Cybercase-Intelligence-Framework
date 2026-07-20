@@ -28,6 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+pytest*
 
 # Environments
 .env
@@ -39,6 +40,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Alembic env.py must be tracked (not matched by env* above)
+!backend/alembic/env.py
 
 # Unit test / coverage reports
 htmlcov/

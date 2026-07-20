@@ -17,7 +17,7 @@ import {
   getChatThread,
   listChatThreads,
   updateChatThread,
-  type ChatMessage,
+  type PersistedChatMessage,
   type ChatThreadDetail,
   type ChatThreadRead,
   type MitreContextEntry,
@@ -68,7 +68,7 @@ function titleFromMessage(content: string): string {
   return `${normalized.slice(0, 57).trimEnd()}...`;
 }
 
-function latestAssistantContext(messages: ChatMessage[]): {
+function latestAssistantContext(messages: PersistedChatMessage[]): {
   retrievalContextId: string | null;
   mitreRows: MitreContextEntry[];
 } {
@@ -129,7 +129,7 @@ export default function ChatPage() {
   const [threads, setThreads] = useState<ChatThreadRead[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<PersistedChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [retrievalContextId, setRetrievalContextId] = useState<string | null>(
     null,

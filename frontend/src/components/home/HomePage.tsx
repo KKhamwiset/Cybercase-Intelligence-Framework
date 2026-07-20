@@ -133,7 +133,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/chat"
+              href="/cases"
               className="flex items-center gap-3 bg-black px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition hover:bg-black/80"
             >
               Start case
