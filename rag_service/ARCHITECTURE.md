@@ -122,9 +122,10 @@ flowchart TD
 | **Domain filter (mobile กันปน)** | `vector_retriever.search_entities` + `config.ATTACK_DOMAIN_FILTER` | กรอง entity ให้เหลือ domain enterprise หลัง retrieval |
 | **Agentic state machine** | `pipeline/agent_graph.py` (LangGraph) | StateGraph: node + conditional edges + in-memory session store สำหรับ pause/resume |
 | **Thai legal delegation** | `pipeline/thanoy_client.py` | ไม่สอนกฎหมายไทยให้ MITRE model (กัน hallucinate มาตรา) → เรียก Thanoy API แทน |
-| **Eval: retriever metrics** | `evaluation/retriever_metrics.py` | Hit@K, Recall@K, Precision@K, MRR, NDCG@K, MAP |
-| **Eval: generation metrics** | `evaluation/generation_metrics.py` | RAGAS (faithfulness, answer_correctness) + fallback Token-F1/ROUGE-L/BERTScore |
-| **Graph-grounded eval dataset** | `evaluation/generate_eval_dataset.py` | สร้าง ground-truth จาก Cypher (กราฟ = ground truth) → ไม่ label มือ |
+| **Eval: retriever metrics** | `evaluation/retriever_metrics.py` | Hit@K, capped Recall@K, Precision@K, MRR, NDCG@K, MAP, **step-coverage@k (named/described)** |
+| **Eval: generation metrics** | `evaluation/generation_metrics.py`, **`attack_id_metrics.py`** | RAGAS + fallback Token-F1/ROUGE-L/BERTScore; **technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival** |
+| **Eval: 5-variant crosslingual harness** | `evaluation/crosslingual_generation_benchmark.py` | เทียบ generation variant บน frozen context; 3-layer (retrieval/mapping/generation) บน gold เดียวกัน + paired stats |
+| **Graph-grounded eval dataset** | `evaluation/generate_eval_dataset.py`, **`make_incident_dataset.py`** | ground-truth จาก Cypher (กราฟ = ground truth); incident สำนวนคดีไทยเรียงเวลา (kill-chain + named/described cue) |
 | **MITRE specialist fine-tune** | `finetune/` | QLoRA/16-bit LoRA บน Qwen, dataset จาก STIX, A/B เทียบ base vs fine-tune ผ่าน env-swap |
 
 ---
@@ -237,9 +238,14 @@ rag_service/
 │           │                        #   context_builder
 │           ├── retrieval/           # vector_retriever, graph_retriever, reranker, hybrid_retriever
 │           ├── ingestion/           # stix_parser, graph_loader, vector_loader
-│           └── evaluation/          # ground_truth, retriever_metrics, generation_metrics,
-│                                    #   eval_runner, crosslingual_benchmark,
-│                                    #   generate_eval_dataset, test_metrics
+│           └── evaluation/          # ground_truth, retriever_metrics (step-coverage),
+│                                    #   generation_metrics, attack_id_metrics,
+│                                    #   crosslingual_generation_benchmark (5-variant harness),
+│                                    #   make_incident_dataset, generate_eval_dataset,
+│                                    #   build_deprecated_blocklist, export_alias_tables,
+│                                    #   eval_runner, crosslingual_benchmark, test_metrics
+│                                    #   data/ (contexts cache, incident_draft, attack_lookup)
+│                                    #   results/ (benchmark reports + PDFs)
 ├── docs/
 │   └── _build_pdf.py                # render RAG_Module.md → HTML (mermaid) → PDF
 └── finetune/                        # MITRE specialist fine-tune (QLoRA/LoRA)
@@ -549,6 +555,29 @@ flowchart TD
 
 ### 7.7 `evaluation/`
 
+#### ภาพรวม Evaluation Pipeline
+
+โมดูล eval วัดคุณภาพ **3 ชั้นของ Knowledge Retrieval & Mapping module บน ground truth ชุดเดียวกัน** (`gold_attack_ids` / `relevant_stix_ids` / `attack_steps` ต่อ sample) — ชี้ได้ว่าปัญหาอยู่ชั้นไหน:
+
+| ชั้น | วัดอะไร | Metric | ไฟล์ |
+|---|---|---|---|
+| **Retrieval** | หลักฐานแต่ละขั้นเหตุการณ์ถึงมือ LLM ไหม | step-coverage@k (แยก named/described cue), capped recall@k, Hit/NDCG/MRR/MAP | `retriever_metrics.py` |
+| **Mapping** | ตาราง MITRE ที่ส่ง backend (หลังกรอง noise) แม่นแค่ไหน | ID precision/recall/F1 vs gold + threshold sweep | `crosslingual_generation_benchmark.py` (`--phase score-mapping`), เรียก `pipeline/mitre_table.build_mitre_table` จริง |
+| **Generation** | คำตอบอ้าง technique ถูก/ครบ/เป็นไทยดีไหม | technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival + faithfulness | `attack_id_metrics.py`, `generation_metrics.py` |
+
+**Dataset:** `data/incident_draft.json` (สำนวนคดีไทยเรียงเวลา + `attack_steps` named/described) สร้างโดย `make_incident_dataset.py`; dataset lookup เดิม (`Thai_dataset*.json`) สร้างโดย `generate_eval_dataset.py` (graph = ground truth)
+
+**Harness หลัก:** `crosslingual_generation_benchmark.py` — เทียบ 5 generation variant (A baseline two-stage, B +MT query, C single-call, D Haiku translator, E EN ceiling) บน **frozen retrieval context** (retrieve ครั้งเดียว ทุก variant ใช้ context เดียวกัน) 3 เฟส resumable:
+```
+--phase retrieve   # retrieve + cache context (+ mapping_raw) → data/gen_bench/contexts.json
+--phase generate   # 5 variant บน context แช่แข็ง → generations.jsonl (resume ข้ามที่ทำแล้ว)
+--phase score      # ID-F1/guards + paired bootstrap CI + Wilcoxon เทียบ baseline A
+--phase score-mapping    # mitre_table vs gold + threshold sweep
+--phase score-retrieval  # step-coverage@k จาก cache (ฟรี)
+--reasoning-model / --cheap-model / --run-tag / "ollama:<name>" (local arm)
+```
+ผลลัพธ์: `evaluation/results/*.md`
+
 #### `ground_truth.py`
 
 | สัญลักษณ์ | หน้าที่ |
@@ -563,11 +592,15 @@ flowchart TD
 | ฟังก์ชัน | หน้าที่ |
 |---|---|
 | `hit_at_k(retrieved, relevant, k)` | มี relevant ใน top-K ไหม (1/0) |
-| `recall_at_k(...)` | สัดส่วน relevant ที่เจอใน top-K |
+| `recall_at_k(...)` | **capped recall:** hits / `min(|relevant|, k)` — กัน sample ที่ gold >> k (เช่น tactic 180 เทคนิค) โดนล็อกเพดานคะแนน |
 | `precision_at_k(...)` | สัดส่วน top-K ที่ relevant |
 | `reciprocal_rank(retrieved, relevant)` | 1/rank ของ relevant ตัวแรก |
 | `ndcg_at_k(...)` | NDCG@K (binary relevance) |
 | `average_precision(...)` | Average Precision |
+| `step_coverage_at_k(retrieved, steps, k)` | **S-recall@k (Zhai et al. 2003):** สัดส่วน attack step ที่มี gold id ≥1 ตัวใน top-K — วัดสำนวนคดีเรียงเวลา |
+| `strict_step_coverage_at_k(...)` | สัดส่วน step ที่ gold id **ครบทุกตัว** อยู่ใน top-K |
+| `step_best_rank(retrieved, step)` | rank แรกที่เจอ gold ของ step (แยก search vs ranking problem) |
+| `step_coverage_by_cue_type(retrieved, steps, k)` | step-coverage แยก `named` (ระบุชื่อเทคนิค) vs `described` (เล่าพฤติการณ์) — described คือ value จริงของ RAG |
 | `RetrieverEvalResult` *(dataclass)* | metric รวม (per-K dict + MRR/MAP + latency) |
 | `RetrieverEvalResult.to_table()` | format ตารางผล |
 | `evaluate_retriever(retriever_fn, samples, k_values, name)` | รัน retriever ต่อทุก sample, วัด metric (มี inner `mean()`) |
@@ -584,6 +617,48 @@ flowchart TD
 | `GenerationEvalResult` *(dataclass)* | RAGAS + fallback metrics + latency + per_sample |
 | `GenerationEvalResult.to_table()` | format ตาราง |
 | `evaluate_generation(query_fn, samples, use_local)` | รัน generation ต่อ sample, fallback metrics, RAGAS (มี inner `_safe_mean`) |
+
+#### `attack_id_metrics.py` — Deterministic ID-based generation metrics (TRAM/CTIBench-style)
+
+| ฟังก์ชัน | หน้าที่ |
+|---|---|
+| `extract_attack_ids(text)` / `extract_technique_ids(text)` | regex ดึง ATT&CK ID (`T####(.###)`, TA/G/S/M####) จาก prose — ใช้ Latin-alnum lookaround (ไม่ใช่ `\b`) ให้จับ ID ที่ฝังในภาษาไทยได้ |
+| `extract_technique_names(text, alias_map)` | จับ technique จากชื่อ canonical (alias จาก Neo4j) ที่โผล่ในคำตอบแม้ไม่แปะ ID |
+| `extract_all_techniques(text, alias_map)` | union ของ ID-cited + name-cited |
+| `technique_set_score(predicted, gold)` | precision/recall/F1 แบบ greedy 1-1: ตรง ID = 1.0, ตระกูลเดียวกัน (parent/sub) = 0.5; คืน exact/partial/spurious/missed |
+| `tactic_level_score(predicted, gold, technique_to_tactics)` | P/R/F1 ระดับ tactic (fallback ผ่าน base technique) |
+| `thai_char_ratio(text)` | สัดส่วนอักษรไทย/(ไทย+ละติน) — จับ language drift |
+| `structure_compliance(text, required_headings)` | หัวข้อครบไหม |
+| `id_survival(source_text, translated_text)` | ID รอดข้ามชั้นแปลไหม + `gained` (ID งอกตอนแปล = hallucination flag) |
+
+> ตาราง alias/tactic มาจาก `export_alias_tables.py` → `data/attack_lookup.json` (816 alias + 1033 technique→tactic)
+
+#### `crosslingual_generation_benchmark.py` — 5-variant harness (ดูภาพรวมด้านบน)
+
+| สัญลักษณ์ | หน้าที่ |
+|---|---|
+| `load_samples(dataset_path, max_samples)` | โหลด incident sample ไทยที่มี gold + query_en |
+| `phase_retrieve(samples, use_local)` | mirror `_node_retrieve`: decompose → `retrieve_multi_quota` → cache context + retrieved ids + `mapping_raw` (สำหรับ replay mapping) + MT query |
+| `run_variant(variant, ctx, reasoning_llm, cheap_llm)` | A/B/C/D/E บน cached context; log `intermediate_en` + tokens + latency |
+| `phase_generate(variants, reasoning_model, cheap_model, max_samples)` | รันทุก variant → JSONL (resume ข้ามคู่ที่ทำแล้ว); `ollama:` prefix = local model |
+| `score_row(row, sample, lookup)` | ID-F1/tactic/step-coverage-by-cue/thai/structure/id_survival ต่อคำตอบ |
+| `phase_score(dataset_path)` | รวมผล + paired bootstrap CI (`_bootstrap_ci`) + Wilcoxon (`_wilcoxon_p`) เทียบ baseline A → report |
+| `phase_score_mapping(dataset_path, thresholds)` | replay `build_mitre_table` (ผ่าน `_shim_rag_result`) เทียบ gold + threshold sweep |
+| `phase_score_retrieval(dataset_path, k_values)` | step-coverage@k จาก cache (ฟรี) |
+| `main()` | CLI `--phase retrieve/generate/score/score-mapping/score-retrieval/all` + `--reasoning-model/--cheap-model/--run-tag/--variants/--thresholds/--local` |
+
+#### `make_incident_dataset.py` — Chronological incident builder (semi-automated)
+
+| สัญลักษณ์ | หน้าที่ |
+|---|---|
+| `sample_kill_chains(neo4j, num, rng, min/max_steps, blocked_ids)` | สุ่ม kill-chain จากเทคนิคที่ **กลุ่มโจมตีจริงกลุ่มเดียว** ใช้ร่วมกัน (≥3 tactic ที่เหยื่อสังเกตได้), 1 เทคนิค/tactic, กรอง deprecated |
+| `draft_narrative(llm, chain)` | Claude ร่างสำนวนไทยเรียงเวลา (named cue แปะชื่อเทคนิค / described cue เล่าพฤติการณ์) + คู่อังกฤษ + cue ต่อ step |
+| `build_sample(idx, chain, draft)` | ประกอบ `GeneratedSample` + auto-flag (cue ไม่ตรง verbatim / described เผลอบอกชื่อเทคนิค / ID หลุดใน narrative) |
+| `main()` | CLI `--num/--seed/--dry-run/--resume` → `data/incident_draft.json` + review sheet |
+
+#### `build_deprecated_blocklist.py` / `export_alias_tables.py`
+
+`build_deprecated_blocklist.main()` — ดึง ATT&CK ID ที่ revoked/deprecated จาก STIX bundle v19 (Neo4j ไม่เก็บ flag นี้) → `data/deprecated_attack_ids.json` · `export_alias_tables.main()` — export alias + technique→tactic จาก Neo4j → `data/attack_lookup.json`
 
 #### `eval_runner.py`
 
@@ -621,7 +696,7 @@ flowchart TD
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `GeneratedSample` *(dataclass)* + `.to_dict()` | sample ที่ gen (query/ids/answer/lang/category) |
+| `GeneratedSample` *(dataclass)* + `.to_dict()` | sample ที่ gen (query/ids/answer/lang/category **+ `query_en`, `gold_attack_ids`, `attack_steps`** สำหรับ incident) |
 | `Neo4jGroundTruthBuilder.__init__/.close/.run_query` | เชื่อม Neo4j + รัน Cypher |
 | `.get_top_techniques/groups/software(limit)` | หา node ที่ degree สูง |
 | `.get_all_tactics()` | ดึง tactics ทั้งหมด |
@@ -629,7 +704,7 @@ flowchart TD
 | `.get_techniques_with_detection(limit)` | technique ที่มี DataComponent detect |
 | `.get_techniques_by_attack_ids(ids)` | map `{attack_id: stix_id}` |
 | `QueryTemplateRegistry.__init__(neo4j)` | registry template query → Cypher |
-| `.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / software_type_query / campaign_attribution(...)` | สร้าง `GeneratedSample` 1 รายการ/template โดย ground truth มาจาก Cypher |
+| `.generate_mitigation_lookup / technique_lookup / group_software / group_techniques / tactic_techniques / software_techniques / technique_detection / technique_groups / campaign_attribution(...)` | สร้าง `GeneratedSample` 1 รายการ/template โดย ground truth มาจาก Cypher (หมายเหตุ: `software_type_query` ถูกตัด — enumeration ล้วน; `group_techniques` ตัด `LIMIT 20` ออกให้ gold ครบ) |
 | `THAI_QUERY_TEMPLATES`, `THAI_ANSWER_PREFIX` | template ไทย deterministic |
 | `_make_thai_variant(sample, seed_node)` | สร้าง variant ไทยจาก sample อังกฤษ |
 | `INCIDENT_SCENARIOS` | scenario incident แบบ bilingual (กำกับ technique_ids + คำตอบ TH/EN) |
@@ -643,7 +718,7 @@ flowchart TD
 
 #### `test_metrics.py`
 
-`test_hit_at_k`, `test_recall_at_k`, `test_precision_at_k`, `test_reciprocal_rank`, `test_ndcg_at_k`, `test_average_precision`, `test_token_f1`, `test_rouge_l`, `test_ground_truth_io` — unit test ของ metric แต่ละตัว (ไม่พึ่ง DB); `run_all_tests()` รันทั้งหมด สรุป pass/fail
+unit test ของ metric แต่ละตัว (ไม่พึ่ง DB): `test_hit_at_k`, `test_recall_at_k` (capped), `test_step_coverage_at_k`, `test_precision_at_k`, `test_reciprocal_rank`, `test_ndcg_at_k`, `test_average_precision`, `test_token_f1`, `test_rouge_l`, `test_extract_attack_ids`, `test_extract_technique_names`, `test_technique_set_score`, `test_tactic_level_score`, `test_guard_metrics`, `test_ground_truth_io`; `run_all_tests()` รันทั้งหมด (15 tests) สรุป pass/fail
 
 #### `__init__.py`
 re-export `EvalSample`, `load_ground_truth`, `save_ground_truth`, `evaluate_retriever`, `evaluate_generation`
