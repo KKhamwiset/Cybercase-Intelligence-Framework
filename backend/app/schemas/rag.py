@@ -35,6 +35,9 @@ class MitreTableRow(BaseModel):
 class QueryResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
+    # The RAG service no longer pauses for clarification, so it always returns
+    # "completed" and leaves followup_question / session_id empty. Both fields
+    # are kept so the existing frontend response type stays satisfied.
     status: Literal["completed", "followup"]
     answer: str = ""
     followup_question: str = ""
@@ -51,6 +54,14 @@ class QueryResponse(BaseModel):
 
 
 class ResumeRequest(BaseModel):
+    """Body for the RAG service's `/resume` endpoint.
+
+    That endpoint was removed from the RAG service on 2026-07-28 along with the
+    follow-up module, so a resume call now 404s (callers map that to an expired
+    session). Kept because `app/services/chat/rag_client.py` still builds this
+    payload — delete it once the chat resume path is reimplemented Backend-side.
+    """
+
     session_id: str
     answer: str
 

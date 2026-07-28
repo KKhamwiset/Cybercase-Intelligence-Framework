@@ -1,7 +1,7 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.services.report_request_helpers import build_document_query
-from app.schemas.rag import QueryRequest, QueryResponse, RagQueryRequest, ResumeRequest
+from app.schemas.rag import QueryRequest, QueryResponse, RagQueryRequest
 from app.services.rag_client import RagServiceClient
 from app.services.typhoon_ocr_reader import extract_markdown_from_upload
 
@@ -40,12 +40,3 @@ async def query_rag_file(
     except Exception as e:
         print(f"[RAG] Error processing OCR query: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/resume", response_model=QueryResponse)
-async def resume_agent(request: ResumeRequest):
-    payload = await RagServiceClient().post_json(
-        "/resume",
-        request.model_dump(mode="json"),
-    )
-    return QueryResponse(**payload)

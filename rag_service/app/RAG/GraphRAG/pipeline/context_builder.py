@@ -86,7 +86,6 @@ def build_generation_prompt(
     original_query: str,
     english_query: str,
     respond_in_thai: bool = True,
-    incident_facts: dict = None,
 ) -> str:
     """Build the final prompt for LLM generation.
 
@@ -95,31 +94,11 @@ def build_generation_prompt(
         original_query: The user's original query (may be Thai).
         english_query: The translated English query (for reference).
         respond_in_thai: Whether to respond in Thai.
-        incident_facts: Structured facts confirmed via follow-up questions,
-                        e.g. {"initial_access": "brute force SSH"}.
-                        When non-empty these are injected at the top of the
-                        prompt so the LLM treats them as ground truth.
 
     Returns:
         The complete user prompt for the LLM.
     """
     parts = []
-
-    # ── Confirmed facts (highest priority — must appear before context) ──
-    facts = incident_facts or {}
-    if facts:
-        parts.append("=" * 60)
-        parts.append("CONFIRMED INCIDENT FACTS (provided by the investigator)")
-        parts.append("=" * 60)
-        parts.append(
-            "The following facts were directly confirmed via follow-up questioning. "
-            "They are ground truth — you MUST incorporate every fact below into your "
-            "analysis. Do NOT contradict or ignore them."
-        )
-        for slot, value in facts.items():
-            label = slot.replace("_", " ").title()
-            parts.append(f"  • {label}: {value}")
-        parts.append("")
 
     parts.append(context)
 

@@ -1,6 +1,9 @@
 # CyberCase Intelligence Framework: Agentic RAG Pipeline
 
-This document details the end-to-end process of the **LangGraph Agentic RAG Pipeline**, built to interpret cybersecurity incidents using the MITRE ATT&CK knowledge base. The system features a cross-lingual architecture, hybrid (Vector + Graph) retrieval, and a self-reflective agentic loop that asks targeted follow-up questions to progressively enrich retrieval.
+This document details the end-to-end process of the **LangGraph Agentic RAG Pipeline**, built to interpret cybersecurity incidents using the MITRE ATT&CK knowledge base. The system features a cross-lingual architecture, hybrid (Vector + Graph) retrieval, and a self-reflective agentic loop that rewrites its own queries to progressively enrich retrieval.
+
+> [!NOTE]
+> The interactive **follow-up module** (pause → ask the user → `resume`) was removed on 2026-07-28; interactive clarification is now owned by the Backend case-analysis workflow. This pipeline always runs to completion in a single call. See `rag_service/docs/FOLLOWUP_REMOVAL.md`.
 
 ---
 
@@ -21,12 +24,10 @@ graph TD
     E --> F{Context Evaluator}
 
     F -->|Sufficient| K["Reasoning LLM: Grounded QA"]
-    F -->|"Insufficient AND follow_up_count < 2"| G[Prepare Follow-up Question]
-    F -->|"Insufficient AND follow_up_count >= 2"| K
+    F -->|"Insufficient AND broaden_count < 2"| G["Broaden Search: agent rewrites the query"]
+    F -->|"Insufficient AND broaden_count >= 2"| K
 
-    G --> H(Wait for User Answer)
-    H --> I["Append Answer to Original Query + Rewrite Query"]
-    I --> E
+    G --> E
 
     K --> L{Output Translation}
     L -->|Respond in Thai| M[Translate to Thai]
@@ -52,7 +53,7 @@ To ensure maximum accuracy against the English-based MITRE ATT&CK database, the 
 
 ### Dual-Query Retrieval (`DUAL_QUERY_RETRIEVAL`)
 
-Translate-then-retrieve alone (tRAG) makes the translation a single point of failure: one bad translation poisons both retrieval channels and every follow-up rewrite (cf. [arXiv:2504.03616](https://arxiv.org/abs/2504.03616)). When the query is Thai, `build_retrieval_queries()` therefore issues **both** queries in parallel:
+Translate-then-retrieve alone (tRAG) makes the translation a single point of failure: one bad translation poisons both retrieval channels and every downstream rewrite (cf. [arXiv:2504.03616](https://arxiv.org/abs/2504.03616)). When the query is Thai, `build_retrieval_queries()` therefore issues **both** queries in parallel:
 
 1. The English translation (always first — the evaluator and rewrites key off it).
 2. The original Thai query — BGE-M3's cross-lingual dense space matches Thai→English semantically, and English keywords embedded in the Thai text (e.g., "Phishing", "T1566") still hit the sparse index exactly.
@@ -61,39 +62,39 @@ Results are merged and deduplicated by `retrieve_multi()` (highest reranker scor
 
 ## 3. Hybrid Retrieval (`hybrid_retriever.py`)
 
-Retrieval is performed against **all accumulated queries** (original query + all rewrites derived from follow-up answers) simultaneously, merging and deduplicating results.
+Retrieval is performed against **all accumulated queries** (original query + decomposed sub-queries + all `BROADEN_SEARCH` rewrites) simultaneously, merging and deduplicating results.
 
 1. **Vector Search**: Each query is embedded using BGE-M3 (a hybrid dense/sparse embedding model) and used to query Qdrant independently.
 2. **Graph Expansion**: The system extracts STIX IDs from all vector matches and queries a Neo4j Graph Database. It retrieves subgraphs up to 2 hops away, pulling in related Mitigations, Sub-techniques, and Threat Actors.
 3. **Context Assembly**: The `context_builder.py` merges and deduplicates all retrieved documents from every query, then formats them into a single structured context string for the LLM.
 
-## 4. Context Evaluation & Follow-up Loop (`evaluator.py`)
+## 4. Context Evaluation & Self-Reflection Loop (`evaluator.py`)
 
 Instead of blindly passing retrieved context to an LLM, the **ContextEvaluator** acts as a self-reflective judge. It inspects the merged context against the user's query and returns one of two verdicts:
 
 * **SUFFICIENT**: The context contains enough information. Proceeds to answer generation immediately.
-* **INSUFFICIENT**: The context does not fully address the query. The agent takes the following steps:
-  1. **Ask a Follow-up Question**: The agent generates exactly **ONE targeted follow-up question** in the user's original language and pauses to wait for the user's answer.
-  2. **Enrich & Rewrite**: Once the user replies, the answer is **appended to the original query** to form an enriched query. A rewritten query is also derived by reformulating with the new context. Both the original query and all new rewrites are retained.
-  3. **Multi-Query Retrieval**: The next retrieval pass runs **all accumulated queries in parallel**, broadening coverage with each iteration.
+* **INSUFFICIENT**: The context does not fully address the query. Because the pipeline cannot ask the user anything, recovery is entirely self-driven:
+  1. **Broaden Search**: The evaluator must supply a `new_query` — a plain-language reformulation using parent technique names and the broader ATT&CK tactic. It is sanitized (`query_sanitizer.py`) to strip markdown and ATT&CK ID tokens before embedding.
+  2. **Multi-Query Retrieval**: The rewrite is appended to `rewritten_queries` and the next retrieval pass runs **all accumulated queries in parallel**, broadening coverage with each iteration.
+  3. **Give up gracefully**: If the budget is spent — or the evaluator returns no usable rewrite, so looping would retrieve the same context — the pipeline answers with the best context it has. When the evaluator chose `ACKNOWLEDGE_LIMIT`, its message is returned instead, stating what was missing.
 
 > [!IMPORTANT]
-> **Maximum Follow-up Iterations: 2**
-> The pipeline tracks a `follow_up_count` counter. After **2** follow-up rounds, the evaluator is bypassed and the pipeline forces a `SUFFICIENT` verdict — the Reasoning LLM generates the best possible answer from all context accumulated so far.
+> **Maximum Broaden Iterations: 2** (`MAX_BROADEN_RETRIES`)
+> The pipeline tracks a `broaden_count` counter. After **2** rounds the evaluator short-circuits to `SUFFICIENT` without an LLM call, and the Reasoning LLM generates the best possible answer from all context accumulated so far.
 
 ### State tracked per pipeline run
 
 | Field | Description |
 |---|---|
-| `original_query` | The initial translated English query (never mutated) |
-| `rewritten_queries` | List of all rewritten queries derived from follow-up answers |
-| `follow_up_count` | Number of follow-up questions asked so far (max: **2**) |
-| `enriched_context` | Concatenation of all user follow-up answers |
+| `original_query` | The user's raw input (never mutated) |
+| `rewritten_queries` | List of all `BROADEN_SEARCH` rewrites produced so far |
+| `broaden_count` | Number of broaden iterations so far (max: **2**) |
+| `strategy` / `gap_warning` / `acknowledgement_message` | Fallback strategy chosen by the evaluator and its payload |
 | `merged_context` | Combined, deduplicated retrieval results across all queries |
 
 ## 5. Reasoning Generation (`context_builder.py` & `agent_graph.py`)
 
-Once the context is deemed sufficient (or the follow-up limit is reached), the **Reasoning LLM** generates the answer.
+Once the context is deemed sufficient (or the broaden budget is exhausted), the **Reasoning LLM** generates the answer.
 * It uses a strict retrieval-grounded prompt, answering **only** from the provided merged context.
 * It operates strictly in English, focusing on simplifying complex cybersecurity jargon into an easy-to-understand incident narrative while preserving ATT&CK IDs and technical terms.
 

@@ -39,8 +39,7 @@
 | การเปลี่ยนแปลง | ไฟล์ | สาระ |
 |---|---|---|
 | **Single-call generation (variant C)** | `agent_graph._node_reasoning`, `cross_lingual.get_fast_system_prompt`, `config.SINGLE_CALL_GENERATION` | สำหรับ query ไทย: reason บน context อังกฤษ + เขียนคำตอบไทยใน **call เดียว** (ตั้ง `answer_is_final=True` → ข้าม `translate_output`) แทน two-stage reason→translate เดิม พิสูจน์ด้วย benchmark ว่าคุณภาพเท่ากันแต่ latency/ต้นทุนครึ่งเดียว ตั้ง `SINGLE_CALL_GENERATION=false` เพื่อกลับ two-stage |
-| **Follow-up ไม่ตอบเปล่า** | `agent_graph._node_prepare_followup`, `query()` | `_DEFAULT_FOLLOWUP_QUESTION` fallback เมื่อ evaluator คืน follow-up ว่าง + guard ใน `query()` ไม่ให้หลุดเป็น completed+เปล่า |
-| **resume() รองรับ multi-turn follow-up** | `agent_graph._park_or_complete`, `resume()` | resume คืน `status="followup"` ได้ (พร้อม session_id ใหม่) เมื่อ context ยังไม่พอหลังตอบ — ไม่ใช่ completed+เปล่า **⚠️ caller (backend/frontend) ต้อง loop จนกว่า status=="completed"** |
+| **🔥 ถอด Follow-up module ออกทั้งหมด** | `agent_graph`, `evaluator`, `routers/rag.py`, ลบ `query_merger.py` | ความสามารถถาม-ตอบย้อนกลับ (pause → ถาม → `resume`) **ถูกย้ายไปเป็นหน้าที่ของ Backend** แล้ว: ลบ `POST /resume`, `GraphRAGAgent.resume()`, session store, slot machinery (`incident_facts`/`asked_slots`/`missing_slot`) — pipeline วิ่งจบรอบเดียวเสมอ (`status` = `completed` ตลอด) INSUFFICIENT ตอนนี้ไปทาง **BROADEN_SEARCH** (agent เขียน query ใหม่เองแล้ววน retrieve, เพดาน 2 รอบ) แทนการถามผู้ใช้ ดูรายละเอียด: `docs/FOLLOWUP_REMOVAL.md` |
 | **Batched Neo4j expansion** | `graph_retriever.expand_batch` | `expand()` เดิมวน `_expand_single` ทีละ seed (3N round-trip) → รวมเป็น 3 Cypher UNWIND ต่อ seed list (เร็ว 3.5× ที่ชั้น expand, ผลเหมือนเดิม) |
 | **Device-aware model loading** | `config.DEVICE`, `config.USE_FP16`, `reranker` | auto GPU/CPU; `USE_FP16 = (DEVICE=="cuda")` — fp16 เฉพาะ GPU (prod Railway = CPU → fp32); override ด้วย `RAG_DEVICE=cpu\|cuda` |
 
@@ -56,7 +55,7 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
 ```
                        ┌──────────────────────────────────────────────┐
    Thai case file ───▶ │  FastAPI (app/main.py, :8001)                 │
-                       │  /query  /resume  /health                     │
+                       │  /query  /health  /retrieval-contexts/{id}     │
                        └───────────────┬──────────────────────────────┘
                                        │ (โหลดโมเดล + เชื่อม DB ครั้งเดียวตอน startup)
           ┌────────────────────────────┼─────────────────────────────────┐
@@ -64,8 +63,8 @@ Backend gateway (พอร์ต 8000) เป็นเพียง proxy ที�
    GraphRAGAgent              HybridRetriever
    (LangGraph state machine)  ├─ VectorRetriever ─▶ Qdrant (BGE-M3 dense+sparse)
    route→prepare→retrieve     ├─ Reranker (bge-reranker-v2-m3)
-   →evaluate→(followup|        └─ GraphRetriever ─▶ Neo4j (STIX graph, 1-hop expand)
-     broaden|reason)
+   →evaluate→(broaden|         └─ GraphRetriever ─▶ Neo4j (STIX graph, 1-hop expand)
+     reason)
    →translate→END
 ```
 
@@ -74,7 +73,6 @@ flowchart TD
     A["Thai case file"] --> API["FastAPI :8001<br/>app/main.py"]
     API -->|"/query use_agent=True"| AG["GraphRAGAgent<br/>(LangGraph)"]
     API -->|"/query use_agent=False"| CH["GraphRAGChain<br/>(linear LCEL)"]
-    API -->|"/resume"| AG
     AG --> HR["HybridRetriever"]
     CH --> HR
     HR --> VR["VectorRetriever"] --> QD[("Qdrant<br/>BGE-M3 dense+sparse")]
@@ -84,18 +82,19 @@ flowchart TD
     CH --> LLM
 ```
 
-**3 เส้นทางหลักของบริการ**
+**2 เส้นทางหลักของบริการ**
 
 | Endpoint | คลาสที่ใช้ | เส้นทาง |
 |---|---|---|
-| `POST /query` (`use_agent=True`) | `GraphRAGAgent` | agentic LangGraph: decompose → quota-retrieve → evaluate → (follow-up/broaden) → **generate** (default: single-call ไทย; fallback: reason→translate) |
+| `POST /query` (`use_agent=True`) | `GraphRAGAgent` | agentic LangGraph: decompose → quota-retrieve → evaluate → (broaden loop) → **generate** (default: single-call ไทย; fallback: reason→translate) |
 | `POST /query` (`use_agent=False`) | `GraphRAGChain` | linear LCEL: translate → dual-query retrieve → reason → translate |
-| `POST /resume` | `GraphRAGAgent.resume` | ดำเนิน session ที่ pause เพื่อถาม follow-up ต่อ |
 
-**หมายเหตุ**: Endpoint การสร้างรายงาน (`/generate-report`) และองค์ประกอบรายงานถูกย้ายไปที่ Backend Service (Phase 2A refactor)
+**หมายเหตุ**:
+- Endpoint การสร้างรายงาน (`/generate-report`) และองค์ประกอบรายงานถูกย้ายไปที่ Backend Service (Phase 2A refactor)
+- `POST /resume` (follow-up) **ถูกลบแล้ว** — การถาม-ตอบย้อนกลับเป็นหน้าที่ของ Backend (ดู §0 changelog + `docs/FOLLOWUP_REMOVAL.md`) บริการนี้ตอบครบจบในรอบเดียวเสมอ
 
 **สอง pipeline ที่ขนานกันในโค้ด**
-- `GraphRAGAgent` (`pipeline/agent_graph.py`) — เส้นทาง production agentic ใหม่ (decomposer + quota + self-reflection + follow-up)
+- `GraphRAGAgent` (`pipeline/agent_graph.py`) — เส้นทาง production agentic ใหม่ (decomposer + quota + self-reflection)
 - `GraphRAGChain` (`pipeline/chain.py`) — เส้นทาง linear เดิม (ยังใช้ใน eval generation)
 
 ---
@@ -113,14 +112,13 @@ flowchart TD
 | **Dual-query (chain/report path)** | `build_retrieval_queries` | ดึงทั้ง query อังกฤษที่แปล + query ไทยต้นฉบับขนานกัน กัน mistranslation ทำ retrieval พัง |
 | **Query Decomposition (agent path)** | `pipeline/query_decomposer.py` | แตก incident เป็น sub-query atomic ต่อ technique (ภาษาเดิม, ไม่แปล — BGE-M3 multilingual) |
 | **Per-query Quota Retrieval** | `hybrid_retriever.retrieve_multi_quota` | เก็บ top-`per_query_k` ของแต่ละ sub-query แล้ว round-robin interleave → ทุก technique ได้พื้นที่ |
-| **Self-reflection / Self-RAG loop** | `pipeline/evaluator.py` + agent edges | LLM ประเมิน context พอหรือไม่ → SUFFICIENT / INSUFFICIENT(ถาม follow-up) / BROADEN_SEARCH |
-| **Slot-aware Follow-up** | `evaluator.py` + `agent_graph._resume_with_answer` | ถามทีละ slot (initial_access → credential_theft → priv_esc → lateral → impact) ไม่ถามซ้ำ |
-| **Query Merger** | `pipeline/query_merger.py` | รวม query เดิม + คำตอบ follow-up เป็น query เดียวที่ MITRE-aligned |
+| **Self-reflection / Self-RAG loop** | `pipeline/evaluator.py` + agent edges | LLM ประเมิน context พอหรือไม่ → SUFFICIENT / INSUFFICIENT → **BROADEN_SEARCH** (agent เขียน query ใหม่เอง แล้ววน retrieve ซ้ำ เพดาน `MAX_BROADEN_RETRIES=2`); ไม่มีการหยุดถามผู้ใช้แล้ว |
+| **Retrieval query sanitizer** | `pipeline/query_sanitizer.py` | ตัด markdown + ATT&CK ID token ออกจาก query ที่ LLM เขียน (BROADEN_SEARCH) ก่อนเข้า embedding — กันไปแมตช์ metadata แทน description |
 | **Cross-lingual generation** | `cross_lingual` prompts, `agent_graph._node_reasoning` | **Default (agent, variant C):** call เดียว — reason บน EN context + เขียนไทยเลย (`get_fast_system_prompt`, `answer_is_final=True`). **Fallback (`SINGLE_CALL_GENERATION=false` / chain path):** two-stage — reasoning LLM → EN แล้ว translation LLM → Thai. หมายเหตุ: agent path ไม่แปล query ขาเข้า (ไทยเข้า retrieval ตรงๆ) |
 | **Faithful MITRE table** | `Backend ReportGenerator` | สร้างตารางจาก entity ที่ retrieve จริง (ไม่ใช่จาก LLM) → ID ไม่ถูก hallucinate |
 | **CJK Thai-only guard** | `Backend ReportGenerator` | ตรวจ token จีน/ญี่ปุ่น/เกาหลีหลุดในรายงาน → re-translate field เป็นไทยล้วน |
 | **Domain filter (mobile กันปน)** | `vector_retriever.search_entities` + `config.ATTACK_DOMAIN_FILTER` | กรอง entity ให้เหลือ domain enterprise หลัง retrieval |
-| **Agentic state machine** | `pipeline/agent_graph.py` (LangGraph) | StateGraph: node + conditional edges + in-memory session store สำหรับ pause/resume |
+| **Agentic state machine** | `pipeline/agent_graph.py` (LangGraph) | StateGraph: node + conditional edges; stateless — ไม่มี session store แล้ว (graph วิ่งจบในการเรียกครั้งเดียว) |
 | **Thai legal delegation** | `pipeline/thanoy_client.py` | ไม่สอนกฎหมายไทยให้ MITRE model (กัน hallucinate มาตรา) → เรียก Thanoy API แทน |
 | **Eval: retriever metrics** | `evaluation/retriever_metrics.py` | Hit@K, capped Recall@K, Precision@K, MRR, NDCG@K, MAP, **step-coverage@k (named/described)** |
 | **Eval: generation metrics** | `evaluation/generation_metrics.py`, **`attack_id_metrics.py`** | RAGAS + fallback Token-F1/ROUGE-L/BERTScore; **technique ID-F1 (partial credit), tactic F1, thai-ratio, structure, id_survival** |
@@ -137,7 +135,7 @@ flowchart TD
 | **Embedding** | `BAAI/bge-m3` (1024-d, FP16, dense+sparse) | (เหมือนกัน) | `EMBED_MODEL`, `USE_FP16` |
 | **Reranker** | `BAAI/bge-reranker-v2-m3` (cross-encoder, รองรับไทย) | (เหมือนกัน) | `RERANKER_MODEL` |
 | **Reasoning / Translation / Router / Decomposer LLM** | `claude-haiku-4-5` | `qwen2.5:7b` (Ollama) | `LLM_MODEL` / `LOCAL_LLM_MODEL` |
-| **Evaluator / Query-merger LLM** | `claude-haiku-4-5` | `gemma3:4b` (Ollama) | `EVALUATOR_LLM_MODEL` / `LOCAL_EVAL_MODEL` |
+| **Evaluator LLM** | `claude-haiku-4-5` | `gemma3:4b` (Ollama) | `EVALUATOR_LLM_MODEL` / `LOCAL_EVAL_MODEL` |
 | **RAGAS judge (eval)** | Claude Haiku → OpenRouter `qwen/qwen-2.5-72b-instruct` | `gemma3:4b` | `RAGAS_LLM_MODEL`, `OPENROUTER_*` |
 | **RAGAS embeddings (eval)** | `nomic-embed-text` (Ollama, local) | (เหมือนกัน) | hard-coded ใน `generation_metrics` |
 | **Thai legal AI** | Thanoy (iApp REST API) | (เหมือนกัน) | `THANOY_API_*` |
@@ -223,10 +221,9 @@ rag_service/
 ├── Dockerfile                       # python:3.11-slim, pre-cache embed model, uvicorn :8001
 ├── requirements.txt
 ├── app/
-│   ├── main.py                      # FastAPI service (4 endpoints + lifespan)
+│   ├── main.py                      # FastAPI service (3 endpoints + lifespan)
 │   ├── download_model.py            # pre-cache โมเดลตอน Docker build
 │   ├── _perf_probe.py               # เครื่องมือวัดเวลาแต่ละ node (throwaway)
-│   ├── test_agent_flow.py           # สคริปต์ทดสอบ follow-up loop
 │   └── RAG/
 │       ├── __init__.py              # re-export public API
 │       └── GraphRAG/
@@ -234,8 +231,8 @@ rag_service/
 │           ├── models.py            # Pydantic models ของ STIX entities/relationships
 │           ├── main.py              # CLI (--ingest/--test/--agent/--retrieve-only)
 │           ├── pipeline/            # agent_graph, chain, router, cross_lingual,
-│           │                        #   query_decomposer, evaluator, query_merger,
-│           │                        #   context_builder
+│           │                        #   query_decomposer, evaluator, query_sanitizer,
+│           │                        #   context_builder, mitre_table, thanoy_client
 │           ├── retrieval/           # vector_retriever, graph_retriever, reranker, hybrid_retriever
 │           ├── ingestion/           # stix_parser, graph_loader, vector_loader
 │           └── evaluation/          # ground_truth, retriever_metrics (step-coverage),
@@ -247,7 +244,8 @@ rag_service/
 │                                    #   data/ (contexts cache, incident_draft, attack_lookup)
 │                                    #   results/ (benchmark reports + PDFs)
 ├── docs/
-│   └── _build_pdf.py                # render RAG_Module.md → HTML (mermaid) → PDF
+│   ├── _build_pdf.py                # render RAG_Module.md → HTML (mermaid) → PDF
+│   └── FOLLOWUP_REMOVAL.md          # รายงานการถอด Follow-up module (2026-07-28)
 └── finetune/                        # MITRE specialist fine-tune (QLoRA/LoRA)
     ├── ft_config.py
     ├── data/templates.py            # STIX → (Q,A) templates
@@ -267,8 +265,8 @@ rag_service/
 ### 6.2 `POST /query` (agent)
 `route_query` → `prepare` (ตรวจภาษา) → `retrieve` (decompose → `retrieve_multi_quota` → `build_context`) → `evaluate_context` →
 - **SUFFICIENT** → `reasoning` → END (single-call เขียนไทยเลย) / หรือ → `translate_output` → END (two-stage เมื่อ `SINGLE_CALL_GENERATION=false`)
-- **INSUFFICIENT** → `prepare_followup` → END (pause, คืน `status="followup"` + `session_id`)
-- **BROADEN** → `broaden_search` → วน `retrieve`
+- **INSUFFICIENT** + ยังมีโควตา (`broaden_count < MAX_BROADEN_RETRIES=2`) + evaluator ให้ `new_query` ที่ใช้ได้ → `broaden_search` → วน `retrieve`
+- **INSUFFICIENT** แต่หมดโควตา / ไม่มี rewrite ที่ใช้ได้ → `reasoning` (ตอบด้วย context เท่าที่มี; ถ้า strategy = `ACKNOWLEDGE_LIMIT` จะคืนข้อความบอกข้อจำกัดแทน)
 
 ```mermaid
 flowchart TD
@@ -278,17 +276,14 @@ flowchart TD
     PREP --> RET["retrieve<br/>(decompose + per-query quota)"]
     RET --> EVAL{"evaluate_context"}
     EVAL -->|SUFFICIENT| REASON["reasoning LLM"]
-    EVAL -->|INSUFFICIENT| FU["prepare_followup"] --> E2([END — pause/await user])
-    EVAL -->|BROADEN_SEARCH| BRD["broaden_search"] --> RET
+    EVAL -->|"INSUFFICIENT + มีโควตา + มี new_query"| BRD["broaden_search<br/>(agent เขียน query ใหม่เอง)"] --> RET
+    EVAL -->|"INSUFFICIENT + หมดโควตา"| REASON
     REASON -->|respond_in_thai และไม่ answer_is_final| TR["translate_output"] --> E3([END])
     REASON -->|single-call / else| E4([END])
 ```
 
 > **single-call (default):** node `reasoning` เขียนไทยเลย ตั้ง `answer_is_final=True` → ข้าม `translate_output`
-> resume: `/resume` ดึง state ที่ pause → `_resume_with_answer` (เก็บ slot + merge query + rewrite) → invoke graph ใหม่จากต้น (route → … ) จนถึง END
-
-### 6.3 `POST /resume`
-ดึง state ที่ pause จาก `_sessions[session_id]` → `_resume_with_answer` (เก็บ fact ลง slot, merge query, append rewrite, เพิ่ม retry_count) → invoke graph ใหม่ → `_park_or_complete`: ถ้า context ยังไม่พอ **คืน `status="followup"` รอบใหม่** (session_id ใหม่), ไม่งั้นคืน `status="completed"`. **⚠️ caller ต้อง loop resume จนกว่า status=="completed"** (bounded โดย `MAX_FOLLOWUP_RETRIES=2`)
+> **ไม่มี pause แล้ว** — graph วิ่งถึง END ทุกครั้ง `query()` คืน `status="completed"` เสมอ ถ้าต้องการถามผู้ใช้เพิ่ม ผู้เรียก (Backend) จัดการเองแล้วเรียก `/query` ใหม่ด้วยข้อความเหตุการณ์ที่เติมข้อมูลแล้ว
 
 
 
@@ -303,12 +298,11 @@ flowchart TD
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
 | `lifespan(app)` *(async ctx)* | โหลด BGE-M3 ครั้งเดียว, สร้าง chain/agent/retriever ตาม `USE_LOCAL`, เก็บใน `app.state`; ตอน shutdown ปิดทุกตัว |
-| `QueryRequest` | request body: `query`, `use_agent=True`, `legal=False` |
-| `QueryResponse` | response: `status`, `answer`, `followup_question`, `session_id` |
-| `ResumeRequest` | request body: `session_id`, `answer` |
+| `QueryRequest` | request body: `query`, `use_agent=True` |
+| `QueryResponse` | response: `status` (= `"completed"` เสมอ), `answer`, `retrieval_context_id`, `mitre_table` |
 | `health(request)` *(async)* | คืนสถานะบริการ + ว่า chain/agent โหลดสำเร็จไหม |
 | `query_rag(request, req)` *(async)* | endpoint `/query`: ถ้า `use_agent` เรียก `rag_agent.query` ไม่งั้น `rag_chain.query`; map error → HTTP 500/503 |
-| `resume_agent(request, req)` *(async)* | endpoint `/resume`: เรียก `rag_agent.resume(session_id, answer)`; KeyError → 404 |
+| `get_retrieval_context(context_id, req)` *(async)* | endpoint `/retrieval-contexts/{id}`: คืน snapshot ของ context ที่ cache ไว้; ไม่พบ → 404 |
 | `__main__` | `uvicorn.run(app, host=0.0.0.0, port=8001)` |
 
 ### 7.2 `config.py`
@@ -352,31 +346,25 @@ flowchart TD
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `AgentState` *(TypedDict)* | state ที่ไหลผ่านทุก node: inputs, route, english_query, graphrag_result, context, evaluation, retry/followup/broaden counts, incident_facts, asked_slots, strategy, answer ฯลฯ |
-| `AgentResponse` *(dataclass)* | ผลลัพธ์: `status`("completed"/"followup"), `answer`, `followup_question`, `session_id` |
-| `AgentResponse.needs_followup` *(property)* | True ถ้า `status=="followup"` |
+| `AgentState` *(TypedDict)* | state ที่ไหลผ่านทุก node: inputs, route, english_query, graphrag_result, context, evaluation, `broaden_count`, `rewritten_queries`, strategy, answer ฯลฯ |
+| `AgentResponse` *(dataclass)* | ผลลัพธ์: `status` (= `"completed"` เสมอ), `answer`, `context`, `graphrag_result` |
 | `AgentResponse.to_dict()` | serialize เป็น dict สำหรับ JSON API |
-| `MAX_RETRIEVAL_RETRIES=2`, `MAX_FOLLOWUP_RETRIES=2` | เพดานรอบ self-reflection / follow-up |
-| `GraphRAGAgent.__init__(embed_model, reranker, use_local)` | โหลด/รับ embed model, สร้าง retriever + router + evaluator + query_merger + decomposer + reasoning/translation LLM, build graph, สร้าง `_sessions` |
+| `MAX_BROADEN_RETRIES=2` | เพดานรอบ self-reflection (BROADEN_SEARCH) |
+| `GraphRAGAgent.__init__(embed_model, reranker, use_local)` | โหลด/รับ embed model, สร้าง retriever + router + evaluator + decomposer + reasoning/translation LLM, build graph |
 | `.close()` | ปิด retriever (Neo4j + Qdrant) |
 | `.retrieve_only(user_query)` | เฉพาะ retrieval: decompose → `retrieve_multi_quota` → `build_context` (debug) |
-| `.query(user_query, verbose, followup_callback)` | รัน graph; ถ้า pause: CLI โหมดเรียก callback วน, API โหมดเก็บ session แล้วคืน `status="followup"` |
-| `.resume(session_id, user_answer, verbose)` | ดึง session ที่ pop ออก → resume ด้วยคำตอบ → `_park_or_complete` (คืน `completed` **หรือ `followup` รอบใหม่** ถ้า context ยังไม่พอ); KeyError ถ้าไม่พบ session |
-| `._park_or_complete(result, verbose)` | ถ้า graph ยัง `awaiting_followup` → park session ใหม่ + คืน `status="followup"`; ไม่งั้นคืน `completed`. ใช้ร่วม `query()`/`resume()` กัน 2nd-follow-up หลุดเป็น completed+เปล่า |
-| `._resume_with_answer(state, user_answer)` | เก็บ answer ลง slot ที่ขาด, `query_merger.merge` ได้ rewrite, append `rewritten_queries`, เพิ่ม retry/followup count, invoke graph ใหม่ |
-| `._force_continue(state)` | ข้าม follow-up: เคลียร์ evaluation บังคับ path SUFFICIENT แล้ว invoke graph |
+| `.query(user_query, verbose)` | รัน graph จนจบ แล้วคืน `status="completed"` (ไม่มีการ pause) |
 | `._build_graph()` | สร้าง `StateGraph`: register node, ตั้ง entry `route_query`, ผูก conditional/normal edges, `compile()` |
 | `._node_route_query(state)` | เรียก `router.route_query` → GENERAL/INCIDENT |
 | `._node_general_explanation(state)` | ตอบความรู้ทั่วไปด้วย LLM ตรง (ไม่ retrieve), ถ้าไทยเติม "Answer in Thai" |
 | `._node_prepare(state)` | ตรวจว่าตอบไทยไหม (`should_respond_in_thai`), set `english_query = query` (ไม่แปล input) |
 | `._node_retrieve(state)` | full query เป็น channel แรก + decompose sub-queries + rewrites → `retrieve_multi_quota` → `build_context` |
-| `._node_evaluate_context(state)` | เรียก `evaluator.evaluate` พร้อม incident_facts/asked_slots/total_retries → set evaluation/strategy/gap/ack |
-| `._node_prepare_followup(state)` | ตั้ง `awaiting_followup=True` + `followup_question` (fallback `_DEFAULT_FOLLOWUP_QUESTION` ถ้า evaluator คืนคำถามว่าง — กัน completed+เปล่า) |
-| `._node_broaden_search(state)` | append `new_query` จาก evaluation, เพิ่ม broaden_count แล้ววน retrieve |
-| `._node_reasoning(state)` | **Single-call (default, query ไทย):** `get_fast_system_prompt` → คำตอบไทยเลย ตั้ง `answer_is_final=True`. **Two-stage (`SINGLE_CALL_GENERATION=false`):** `get_reasoning_system_prompt` → คำตอบอังกฤษ. มี fast-path ACKNOWLEDGE_LIMIT เมื่อ retry หมด; ใช้ `build_generation_prompt` |
+| `._node_evaluate_context(state)` | เรียก `evaluator.evaluate` พร้อม `retry_count=broaden_count` → set evaluation/strategy/gap/ack |
+| `._node_broaden_search(state)` | sanitize + append `new_query` จาก evaluation, เพิ่ม broaden_count แล้ววน retrieve |
+| `._node_reasoning(state)` | **Single-call (default, query ไทย):** `get_fast_system_prompt` → คำตอบไทยเลย ตั้ง `answer_is_final=True`. **Two-stage (`SINGLE_CALL_GENERATION=false`):** `get_reasoning_system_prompt` → คำตอบอังกฤษ. มี fast-path ACKNOWLEDGE_LIMIT เมื่อ verdict = INSUFFICIENT (การมาถึง node นี้พร้อม verdict นี้แปลว่า broaden หมดโควตาแล้ว); ใช้ `build_generation_prompt` |
 | `._node_translate_output(state)` | translation LLM → ไทย (`get_translation_system_prompt`); **ถูกข้ามเมื่อ `answer_is_final=True`** (single-call เขียนไทยแล้ว) |
 | `._edge_after_route(state)` *(static)* | ปัจจุบันคืน "incident" เสมอ (router ถูกปิดชั่วคราว) |
-| `._edge_after_evaluation(state)` *(static)* | SUFFICIENT→reasoning; ถึงเพดาน+BROADEN(<2)→broaden, ไม่งั้น→sufficient; ไม่งั้น→followup |
+| `._edge_after_evaluation(state)` *(static)* | SUFFICIENT→reasoning; INSUFFICIENT + `broaden_count<2` + `new_query` ที่ sanitize แล้วไม่ว่าง→broaden; นอกนั้น→reasoning (ตอบด้วยเท่าที่มี) |
 | `._edge_after_reasoning(state)` *(static)* | ถ้า `respond_in_thai` **และไม่ `answer_is_final`** → translate; ไม่งั้น → done (single-call ข้าม translate) |
 
 #### `chain.py` — Linear LCEL pipeline
@@ -386,7 +374,7 @@ flowchart TD
 | `_print_sources(graphrag_result, top_n=5)` | พิมพ์ top source (name/type/attack_id/score) สำหรับ verbose |
 | `GraphRAGChain.__init__(embed_model, use_local)` | โหลด embed model, สร้าง translator(`CrossLingualLayer`) + retriever + router + reasoning/translation LLM |
 | `.close()` | ปิด retriever |
-| `.query(user_query, verbose, followup_callback)` | linear: route → (general?) → translate → dual-query retrieve → build_context → reasoning LLM → (ถ้าไทย) translation LLM; คืน string |
+| `.query(user_query, verbose)` | linear: route → (general?) → translate → dual-query retrieve → build_context → reasoning LLM → (ถ้าไทย) translation LLM; คืน string |
 | `.retrieve_only(user_query)` | translate → `build_retrieval_queries` → `retrieve_multi` → `build_context` (debug) |
 
 #### `router.py`
@@ -427,29 +415,28 @@ flowchart TD
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `VERDICT_SUFFICIENT/INSUFFICIENT/NEED_CLARIFICATION`, `VALID_VERDICTS`, `MAX_RETRIES=2` | ค่าคงที่ verdict |
-| `EvaluationResult` *(dataclass)* | verdict, reason, covered/missing_phases, missing_slot, follow_up, strategy, new_query, gap_warning, message |
+| `VERDICT_SUFFICIENT/INSUFFICIENT`, `VALID_VERDICTS`, `MAX_RETRIES=2` | ค่าคงที่ verdict |
+| `EvaluationResult` *(dataclass)* | verdict, reason, covered/missing_phases, strategy, new_query, gap_warning, message |
 | `EvaluationResult.__post_init__` | ตั้ง list ว่างถ้า None |
-| `EVALUATOR_SYSTEM_PROMPT` | prompt ประเมินความพอเพียงตาม 4 phase + slot logic + fallback strategy; **ห้ามแต่ง ATT&CK ID ที่ไม่อยู่ใน context** |
+| `EVALUATOR_SYSTEM_PROMPT` | prompt ประเมินความพอเพียงตาม 4 phase + answerability gate + fallback strategy (BROADEN_SEARCH / PARTIAL_ANSWER / ACKNOWLEDGE_LIMIT); INSUFFICIENT **ต้อง** ให้ `new_query` เพราะถามผู้ใช้ไม่ได้แล้ว; **ห้ามแต่ง ATT&CK ID ที่ไม่อยู่ใน context** |
 | `ContextEvaluator.__init__(use_local)` | สร้าง evaluator LLM (Claude Haiku/Gemma) |
-| `.evaluate(original_query, english_query, context, retry_count, …, incident_facts, asked_slots)` | ประเมิน; ถ้า `retry_count>=MAX_RETRIES` short-circuit SUFFICIENT; หา next missing slot; เรียก LLM → parse |
-| `._build_prompt(...)` *(static)* | ประกอบ prompt: known facts + asked slots + retry hint + query + context (ตัด 4000 ตัวอักษร) |
+| `.evaluate(original_query, english_query, context, retry_count, verbose)` | ประเมิน; ถ้า `retry_count>=MAX_RETRIES` short-circuit SUFFICIENT; เรียก LLM → parse |
+| `._build_prompt(...)` *(static)* | ประกอบ prompt: retry hint + query + context (ตัด 4000 ตัวอักษร) |
 | `._parse_response(raw)` *(static)* | ดึง JSON (regex → brace-scan → fallback SUFFICIENT) เป็น `EvaluationResult` |
 
-#### `query_merger.py`
+#### `query_sanitizer.py`
 
 | สัญลักษณ์ | หน้าที่ |
 |---|---|
-| `_MERGE_PROMPT_TEMPLATE` | prompt รวม query เดิม + follow-up answer → query เดียว MITRE-aligned, self-contained, EN-only |
-| `QueryMerger.__init__(use_local)` | LLM น้ำหนักเบา (evaluator model) |
-| `.merge(original_query, followup_question, user_answer, verbose)` | คืน query รวม; ไม่มี LLM → concatenate ธรรมดา |
+| `_ATTACK_ID_RE`, `_MARKDOWN_RE` | regex จับ ATT&CK ID token (`T1110`, `TA0006`, …) และอักขระ markdown |
+| `sanitize_retrieval_query(text)` | ตัด markdown + ID token + วงเล็บว่าง, ยุบ whitespace เป็นบรรทัดเดียว — ใช้กับ `new_query` ของ BROADEN_SEARCH ก่อนเข้า embedding |
 
 #### `context_builder.py`
 
 | ฟังก์ชัน | หน้าที่ |
 |---|---|
 | `build_context(result, max_context_length=10000, max_vector=None, max_graph=3)` | ประกอบ context string: semantic results (top `max_vector` หรือ `FINAL_TOP_K`) + graph subgraph (`max_graph`); ตัดความยาว |
-| `build_generation_prompt(context, original_query, english_query, respond_in_thai, incident_facts)` | ประกอบ user prompt: confirmed facts (priority สูง) + context + คำถาม + instruction (ไทย/อังกฤษ) |
+| `build_generation_prompt(context, original_query, english_query, respond_in_thai)` | ประกอบ user prompt: context + คำถาม + instruction (ไทย/อังกฤษ) |
 
 #### `report_generator.py` & `thanoy_client.py` (Moved)
 
@@ -733,7 +720,6 @@ re-export `EvalSample`, `load_ground_truth`, `save_ground_truth`, `evaluate_retr
 | `run_ingest()` | parse STIX → โหลด Neo4j (`GraphLoader`) + Qdrant (`VectorLoader`) |
 | `TEST_QUERIES` | ชุด query ไทยทดสอบ (~29 เคส) |
 | `run_tests(retrieve_only, use_agent)` | รัน test queries ผ่าน chain/agent |
-| `_interactive_followup_callback(question)` | callback อ่านคำตอบ follow-up จาก stdin (interactive) |
 | `run_interactive(retrieve_only, use_agent)` | โหมด interactive REPL |
 | `main()` | argparse: `--ingest/--test/--retrieve-only/--agent` |
 
@@ -742,10 +728,6 @@ re-export `EvalSample`, `load_ground_truth`, `save_ground_truth`, `evaluate_retr
 
 #### `_perf_probe.py` — throwaway perf tool
 `_record(label, dt)` สะสมเวลา · `timed(label)` decorator factory (มี inner `deco/wrapper`) · `main()` instrument ทุก node + retrieval substep แล้วรัน query เดียววัดเวลา
-> ⚠️ อ้างถึง `_node_translate_query` ซึ่งถูก rename เป็น `_node_prepare` แล้ว — ต้องแก้ก่อนรัน
-
-#### `test_agent_flow.py` — follow-up loop test
-`TEST_CASES` (query คลุมเครือ + คำตอบจำลอง) · `make_callback(simulated_answer)` คืน callback ตอบอัตโนมัติ (inner `callback`) · `__main__` รันแต่ละเคสผ่าน `GraphRAGAgent.query`
 
 #### `docs/_build_pdf.py` — เครื่องมือ doc (สคริปต์ระดับ module)
 `_stash_mermaid(m)` แยก mermaid block ก่อนแปลง · `gh_slugify(value, separator)` slugify แบบ GitHub (คงไทย) · `_restore_mermaid(m)` ใส่ mermaid กลับเป็น `<pre class="mermaid">`; ส่วนล่างแปลง `RAG_Module.md` → HTML (Sarabun font + mermaid) เขียนไฟล์

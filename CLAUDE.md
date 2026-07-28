@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**CyberCase Intelligence Framework** is a full-stack RAG platform that analyzes cybersecurity incidents using MITRE ATT&CK intelligence. It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), interactive follow-up handling, and self-reflection loops.
+**CyberCase Intelligence Framework** is a full-stack RAG platform that analyzes cybersecurity incidents using MITRE ATT&CK intelligence. It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), and self-reflection loops. Interactive follow-up handling lives in the Backend case-analysis workflow — the RAG service itself never pauses.
 
 ## Service Layout
 
@@ -14,7 +14,7 @@ The platform is split into three services (see `docker-compose.yml`):
 |---------|------|------|------|
 | Frontend | `frontend/` | 3000 | Next.js UI |
 | Backend API | `backend/` | 8000 | FastAPI gateway + PostgreSQL (users, health). Proxies all RAG calls to the RAG service over HTTP (`RAG_SERVICE_URL`) |
-| RAG Service | `rag_service/` | 8001 | FastAPI service hosting the GraphRAG pipeline; serves `/query`, `/resume`, `/health` |
+| RAG Service | `rag_service/` | 8001 | FastAPI service hosting the GraphRAG pipeline; serves `/query`, `/health`, `/retrieval-contexts/{id}` |
 
 The RAG pipeline code lives at `rag_service/app/RAG/GraphRAG/` (it was migrated out of `backend/` — backend no longer contains any RAG code). `rag_service/finetune/` holds the MITRE ATT&CK specialist fine-tune module (cloud QLoRA training + A/B compare; see its `README.md`).
 
@@ -111,15 +111,18 @@ User Input (Thai/English)
     ↓
 [EVALUATOR] Context sufficiency check (evaluator.py)
     ├── SUFFICIENT → proceed
-    ├── INSUFFICIENT → ask follow-up (max 2x, returns status=followup)
-    └── BROADEN_SEARCH → rewrite queries, loop retrieval
+    └── INSUFFICIENT → BROADEN_SEARCH: the agent rewrites the query itself and
+        loops retrieval (max 2x). Budget spent → answer with the best context
+        available, or return the evaluator's ACKNOWLEDGE_LIMIT message.
     ↓
-[REASONING LLM] Generate English answer
+[REASONING LLM] Generate answer (single-call Thai by default)
     ↓
-[TRANSLATION LLM] Translate to Thai if needed
+[TRANSLATION LLM] Translate to Thai if needed (skipped for single-call)
     ↓
-END → AgentResponse(status, answer, followup_question?, session_id?)
+END → AgentResponse(status="completed", answer)
 ```
+
+The pipeline never pauses for user input.
 
 ### API Endpoints
 
@@ -127,7 +130,6 @@ Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — query routes prox
 - `GET /api/v1/health` — System health + DB status
 - `POST /api/v1/rag/query` — Query RAG (chain or agent mode via `use_agent`)
 - `POST /api/v1/rag/query-file` — Upload a document (PDF/image); Typhoon OCR extracts markdown, then queries RAG in chain mode
-- `POST /api/v1/rag/resume` — Resume a paused follow-up session (send `session_id`)
 - `POST /api/v1/cases/{case_id}/report` — Start RAG-driven report generation for a case
 - `POST /api/v1/cases/{case_id}/report/resume` — Resume report follow-up session
 - `GET /api/v1/cases/{case_id}/report` — Get latest report for a case
@@ -135,7 +137,7 @@ Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — query routes prox
 - `GET /api/v1/reports/{report_id}` — Get report details
 - `PATCH /api/v1/reports/{report_id}/review-status` — Update report review status
 
-RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `POST /resume`.
+RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `GET /retrieval-contexts/{context_id}`.
 
 ### Key Modules (under `rag_service/app/RAG/GraphRAG/`)
 | Module | Path | Purpose |
@@ -148,8 +150,10 @@ RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `P
 | Config | `config.py` | All RAG settings (models, topK, DB URLs) |
 | Ingestion | `ingestion/` | Parse STIX JSON, populate Neo4j + Qdrant |
 
-### Follow-Up Session Flow
-When the evaluator returns `INSUFFICIENT`, the API responds with `status: "followup"` and a `session_id`. The frontend must send the user's answer back via `POST /api/v1/rag/resume` with the same `session_id`.
+### Follow-Up Handling (moved out of the RAG service, 2026-07-28)
+The RAG service's follow-up module (pause → ask → `POST /resume`) was removed; `GraphRAGAgent.query()` always returns `status: "completed"`. Interactive clarification belongs to the Backend case-analysis workflow (`app/services/report_workflow.py`, `app/services/case_chat.py`), which asks its own questions, persists the answers on the case, and re-queries `POST /query` with the enriched incident text. See `rag_service/docs/FOLLOWUP_REMOVAL.md`.
+
+⚠️ `CaseChatService.send_message(action="followup")` still calls the RAG service `/resume` directly (`backend/app/services/case_chat.py:607`). That call now 404s, which the service already maps to `status="expired"` — the chat follow-up action is inert until reimplemented Backend-side.
 
 ### Report Workflow States
 The report generator endpoints return one of these three precise response states:

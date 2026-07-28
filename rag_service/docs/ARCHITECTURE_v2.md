@@ -1,13 +1,15 @@
 # CyberCase RAG Service — Architecture v2.0
 
 > เอกสารนี้เขียนใหม่ทั้งหมดจากการอ่านซอร์สโค้ดปัจจุบันของ `rag_service/` (กรกฎาคม 2569)
-> เน้น **สถาปัตยกรรม + diagram + design ที่เป็นปัจจุบัน** (single-call generation, multi-turn
-> follow-up, batched retrieval, device-aware) — สำหรับรายละเอียดระดับ *ทุกฟังก์ชัน* ดู
+> เน้น **สถาปัตยกรรม + diagram + design ที่เป็นปัจจุบัน** (single-call generation,
+> self-reflection loop, batched retrieval, device-aware) — สำหรับรายละเอียดระดับ *ทุกฟังก์ชัน* ดู
 > [`ARCHITECTURE.md`](../ARCHITECTURE.md) (per-function reference)
 
 **การเปลี่ยนแปลงหลักจาก v1 → v2** (diagram v1 ยัง reflect ของเก่า):
 - **Generation:** two-stage (reason EN → translate TH) → **single-call variant C** (call เดียว เขียนไทยเลย)
-- **Follow-up resume:** คืน completed เสมอ → **multi-turn** (คืน followup รอบใหม่ได้)
+- **🔥 Follow-up module ถูกถอดออกทั้งหมด (2026-07-28):** ไม่มี `POST /resume`, ไม่มี session store,
+  `query()` คืน `status="completed"` เสมอ — การถาม-ตอบย้อนกลับเป็นหน้าที่ของ Backend แล้ว
+  INSUFFICIENT ไปทาง **BROADEN_SEARCH** (agent เขียน query ใหม่เอง) แทน ดู [`FOLLOWUP_REMOVAL.md`](FOLLOWUP_REMOVAL.md)
 - **Graph expansion:** วนทีละ seed (3N round-trip) → **batched** (3 UNWIND Cypher)
 - **Model device:** fp16 hardcoded → **auto GPU/CPU** (fp16 เฉพาะ GPU)
 
@@ -37,8 +39,8 @@ context จาก MITRE เป็น**อังกฤษ** (ไม่แปล q
 
 | ชั้น | เทคโนโลยี | หมายเหตุ |
 |---|---|---|
-| API | FastAPI (lifespan โหลดโมเดล/ต่อ DB ครั้งเดียว) | `/query`, `/resume`, `/health`, `/retrieval-context/{id}` |
-| Agentic engine | LangGraph `StateGraph` | node + conditional edges + in-memory session store |
+| API | FastAPI (lifespan โหลดโมเดล/ต่อ DB ครั้งเดียว) | `/query`, `/health`, `/retrieval-contexts/{id}` |
+| Agentic engine | LangGraph `StateGraph` | node + conditional edges; stateless (ไม่มี session store) |
 | Embedding | `BAAI/bge-m3` (1024-d dense + sparse) | fp16 บน GPU / fp32 บน CPU |
 | Vector DB | Qdrant Cloud (native RRF fusion) | collection: entities, relationships |
 | Reranker | `BAAI/bge-reranker-v2-m3` (cross-encoder) | device-aware; คอขวด latency บน CPU |
@@ -60,42 +62,45 @@ flowchart TD
   PREP --> RET["retrieve<br/>decompose → retrieve_multi_quota → build_context"]
   RET --> EV{"evaluate_context"}
   EV -->|SUFFICIENT| RE["reasoning"]
-  EV -->|INSUFFICIENT| FU["prepare_followup<br/>default question ถ้าว่าง"]
-  FU --> PAUSE(["END — pause<br/>status=followup + session_id"])
-  EV -->|BROADEN_SEARCH| BR["broaden_search"] --> RET
+  EV -->|"INSUFFICIENT · broaden_count &lt; 2 · มี new_query"| BR["broaden_search<br/>agent เขียน query ใหม่เอง"] --> RET
+  EV -->|"INSUFFICIENT · หมดโควตา"| RE
   RE -->|"single-call default: answer_is_final"| E2(["END — Thai answer"])
   RE -->|"two-stage: respond_in_thai"| TR["translate_output"] --> E3(["END — Thai answer"])
 ```
 
 - **prepare:** ตรวจว่าตอบไทยไหม, ตั้ง `english_query = query` (ไม่แปลขาเข้า)
 - **retrieve:** full query เป็น channel แรก + sub-queries (decompose) + rewrites → quota retrieval
-- **evaluate_context:** LLM ประเมิน context พอไหม → SUFFICIENT / INSUFFICIENT / BROADEN_SEARCH
-  (self-reflection loop, bounded `MAX_FOLLOWUP_RETRIES = 2`)
+- **evaluate_context:** LLM ประเมิน context พอไหม → SUFFICIENT / INSUFFICIENT (+ fallback strategy)
+  (self-reflection loop, bounded `MAX_BROADEN_RETRIES = 2`)
 - **reasoning:** *single-call (default)* — `get_fast_system_prompt` เขียนไทยเลย ตั้ง `answer_is_final=True`
   → ข้าม translate_output; *two-stage* (`SINGLE_CALL_GENERATION=false`) — reason EN แล้ว translate_output → TH
 
 ---
 
-## 4. Multi-turn follow-up — `POST /resume`
+## 4. Self-reflection loop (แทนที่ follow-up เดิม)
 
-เมื่อ context ไม่พอ agent หยุดถาม follow-up (status=followup + session_id เก็บใน `_sessions`)
-Frontend ส่งคำตอบกลับผ่าน `/resume` — **อาจถูกถามซ้ำได้หลายรอบ** (แก้ v2: `_park_or_complete`)
+**ไม่มี `POST /resume` แล้ว** — graph วิ่งจบในการเรียกครั้งเดียวเสมอ เมื่อ context ไม่พอ agent
+แก้เองด้วยการเขียน query ใหม่ ไม่หยุดถามผู้ใช้
 
 ```mermaid
 sequenceDiagram
   participant FE as Frontend/Backend
   participant RS as RAG Agent
+  participant EV as Evaluator
   FE->>RS: POST /query (สำนวนคดีไทย)
-  RS-->>FE: status=followup · session_id · Q1 (เช่น "เข้าถึงระบบยังไง?")
-  FE->>RS: POST /resume (session_id, answer1)
-  Note over RS: _resume_with_answer<br/>เก็บ slot + merge query + re-run graph<br/>→ _park_or_complete
-  RS-->>FE: status=followup · session_id2 · Q2 (context ยังไม่พอ)
-  FE->>RS: POST /resume (session_id2, answer2)
-  RS-->>FE: status=completed · คำตอบไทย (≤ 2 รอบ แล้วบังคับตอบ)
+  RS->>EV: evaluate(context, retry_count=0)
+  EV-->>RS: INSUFFICIENT · BROADEN_SEARCH · new_query
+  Note over RS: sanitize_retrieval_query(new_query)<br/>broaden_count = 1 · วน retrieve ใหม่
+  RS->>EV: evaluate(context, retry_count=1)
+  EV-->>RS: SUFFICIENT
+  RS-->>FE: status=completed · คำตอบไทย
 ```
 
-> ⚠️ **Integration:** caller (backend proxy + frontend) ต้อง **loop `/resume` จนกว่า `status=="completed"`**
-> ไม่ใช่สมมติว่า resume จบเสมอ — ยังไม่ได้ verify ฝั่ง backend/frontend (งานค้าง)
+**ถ้ายังไม่พอหลังครบ 2 รอบ** — ตอบด้วย context เท่าที่มี หรือถ้า evaluator เลือก `ACKNOWLEDGE_LIMIT`
+(เช่น คำบรรยายเหตุการณ์คลุมเครือเกินกว่าจะ map ได้) จะคืนข้อความบอกข้อจำกัดแทน
+
+> **Integration:** caller ไม่ต้อง loop อะไรทั้งนั้น — `/query` คืน `status="completed"` เสมอ
+> ถ้าอยากถามผู้ใช้เพิ่ม ให้ Backend จัดการเอง แล้วเรียก `/query` ใหม่ด้วยข้อความที่เติมข้อมูลแล้ว
 
 ---
 
@@ -179,7 +184,7 @@ lookup dataset เดิมโดย `generate_eval_dataset.py` (graph = ground 
 | Device | `DEVICE` (auto), `USE_FP16=(cuda)`, override `RAG_DEVICE=cpu\|cuda` |
 | Retrieval | `VECTOR_TOP_K=10`, `FINAL_TOP_K=5`, `GRAPH_EXPANSION_DEPTH=2`, `ATTACK_DOMAIN_FILTER=enterprise` |
 | LLM | `LLM_MODEL=claude-haiku-4-5`, `LLM_TEMPERATURE=0` |
-| Follow-up | `MAX_FOLLOWUP_RETRIES=2` |
+| Self-reflection | `MAX_BROADEN_RETRIES=2` (ใน `agent_graph.py`) |
 | Deploy | Docker (`python:3.11-slim`, torch CPU wheel) → **Railway = CPU inference** |
 
 **คอขวด latency บน production (CPU):** cross-encoder reranker (~7-8s/sub-query) — batch ไม่ช่วย
@@ -192,13 +197,13 @@ lookup dataset เดิมโดย `generate_eval_dataset.py` (graph = ground 
 ```
 config.py                 # DEVICE/USE_FP16, SINGLE_CALL_GENERATION, model/DB settings
 pipeline/
-  agent_graph.py          # LangGraph state machine (query/resume, _park_or_complete)
+  agent_graph.py          # LangGraph state machine (stateless; query() จบรอบเดียว)
   chain.py                # linear LCEL (legacy, two-stage; ใช้ใน eval generation)
   cross_lingual.py        # prompts: reasoning / translation / fast / ultrafast
   context_builder.py      # build_context, build_generation_prompt
-  evaluator.py            # context sufficiency + slot-aware follow-up
+  evaluator.py            # context sufficiency + fallback strategy
   query_decomposer.py     # incident → atomic sub-queries
-  query_merger.py         # merge follow-up answer → MITRE-aligned rewrite
+  query_sanitizer.py      # ล้าง markdown/ATT&CK ID ออกจาก query ที่ LLM เขียน
   mitre_table.py          # answer-grounded MITRE mapping table
   router.py               # general vs incident (ปิดชั่วคราว)
 retrieval/

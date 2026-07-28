@@ -5,7 +5,7 @@ from .context_builder import build_context, build_generation_prompt
 from .cross_lingual import CrossLingualLayer, build_retrieval_queries
 from .evaluator import ContextEvaluator, EvaluationResult
 from .mitre_table import MitreTableRow, build_mitre_table
-from .query_merger import QueryMerger
+from .query_sanitizer import sanitize_retrieval_query
 from .router import QueryRouter
 
 __all__ = [
@@ -20,8 +20,8 @@ __all__ = [
     "ContextEvaluator",
     "CrossLingualLayer",
     "EvaluationResult",
-    "QueryMerger",
     "QueryRouter",
+    "sanitize_retrieval_query",
     "build_context",
     "build_generation_prompt",
     "build_retrieval_queries",
