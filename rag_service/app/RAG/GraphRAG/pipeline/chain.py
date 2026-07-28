@@ -15,7 +15,7 @@ separation of concerns between jargon simplification and language translation.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 from FlagEmbedding import BGEM3FlagModel
 from langchain_anthropic import ChatAnthropic
@@ -130,26 +130,18 @@ class GraphRAGChain:
         """Clean up resources."""
         self.retriever.close()
 
-    def query(
-        self,
-        user_query: str,
-        verbose: bool = True,
-        followup_callback: Any = None,  # For interface compatibility
-    ) -> str:
+    def query(self, user_query: str, verbose: bool = True) -> str:
         """Execute the full GraphRAG pipeline and return the answer text.
 
         Thin wrapper over ``query_with_details`` for callers (CLI, eval) that
         only need the answer string.
         """
-        return self.query_with_details(
-            user_query, verbose=verbose, followup_callback=followup_callback
-        ).answer
+        return self.query_with_details(user_query, verbose=verbose).answer
 
     def query_with_details(
         self,
         user_query: str,
         verbose: bool = True,
-        followup_callback: Any = None,  # For interface compatibility
     ) -> ChainResponse:
         """Execute the full GraphRAG pipeline.
 

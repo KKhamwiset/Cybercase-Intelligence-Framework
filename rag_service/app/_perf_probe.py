@@ -69,7 +69,6 @@ def main() -> None:
         "_node_prepare",
         "_node_retrieve",
         "_node_evaluate_context",
-        "_node_prepare_followup",
         "_node_broaden_search",
         "_node_reasoning",
         "_node_translate_output",
@@ -90,9 +89,6 @@ def main() -> None:
     r.graph_retriever._expand_single = timed("       graph._expand_single (per seed)")(
         r.graph_retriever._expand_single
     )
-    agent.query_merger.merge = timed("node:query_merger.merge")(
-        agent.query_merger.merge
-    )
 
     # ── 4. Run ONE realistic Thai incident query end-to-end ─────────────
     query = (
@@ -102,20 +98,8 @@ def main() -> None:
     )
     print(f"[PROBE] Query: {query}\n")
 
-    # CLI-mode callback: auto-answer the follow-up so the graph runs to the
-    # very end (reasoning + translate_output). This is the true start→finish
-    # for a query that triggers a follow-up (graph runs ~twice).
-    canned_answer = (
-        "ผู้โจมตีใช้ credential dumping ด้วยเครื่องมือ Mimikatz เพื่อดึงรหัสผ่าน "
-        "จากนั้นใช้ช่องโหว่ยกระดับสิทธิ์เป็น admin"
-    )
-
-    def followup_cb(question: str) -> str:
-        print(f"[PROBE] follow-up asked → auto-answering")
-        return canned_answer
-
     t_q0 = time.perf_counter()
-    resp = agent.query(query, verbose=False, followup_callback=followup_cb)
+    resp = agent.query(query, verbose=False)
     total_s = time.perf_counter() - t_q0
 
     print(f"\n[PROBE] status = {resp.status}")
@@ -137,8 +121,6 @@ def main() -> None:
         "  └─ graph.expand",
         "       graph._expand_single (per seed)",
         "node:_node_evaluate_context",
-        "node:_node_prepare_followup",
-        "node:query_merger.merge",
         "node:_node_broaden_search",
         "node:_node_reasoning",
         "node:_node_translate_output",

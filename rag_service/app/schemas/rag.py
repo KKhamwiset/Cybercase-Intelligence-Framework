@@ -13,19 +13,13 @@ class QueryRequest(BaseModel):
 
 
 class QueryResponse(BaseModel):
+    # Always "completed" — the pipeline no longer pauses for clarification.
     status: str
     answer: str = ""
-    followup_question: str = ""
-    session_id: str = ""
     retrieval_context_id: str = ""
     # Noise-filtered MITRE ATT&CK mapping table derived from the raw retrieval
     # results (answer-grounded + score-threshold filtering; see mitre_table.py).
     mitre_table: list[MitreTableRow] = Field(default_factory=list)
-
-
-class ResumeRequest(BaseModel):
-    session_id: str
-    answer: str
 
 
 class RetrievalContextSnapshot(BaseModel):

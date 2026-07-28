@@ -161,20 +161,6 @@ def run_tests(
 # ──────────────────────────────────────────────────────────────────────────────
 # INTERACTIVE
 # ──────────────────────────────────────────────────────────────────────────────
-def _interactive_followup_callback(question: str) -> str:
-    """Callback for the agent's follow-up module in interactive mode.
-
-    Prints the agent's clarifying question and reads the user's response
-    from stdin.
-    """
-    print(f"\n❓ Agent asks: {question}")
-    try:
-        answer = input("💬 Your answer> ").strip()
-    except (KeyboardInterrupt, EOFError):
-        return ""
-    return answer
-
-
 def run_interactive(
     retrieve_only: bool = False,
     use_agent: bool = False,
@@ -210,9 +196,9 @@ def run_interactive(
     if ultrafast:
         print("  ⚡⚡ Ultrafast: vector-only retrieve → terse answer (no graph/decompose/eval/translate)")
     elif fast:
-        print("  ⚡ Fast mode: single retrieve → direct answer (no decompose/eval/follow-up)")
+        print("  ⚡ Fast mode: single retrieve → direct answer (no decompose/eval)")
     elif use_agent:
-        print("  🤖 Agentic features: self-reflection + follow-up")
+        print("  🤖 Agentic features: query decomposition + self-reflection")
     print(f"{'=' * 72}")
 
     try:
@@ -239,12 +225,6 @@ def run_interactive(
                 sep("RETRIEVED CONTEXT")
                 print(context[:3000])
                 sep()
-            elif use_agent:
-                pipeline.query(
-                    query,
-                    verbose=True,
-                    followup_callback=_interactive_followup_callback,
-                )
             else:
                 pipeline.query(query, verbose=True)
     finally:

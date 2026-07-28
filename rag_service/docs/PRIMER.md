@@ -126,7 +126,7 @@ Retrieve (ค้นเอกสารที่เกี่ยว) → Augment (�
 ### 4.2 LangGraph = state machine
 - เขียน pipeline เป็น **กราฟของ node** แต่ละ node ทำงานหนึ่งอย่าง แล้วส่ง "state" (ข้อมูลที่สะสมมา) ต่อ
 - **edge** = เส้นเชื่อม node; **conditional edge** = แยกทางตามเงื่อนไข (เช่น "พอ" → ไปตอบ, "ไม่พอ" → ไปถาม)
-- คำที่จะเจอ: **self-reflection / evaluator** (LLM ประเมิน context ตัวเอง), **follow-up** (ถามผู้ใช้กลับ), **broaden** (ค้นกว้างขึ้น)
+- คำที่จะเจอ: **self-reflection / evaluator** (LLM ประเมิน context ตัวเอง), **broaden** (เขียน query ใหม่แล้วค้นกว้างขึ้น)
 
 > ดูรูป "LangGraph state machine" ใน ARCHITECTURE.md §6.2 จะเห็นภาพชัด
 
@@ -196,7 +196,7 @@ Retrieve (ค้นเอกสารที่เกี่ยว) → Augment (�
 - **LLM** — โมเดลภาษา (Claude, Qwen ฯลฯ)
 - **Hallucinate** — LLM มั่ว/แต่งสิ่งที่ไม่มีจริง
 - **Self-reflection / Evaluator** — LLM ประเมินว่า context พอตอบไหม
-- **Follow-up** — ระบบถามผู้ใช้กลับเพื่อขอข้อมูลเพิ่ม
+- **Broaden search** — context ไม่พอ → agent เขียน query ใหม่เองแล้วค้นซ้ำ (เพดาน 2 รอบ)
 - **State machine (LangGraph)** — pipeline เป็นกราฟของ node + edge
 - **Latency** — เวลาที่ใช้ตอบ (ยิ่งเรียก LLM/ค้นหลายรอบ ยิ่งนาน)
 - **Token** — หน่วยข้อความที่ LLM ประมวล; output token เยอะ = ช้า

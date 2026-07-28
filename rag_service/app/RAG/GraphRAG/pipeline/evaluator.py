@@ -5,16 +5,13 @@ Uses the LLM to judge whether retrieved context can adequately answer
 the user's query.  Returns one of two verdicts:
 
   SUFFICIENT    → proceed to reasoning
-  INSUFFICIENT  → ask the user a targeted follow-up question
+  INSUFFICIENT  → rewrite the query and re-retrieve (BROADEN_SEARCH)
 
 This is the "Self-RAG" reflective loop that makes the pipeline *agentic*.
+The loop is fully autonomous: the evaluator never asks the user anything, so
+on INSUFFICIENT it must supply a ``new_query`` the agent can retrieve with.
 
-Slot-awareness
---------------
-- The evaluator receives ``incident_facts`` (already-known structured facts)
-  and ``asked_slots`` (slots already asked about) so it never re-asks for
-  information the user already provided.
-- On follow-up iteration ≥ 2 (MAX_FOLLOWUP) the agent short-circuits to
+- On broaden iteration ≥ MAX_RETRIES the evaluator short-circuits to
   SUFFICIENT without calling the LLM, to prevent infinite loops.
 """
 
@@ -22,7 +19,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Optional
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -42,12 +38,10 @@ from ..config import (
 # ──────────────────────────────────────────────────────────────────────────────
 VERDICT_SUFFICIENT = "SUFFICIENT"
 VERDICT_INSUFFICIENT = "INSUFFICIENT"
-# Legacy constant kept for backwards-compat; no longer returned by the LLM
-VERDICT_NEED_CLARIFICATION = "NEED_CLARIFICATION"
 
-VALID_VERDICTS = {VERDICT_SUFFICIENT, VERDICT_INSUFFICIENT, VERDICT_NEED_CLARIFICATION}
+VALID_VERDICTS = {VERDICT_SUFFICIENT, VERDICT_INSUFFICIENT}
 
-# Maximum follow-up iterations before we force SUFFICIENT (guarded in agent_graph)
+# Maximum broaden iterations before we force SUFFICIENT (guarded in agent_graph)
 MAX_RETRIES = 2
 
 
@@ -59,8 +53,6 @@ class EvaluationResult:
     reason: str  # Brief justification
     covered_phases: list[str] | None = None
     missing_phases: list[str] | None = None
-    missing_slot: str = ""
-    follow_up: str = ""
     strategy: str = ""
     new_query: str = ""
     gap_warning: str = ""
@@ -82,20 +74,20 @@ You are a context sufficiency evaluator for a MITRE ATT&CK incident analysis sys
 Evaluate whether the retrieved context is sufficient to answer the incident query.
 
 STEP 0 — ANSWERABILITY GATE (check this BEFORE judging the context):
-An incident analysis needs an incident. If the query plus KNOWN INCIDENT FACTS
-(if any) contain NO concrete attacker action — e.g. the query only refers to
-"this incident" / "the attack" without describing what happened, or states only
-an outcome ("data leaked", "system was hacked") with no HOW — the verdict is
-INSUFFICIENT no matter how relevant the retrieved context looks. Topically
-related context can NEVER substitute for a missing incident description. In
-this case set follow_up to ask the user for the incident details (attack
-vector / attacker actions / affected systems), targeting the next missing slot.
+An incident analysis needs an incident. If the query contains NO concrete
+attacker action — e.g. it only refers to "this incident" / "the attack" without
+describing what happened, or states only an outcome ("data leaked", "system was
+hacked") with no HOW — the verdict is INSUFFICIENT no matter how relevant the
+retrieved context looks. Topically related context can NEVER substitute for a
+missing incident description. You cannot ask the user for the missing details,
+so in this case set strategy to ACKNOWLEDGE_LIMIT and write a message stating
+that the incident description is too vague to map to ATT&CK techniques and
+naming what is needed (attack vector / attacker actions / affected systems).
 
 RULES:
-- Coverage is judged against the RETRIEVED CONTEXT only. KNOWN INCIDENT FACTS
-  describe what happened — they are NOT retrieved evidence. Mark a phase
+- Coverage is judged against the RETRIEVED CONTEXT only. Mark a phase
   covered only when the context contains a technique whose description matches
-  that behavior; never mark a phase covered "because the facts mention it".
+  that behavior.
 - Ignore retrieved entries that do not match any described attacker action
   (unrelated threat groups, software, campaigns, mitigations) — they add no
   coverage even if they dominate the context.
@@ -119,9 +111,7 @@ Output JSON:
   "verdict": "SUFFICIENT" | "INSUFFICIENT",
   "covered_phases": [...],
   "missing_phases": [...],
-  "missing_slot": "<slot_name or null>",
   "reason": "<brief explanation>",
-  "follow_up": "<question if INSUFFICIENT, else null>",
   "strategy": "<BROADEN_SEARCH | PARTIAL_ANSWER | ACKNOWLEDGE_LIMIT or null>",
   "new_query": "<new query if BROADEN_SEARCH, else null>",
   "gap_warning": "<warning if PARTIAL_ANSWER, else null>",
@@ -131,37 +121,26 @@ Output JSON:
 Threshold:
 - If 2 or more phases are covered → verdict SUFFICIENT
 - If only 1 phase is covered but the context clearly explains that phase → verdict SUFFICIENT
-- If fewer than 2 phases are covered AND the context does not meaningfully address the incident → verdict INSUFFICIENT, ask about the most critical missing phase
+- If fewer than 2 phases are covered AND the context does not meaningfully address the incident → verdict INSUFFICIENT
 - Single-technique incidents (e.g. only SQL Injection, only Phishing) naturally cover 1–2 phases — do NOT mark INSUFFICIENT just because Privilege Escalation or Lateral Movement are absent
 
-You are tracking information slots for a multi-turn incident analysis.
+STRATEGY — required whenever the verdict is INSUFFICIENT.
+This is a fully automated retrieval loop. You CANNOT ask the user for more
+information, and no further input will arrive: the incident description you
+were given is all there will ever be. Recovery must come from re-querying the
+knowledge base. You are on attempt {retry_hint} of {max_retries}.
 
-SLOT DEFINITIONS (strictly follow these):
-- initial_access     : How attacker first entered the system (e.g., phishing, SQL injection, exposed service)
-- credential_theft   : How attacker obtained credentials (e.g., keylogger, phishing, credential dump)
-- privilege_escalation: How attacker elevated privileges AFTER obtaining credentials (e.g., exploit CVE, sudo abuse, token impersonation)
-- lateral_movement   : How attacker moved to other systems (optional)
-- impact             : What damage was done (e.g., data deletion, ransomware, exfiltration)
+Pick exactly ONE strategy:
 
-IMPORTANT:
-- Phishing is credential_theft OR initial_access — NOT privilege_escalation
-- "Login as admin with stolen password" = Valid Credentials (T1078), NOT privilege_escalation exploit
-- Only ask follow-up for the NEXT unfilled slot in attack chain order
-
-Current filled slots: {filled_slots}
-Next missing slot: {next_missing_slot}
-
-Generate follow-up question targeting ONLY the next missing slot. The question MUST be in the same language as the user's original query.
-
-You are deciding the fallback strategy when context is still INSUFFICIENT after {max_retries} attempts.
-(If the number of attempts is less than {max_retries}, set strategy to null and provide a follow_up question).
-
-Available strategies (pick ONE based on situation):
-
-1. BROADEN_SEARCH
-   Use when: missing slot is a technique detail (sub-technique level)
-   Action: Re-query using parent technique name + broader ATT&CK tactic
+1. BROADEN_SEARCH  ← prefer this while attempts remain
+   Use when: the incident IS described but the retrieved context missed a phase
+   Action: Re-query using parent technique names + the broader ATT&CK tactic,
+           describing the missing attacker behavior in plain language
    Output: { "strategy": "BROADEN_SEARCH", "new_query": "..." }
+   The new_query is embedded verbatim for vector search, so write ONE plain
+   sentence: no markdown, no ATT&CK ID numbers (T1110, TA0006), no bullet lists.
+   It must differ meaningfully from the queries already tried — repeating them
+   retrieves the same context and wastes the attempt.
 
 2. PARTIAL_ANSWER
    Use when: at least 2 phases are covered, only 1 detail is missing
@@ -169,8 +148,11 @@ Available strategies (pick ONE based on situation):
    Output: { "strategy": "PARTIAL_ANSWER", "gap_warning": "..." }
 
 3. ACKNOWLEDGE_LIMIT
-   Use when: fewer than 2 phases covered even after retries
-   Action: Tell user the knowledge base lacks sufficient data on this attack pattern
+   Use when: the incident description is too vague to map (answerability gate
+             above), or fewer than 2 phases are covered and attempts are spent
+   Action: Tell the user what is missing — either that the description lacks
+           the detail needed, or that the knowledge base has no data on this
+           attack pattern. Write the message in the same language as the query.
    Output: { "strategy": "ACKNOWLEDGE_LIMIT", "message": "ฐานข้อมูล MITRE ATT&CK ที่มีอยู่ไม่มีข้อมูลเพียงพอสำหรับ..." }
 
 Never use FORCE_SUFFICIENT — answering with known-incomplete context without flagging gaps misleads the analyst."""
@@ -210,8 +192,6 @@ class ContextEvaluator:
         context: str,
         retry_count: int = 0,
         verbose: bool = True,
-        incident_facts: Optional[dict] = None,
-        asked_slots: Optional[list] = None,
     ) -> EvaluationResult:
         """Judge context sufficiency.
 
@@ -223,15 +203,10 @@ class ContextEvaluator:
                          When this reaches MAX_RETRIES the evaluator
                          short-circuits to SUFFICIENT to avoid infinite loops.
             verbose: Print evaluation details.
-            incident_facts: Structured facts already collected from the user,
-                            e.g. {"initial_access": "SQL Injection"}.
-            asked_slots: List of slot names already asked about, e.g.
-                         ["initial_access"]. The evaluator will not generate
-                         a follow-up question targeting these slots.
 
         Returns:
-            EvaluationResult with verdict + optional follow-up question and
-            slot_name identifying the missing information gap.
+            EvaluationResult with verdict + the fallback strategy (and its
+            ``new_query`` / ``gap_warning`` / ``message`` payload).
         """
         # ── Max-retry guard — skip LLM call entirely ──────────────────
         if retry_count >= MAX_RETRIES:
@@ -260,34 +235,14 @@ class ContextEvaluator:
             english_query,
             context,
             retry_count,
-            incident_facts=incident_facts or {},
-            asked_slots=asked_slots or [],
         )
 
         if verbose:
             sep("AGENT — CONTEXT EVALUATION")
 
-        # Determine next missing slot based on the ordered list
-        ordered_slots = [
-            "initial_access",
-            "credential_theft",
-            "privilege_escalation",
-            "lateral_movement",
-            "impact",
-        ]
-        next_missing_slot = "unknown"
-        for slot in ordered_slots:
-            if slot not in (asked_slots or []) and slot not in (incident_facts or {}):
-                next_missing_slot = slot
-                break
-
-        system_prompt = (
-            EVALUATOR_SYSTEM_PROMPT.replace(
-                "{filled_slots}", json.dumps(list((incident_facts or {}).keys()))
-            )
-            .replace("{next_missing_slot}", next_missing_slot)
-            .replace("{max_retries}", str(MAX_RETRIES))
-        )
+        system_prompt = EVALUATOR_SYSTEM_PROMPT.replace(
+            "{retry_hint}", str(retry_count + 1)
+        ).replace("{max_retries}", str(MAX_RETRIES))
 
         response = self.llm.invoke(
             [
@@ -301,12 +256,10 @@ class ContextEvaluator:
         if verbose:
             print(f"  Verdict   : {result.verdict}")
             print(f"  Reason    : {result.reason}")
-            if result.missing_slot:
-                print(f"  Slot      : {result.missing_slot}")
-            if result.follow_up:
-                print(f"  Follow-up : {result.follow_up}")
             if result.strategy:
                 print(f"  Strategy  : {result.strategy}")
+            if result.new_query:
+                print(f"  Rewrite   : {result.new_query}")
         return result
 
     # ------------------------------------------------------------------
@@ -316,43 +269,16 @@ class ContextEvaluator:
         english_query: str,
         context: str,
         retry_count: int = 0,
-        incident_facts: Optional[dict] = None,
-        asked_slots: Optional[list] = None,
     ) -> str:
-        """Build the evaluation prompt.
-
-        Injects known incident facts and already-asked slots so the LLM
-        never re-asks for information the user already provided.
-        """
+        """Build the evaluation prompt."""
         parts = []
-
-        # ── Known incident facts (structured answers already collected) ────
-        facts = incident_facts or {}
-        slots = asked_slots or []
-
-        if facts:
-            parts.append("=== KNOWN INCIDENT FACTS ===")
-            for slot, value in facts.items():
-                parts.append(f"  {slot}: {value}")
-            parts.append(
-                "\nThese facts are already known. "
-                "Do NOT ask about them again. Treat them as confirmed information."
-            )
-            parts.append("")
-
-        if slots:
-            parts.append("=== ALREADY ASKED SLOTS ===")
-            parts.append(", ".join(slots))
-            parts.append(
-                "\nDo NOT generate a follow-up question targeting any of these slots."
-            )
-            parts.append("")
 
         # ── Retry hint ────────────────────────────────────────────────
         if retry_count > 0:
             parts.append(
                 f"=== RETRY CONTEXT ==="
-                f"\nThis is follow-up iteration {retry_count}."
+                f"\nThis is broaden iteration {retry_count} — the context below"
+                " was retrieved with an already-rewritten query."
                 "\nApply slightly looser sufficiency criteria — prefer SUFFICIENT"
                 " when context is at least partially on-topic."
             )
@@ -404,8 +330,6 @@ class ContextEvaluator:
                     reason=data.get("reason", ""),
                     covered_phases=data.get("covered_phases", []),
                     missing_phases=data.get("missing_phases", []),
-                    missing_slot=data.get("missing_slot", ""),
-                    follow_up=data.get("follow_up", ""),
                     strategy=data.get("strategy", ""),
                     new_query=data.get("new_query", ""),
                     gap_warning=data.get("gap_warning", ""),
@@ -428,8 +352,6 @@ class ContextEvaluator:
                     reason=data.get("reason", ""),
                     covered_phases=data.get("covered_phases", []),
                     missing_phases=data.get("missing_phases", []),
-                    missing_slot=data.get("missing_slot", ""),
-                    follow_up=data.get("follow_up", ""),
                     strategy=data.get("strategy", ""),
                     new_query=data.get("new_query", ""),
                     gap_warning=data.get("gap_warning", ""),

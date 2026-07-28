@@ -138,7 +138,7 @@ ULTRAFAST_TOP_K = int(os.getenv("ULTRAFAST_TOP_K", "6"))
 
 EVALUATOR_LLM_MODEL = "claude-haiku-4-5"
 EVALUATOR_MAX_TOKENS = (
-    1024  # Must fit: verdict + reason + rewritten_query + followup_question
+    1024  # Must fit: verdict + reason + covered/missing phases + rewritten_query
 )
 EVALUATOR_TEMPERATURE = 0
 

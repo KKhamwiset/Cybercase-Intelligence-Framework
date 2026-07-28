@@ -8,7 +8,7 @@ from routers.context_store import (
     load_retrieval_context,
     store_retrieval_context,
 )
-from schemas.rag import QueryRequest, QueryResponse, RetrievalContextSnapshot, ResumeRequest
+from schemas.rag import QueryRequest, QueryResponse, RetrievalContextSnapshot
 
 router = APIRouter(tags=["rag"])
 
@@ -45,8 +45,6 @@ async def query_rag(request: QueryRequest, req: Request):
             return QueryResponse(
                 status=response.status,
                 answer=response.answer,
-                followup_question=response.followup_question,
-                session_id=response.session_id,
                 retrieval_context_id=retrieval_context_id,
                 mitre_table=mitre_table,
             )
@@ -74,36 +72,6 @@ async def query_rag(request: QueryRequest, req: Request):
             retrieval_context_id=retrieval_context_id,
             mitre_table=mitre_table,
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/resume", response_model=QueryResponse)
-async def resume_agent(request: ResumeRequest, req: Request):
-    rag_agent = req.app.state.rag_agent
-    if not rag_agent:
-        raise HTTPException(status_code=503, detail="RAG Agent not available")
-    try:
-        response: AgentResponse = rag_agent.resume(request.session_id, request.answer)
-        mitre_table = build_mitre_table(response.graphrag_result, response.answer)
-        retrieval_context_id = store_retrieval_context(
-            req,
-            query=request.answer,
-            context=response.context,
-            rag_result=response.graphrag_result,
-            answer=response.answer,
-            mitre_table=mitre_table,
-        )
-        return QueryResponse(
-            status=response.status,
-            answer=response.answer,
-            followup_question=response.followup_question,
-            session_id=response.session_id,
-            retrieval_context_id=retrieval_context_id,
-            mitre_table=mitre_table,
-        )
-    except KeyError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
