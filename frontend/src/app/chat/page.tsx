@@ -22,6 +22,7 @@ import {
   type ChatThreadRead,
   type ThreadStatus,
 } from "@/lib/api";
+import type { FollowUpEntry } from "@/components/FollowUpModule";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
 import { Icon } from "@/components/chat/icons";
@@ -29,6 +30,136 @@ import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
 import type { RunPhase } from "@/components/chat/types";
 
 const POLL_INTERVAL_MS = 1000;
+
+interface ActiveFollowUp {
+  question: string;
+  entries: FollowUpEntry[];
+  rootOrdinal: number;
+}
+
+interface FollowUpMetadata {
+  rootOrdinal: number;
+  round: number;
+}
+
+interface PendingSubmission {
+  threadId: string;
+  content: string;
+  key: string;
+  kind: "message" | "followup";
+  requestOrdinal?: number;
+}
+
+function followUpMetadata(
+  message: PersistedChatMessage,
+): FollowUpMetadata | null {
+  const value = message.metadata_json.chat_followup;
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("kind" in value) ||
+    value.kind !== "clarification" ||
+    !("root_ordinal" in value) ||
+    typeof value.root_ordinal !== "number" ||
+    !Number.isInteger(value.root_ordinal) ||
+    value.root_ordinal < 1 ||
+    !("round" in value) ||
+    typeof value.round !== "number" ||
+    !Number.isInteger(value.round) ||
+    value.round < 1
+  ) {
+    return null;
+  }
+
+  return {
+    rootOrdinal: value.root_ordinal,
+    round: value.round,
+  };
+}
+
+function activeFollowUpForThread(
+  persistedMessages: PersistedChatMessage[],
+  status: ThreadStatus | null,
+): ActiveFollowUp | null {
+  if (status !== "awaiting_followup") return null;
+
+  const ordered = [...persistedMessages].sort(
+    (left, right) => left.ordinal - right.ordinal,
+  );
+  const annotatedQuestions = ordered
+    .filter((message) => message.role === "assistant")
+    .map((message) => ({ message, metadata: followUpMetadata(message) }))
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        message: PersistedChatMessage;
+        metadata: FollowUpMetadata;
+      } => candidate.metadata !== null,
+    );
+
+  const activeMessage = [...ordered]
+    .reverse()
+    .find((message) => message.role === "assistant");
+  if (!activeMessage) return null;
+  const activeMetadata = followUpMetadata(activeMessage);
+
+  const rootOrdinal =
+    activeMetadata?.rootOrdinal ??
+    [...ordered]
+      .reverse()
+      .find(
+        (message) =>
+          message.role === "user" &&
+          message.ordinal < activeMessage.ordinal,
+      )?.ordinal;
+  if (rootOrdinal === undefined) return null;
+
+  const priorQuestions = activeMetadata
+    ? annotatedQuestions.filter(
+        (candidate) =>
+          candidate.metadata.rootOrdinal === rootOrdinal &&
+          candidate.message.ordinal < activeMessage.ordinal,
+      )
+    : [];
+  const entries = priorQuestions.flatMap((candidate, index) => {
+    const nextQuestionOrdinal =
+      priorQuestions[index + 1]?.message.ordinal ?? activeMessage.ordinal;
+    const answer = ordered.find(
+      (message) =>
+        message.role === "user" &&
+        message.ordinal > candidate.message.ordinal &&
+        message.ordinal < nextQuestionOrdinal,
+    );
+    return answer
+      ? [{ question: candidate.message.content, answer: answer.content }]
+      : [];
+  });
+
+  return {
+    question: activeMessage.content,
+    entries,
+    rootOrdinal,
+  };
+}
+
+function hasCompletedAssistantOutput(
+  detail: ChatThreadDetail,
+  requestOrdinal: number,
+): boolean {
+  if (
+    detail.status !== "idle" &&
+    detail.status !== "awaiting_followup"
+  ) {
+    return false;
+  }
+  return detail.messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      message.ordinal > requestOrdinal &&
+      Boolean(message.content.trim()),
+  );
+}
 
 const phaseLabels: Record<RunPhase, string> = {
   idle: "Ready",
@@ -87,6 +218,11 @@ export default function ChatPage() {
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
   const [messages, setMessages] = useState<PersistedChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [followUpAnswer, setFollowUpAnswer] = useState("");
+  const [pendingFollowUp, setPendingFollowUp] = useState<{
+    threadId: string;
+    followUp: ActiveFollowUp;
+  } | null>(null);
   const [phase, setPhase] = useState<RunPhase>("idle");
   const [queryError, setQueryError] = useState<string | null>(null);
   const [threadsError, setThreadsError] = useState<string | null>(null);
@@ -101,11 +237,7 @@ export default function ChatPage() {
   const selectionGenerationRef = useRef(0);
   const pollControllerRef = useRef<AbortController | null>(null);
   const deletedThreadIdsRef = useRef(new Set<string>());
-  const pendingSubmissionRef = useRef<{
-    threadId: string;
-    content: string;
-    key: string;
-  } | null>(null);
+  const pendingSubmissionRef = useRef<PendingSubmission | null>(null);
 
   const upsertThread = useCallback((thread: ChatThreadRead) => {
     if (deletedThreadIdsRef.current.has(thread.id)) return;
@@ -135,13 +267,25 @@ export default function ChatPage() {
       setPhase(phaseForThread(detail));
       upsertThread(detail);
 
-      if (detail.status === "failed") {
+      if (failureMessage || detail.status === "failed") {
         setQueryError(
           failureMessage ||
-            "Background processing failed. Start a new message to try again.",
+            "Background processing failed. Retry the saved message.",
         );
       } else {
         setQueryError(null);
+      }
+
+      const pending = pendingSubmissionRef.current;
+      if (
+        pending?.threadId === detail.id &&
+        pending.requestOrdinal !== undefined &&
+        hasCompletedAssistantOutput(detail, pending.requestOrdinal)
+      ) {
+        pendingSubmissionRef.current = null;
+        setPendingFollowUp(null);
+        setInput("");
+        setFollowUpAnswer("");
       }
     },
     [upsertThread],
@@ -220,6 +364,15 @@ export default function ChatPage() {
 
       setActiveThreadId(threadId);
       setInput("");
+      const pending = pendingSubmissionRef.current;
+      setFollowUpAnswer(
+        pending?.threadId === threadId && pending.kind === "followup"
+          ? pending.content
+          : "",
+      );
+      setPendingFollowUp((current) =>
+        current?.threadId === threadId ? current : null,
+      );
       setMessages([]);
       setThreadStatus(null);
       setQueryError(null);
@@ -280,12 +433,14 @@ export default function ChatPage() {
       runId: string,
       generation: number,
       signal: AbortSignal,
-    ): Promise<void> => {
+    ): Promise<ChatThreadDetail | null> => {
       let consecutiveReadFailures = 0;
 
       while (!signal.aborted && isCurrentSelection(threadId, generation)) {
         await waitForNextPoll(signal);
-        if (signal.aborted || !isCurrentSelection(threadId, generation)) return;
+        if (signal.aborted || !isCurrentSelection(threadId, generation)) {
+          return null;
+        }
 
         let detail: ChatThreadDetail;
         try {
@@ -296,7 +451,7 @@ export default function ChatPage() {
             isCanceled(signal, error) ||
             !isCurrentSelection(threadId, generation)
           ) {
-            return;
+            return null;
           }
 
           consecutiveReadFailures += 1;
@@ -304,41 +459,54 @@ export default function ChatPage() {
           continue;
         }
 
-        if (!isCurrentSelection(threadId, generation)) return;
+        if (!isCurrentSelection(threadId, generation)) return null;
 
-        if (detail.status !== "failed") {
+        if (detail.status === "processing") {
           applyThreadDetail(detail);
-          if (detail.status !== "processing") return;
           continue;
         }
 
-        let failureMessage: string | null = null;
+        let run;
         try {
-          const run = await getChatRun(threadId, runId, signal);
-          if (run.status === "failed") failureMessage = run.error_message;
+          run = await getChatRun(threadId, runId, signal);
         } catch (error) {
           if (
             isCanceled(signal, error) ||
             !isCurrentSelection(threadId, generation)
           ) {
-            return;
+            return null;
           }
+          throw error;
         }
 
-        if (!isCurrentSelection(threadId, generation)) return;
-        applyThreadDetail(detail, failureMessage);
-        return;
+        if (!isCurrentSelection(threadId, generation)) return null;
+        if (run.status === "failed") {
+          applyThreadDetail(
+            detail,
+            run.error_message || "Background processing failed. Retry the answer.",
+          );
+          return null;
+        }
+        if (run.status === "completed") {
+          applyThreadDetail(detail);
+          return detail;
+        }
       }
+      return null;
     },
     [applyThreadDetail, isCurrentSelection],
   );
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitContent = (
+    rawContent: string,
+    kind: PendingSubmission["kind"],
+    followUp?: ActiveFollowUp,
+  ) => {
     if (phase === "querying" || phase === "analyzing") return;
 
-    const content = input.trim();
+    const content = rawContent.trim();
     if (!content) return;
+    const statusBeforeSubmit = threadStatus;
 
     void (async () => {
       let threadId = activeThreadIdRef.current;
@@ -358,6 +526,7 @@ export default function ChatPage() {
           return;
         }
       }
+      if (kind === "followup" && !followUp) return;
 
       const generation = selectionGenerationRef.current;
       const controller = pollControllerRef.current;
@@ -373,12 +542,17 @@ export default function ChatPage() {
         threadId,
         content,
         key: idempotencyKey,
+        kind,
       };
+      if (kind === "followup" && followUp) {
+        setPendingFollowUp({ threadId, followUp });
+      }
 
       setPhase("querying");
       setThreadStatus("processing");
       setQueryError(null);
 
+      let requestAccepted = false;
       try {
         const accepted = await createChatMessage(
           threadId,
@@ -387,9 +561,18 @@ export default function ChatPage() {
           controller.signal,
         );
         if (!isCurrentSelection(threadId, generation)) return;
+        requestAccepted = true;
+        const pendingAfterAccept = pendingSubmissionRef.current;
+        if (
+          pendingAfterAccept?.threadId === threadId &&
+          pendingAfterAccept.key === idempotencyKey
+        ) {
+          pendingSubmissionRef.current = {
+            ...pendingAfterAccept,
+            requestOrdinal: accepted.message.ordinal,
+          };
+        }
 
-        pendingSubmissionRef.current = null;
-        setInput("");
         setMessages((current) => {
           if (current.some((message) => message.id === accepted.message.id)) {
             return current;
@@ -404,6 +587,7 @@ export default function ChatPage() {
         }
 
         if (
+          kind === "message" &&
           currentThread?.title === "New chat" &&
           existingMessages.length === 0
         ) {
@@ -418,12 +602,31 @@ export default function ChatPage() {
             .catch(() => undefined);
         }
 
-        await pollKnownRun(
+        const completedDetail = await pollKnownRun(
           threadId,
           accepted.run.id,
           generation,
           controller.signal,
         );
+        if (
+          completedDetail &&
+          hasCompletedAssistantOutput(
+            completedDetail,
+            accepted.message.ordinal,
+          )
+        ) {
+          pendingSubmissionRef.current = null;
+          setPendingFollowUp(null);
+          setInput("");
+          setFollowUpAnswer("");
+        } else if (
+          completedDetail &&
+          isCurrentSelection(threadId, generation)
+        ) {
+          setQueryError(
+            "The completed run did not persist an assistant response. Retry the saved answer.",
+          );
+        }
       } catch (error) {
         if (
           isCanceled(controller.signal, error) ||
@@ -432,36 +635,28 @@ export default function ChatPage() {
           return;
         }
 
-        try {
-          const detail = await getChatThread(threadId, controller.signal);
-          if (!isCurrentSelection(threadId, generation)) return;
-
-          applyThreadDetail(detail);
-          if (detail.status === "processing") {
-            await pollThreadUntilSettled(
-              threadId,
-              generation,
-              controller.signal,
-            );
-          }
-          return;
-        } catch (refreshError) {
-          if (
-            isCanceled(controller.signal, refreshError) ||
-            !isCurrentSelection(threadId, generation)
-          ) {
-            return;
-          }
+        if (kind === "followup") {
+          setThreadStatus("awaiting_followup");
+          setPhase("awaiting_followup");
+        } else {
+          setThreadStatus(statusBeforeSubmit);
           setPhase("error");
-          setQueryError(
-            getApiErrorMessage(
-              refreshError,
-              getApiErrorMessage(error, "The message could not be submitted."),
-            ),
-          );
         }
+        setQueryError(
+          getApiErrorMessage(
+            error,
+            requestAccepted
+              ? "The run status could not be confirmed. Retry the saved message."
+              : "The message could not be submitted.",
+          ),
+        );
       }
     })();
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitContent(input, "message");
   };
 
   const handleCancelDelete = useCallback(() => {
@@ -484,6 +679,7 @@ export default function ChatPage() {
       activeThreadIdRef.current = null;
       if (pendingSubmissionRef.current?.threadId === thread.id) {
         pendingSubmissionRef.current = null;
+        setPendingFollowUp(null);
       }
     }
 
@@ -508,6 +704,7 @@ export default function ChatPage() {
     setActiveThreadId(null);
     setMessages([]);
     setInput("");
+    setFollowUpAnswer("");
     setThreadStatus(null);
     setQueryError(null);
     setPhase("idle");
@@ -522,6 +719,17 @@ export default function ChatPage() {
 
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
+  const persistedFollowUp = activeFollowUpForThread(messages, threadStatus);
+  const displayFollowUp =
+    persistedFollowUp ??
+    (pendingFollowUp?.threadId === activeThreadId
+      ? pendingFollowUp.followUp
+      : null);
+  const visibleMessages = displayFollowUp
+    ? messages.filter(
+        (message) => message.ordinal <= displayFollowUp.rootOrdinal,
+      )
+    : messages;
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
@@ -602,12 +810,22 @@ export default function ChatPage() {
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[#F7F6F2]">
           <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <ChatPanel
-              messages={messages}
+              messages={visibleMessages}
               input={input}
+              followUp={displayFollowUp}
+              followUpAnswer={followUpAnswer}
               threadStatus={threadStatus}
               phase={phase}
               error={queryError}
               onInputChange={setInput}
+              onFollowUpAnswerChange={setFollowUpAnswer}
+              onFollowUpSubmit={() =>
+                submitContent(
+                  followUpAnswer,
+                  "followup",
+                  displayFollowUp ?? undefined,
+                )
+              }
               onSubmit={handleSubmit}
             />
           </main>

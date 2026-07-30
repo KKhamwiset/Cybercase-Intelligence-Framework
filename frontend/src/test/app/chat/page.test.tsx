@@ -1,11 +1,29 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import ChatPage from "@/app/chat/page";
 import {
+  createChatMessage,
+  getChatRun,
   getChatThread,
   listChatThreads,
+  type ChatMessageAccepted,
   type ChatThreadDetail,
+  type PersistedChatMessage,
 } from "@/lib/api";
 
 vi.mock("@/lib/api", () => ({
@@ -45,11 +63,88 @@ const thread: ChatThreadDetail = {
       role: "assistant",
       content: "Which affected host produced this event?",
       retrieval_context_id: null,
-      metadata_json: {},
+      metadata_json: {
+        chat_followup: {
+          kind: "clarification",
+          source_run_id: "run-root",
+          root_ordinal: 1,
+          round: 1,
+        },
+      },
       created_at: "2026-07-29T12:00:20Z",
     },
   ],
 };
+
+function userMessage(
+  ordinal: number,
+  content: string,
+): PersistedChatMessage {
+  return {
+    id: `message-${ordinal}`,
+    thread_id: thread.id,
+    ordinal,
+    role: "user",
+    content,
+    retrieval_context_id: null,
+    metadata_json: {},
+    created_at: `2026-07-29T12:00:${ordinal}0Z`,
+  };
+}
+
+function followUpMessage(
+  ordinal: number,
+  content: string,
+  round: number,
+): PersistedChatMessage {
+  return {
+    id: `message-${ordinal}`,
+    thread_id: thread.id,
+    ordinal,
+    role: "assistant",
+    content,
+    retrieval_context_id: null,
+    metadata_json: {
+      chat_followup: {
+        kind: "clarification",
+        source_run_id: `run-${round}`,
+        root_ordinal: 1,
+        round,
+      },
+    },
+    created_at: `2026-07-29T12:00:${ordinal}0Z`,
+  };
+}
+
+function accepted(
+  message: PersistedChatMessage,
+  runId: string,
+): ChatMessageAccepted {
+  return {
+    message,
+    run: {
+      id: runId,
+      thread_id: thread.id,
+      request_message_id: message.id,
+      operation: "query",
+      status: "queued",
+      error_code: null,
+      error_message: null,
+      created_at: "2026-07-29T12:02:00Z",
+      updated_at: "2026-07-29T12:02:00Z",
+    },
+  };
+}
+
+async function renderLoadedPage(): Promise<void> {
+  render(<ChatPage />);
+  await waitFor(() =>
+    expect(getChatThread).toHaveBeenCalledWith(
+      thread.id,
+      expect.any(AbortSignal),
+    ),
+  );
+}
 
 describe("active chat route", () => {
   beforeAll(() => {
@@ -60,11 +155,17 @@ describe("active chat route", () => {
   });
 
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(listChatThreads).mockResolvedValue([thread]);
     vi.mocked(getChatThread).mockResolvedValue(thread);
   });
 
-  it("keeps saved chat and awaiting composer without investigation navigation", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("renders the persisted follow-up question in the module and hides the ordinary composer", async () => {
     render(<ChatPage />);
 
     expect(
@@ -73,11 +174,11 @@ describe("active chat route", () => {
     expect(screen.getAllByText("Saved investigation").length).toBeGreaterThan(0);
     expect(screen.getByText("Recent chats")).toBeInTheDocument();
     expect(screen.getByText("Follow-up required")).toBeInTheDocument();
+    expect(screen.getByText("More detail required")).toBeInTheDocument();
+    expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
     expect(
-      screen.getByPlaceholderText(
-        /Answer the assistant.s follow-up question/,
-      ),
-    ).toBeEnabled();
+      screen.queryByLabelText("Investigation message"),
+    ).not.toBeInTheDocument();
 
     await waitFor(() => expect(getChatThread).toHaveBeenCalledWith(
       "thread-1",
@@ -89,5 +190,323 @@ describe("active chat route", () => {
     expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
     expect(screen.queryByText("Report")).not.toBeInTheDocument();
     expect(screen.queryByText("Investigation views")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Which endpoint or service first showed signs of compromise?",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "What evidence confirms when the suspicious activity began?",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("uses only the latest assistant message as the awaiting legacy fallback", async () => {
+    const legacyThread: ChatThreadDetail = {
+      ...thread,
+      messages: thread.messages.map((message) => ({
+        ...message,
+        metadata_json: {},
+      })),
+    };
+    vi.mocked(getChatThread).mockReset().mockResolvedValue(legacyThread);
+
+    await renderLoadedPage();
+
+    expect(
+      screen.getByText("Which affected host produced this event?"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
+    expect(
+      screen.queryByLabelText("Investigation message"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("blocks blank answers, keeps plain Enter multiline, and submits Ctrl+Enter exactly once", async () => {
+    await renderLoadedPage();
+    const answer = screen.getByLabelText("Clarification answer");
+    const send = screen.getByRole("button", { name: "Send Answer" });
+
+    expect(send).toBeDisabled();
+    fireEvent.change(answer, { target: { value: "   " } });
+    fireEvent.keyDown(answer, {
+      key: "Enter",
+      code: "Enter",
+      ctrlKey: true,
+    });
+    expect(createChatMessage).not.toHaveBeenCalled();
+
+    fireEvent.change(answer, { target: { value: "host-7\nsecond line" } });
+    fireEvent.keyDown(answer, { key: "Enter", code: "Enter" });
+    expect(createChatMessage).not.toHaveBeenCalled();
+    expect(answer).toHaveValue("host-7\nsecond line");
+
+    vi.mocked(createChatMessage).mockImplementation(
+      () => new Promise<ChatMessageAccepted>(() => undefined),
+    );
+    fireEvent.keyDown(answer, {
+      key: "Enter",
+      code: "Enter",
+      ctrlKey: true,
+    });
+
+    await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(1));
+    expect(answer).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Sending..." }),
+    ).toBeDisabled();
+    fireEvent.keyDown(answer, {
+      key: "Enter",
+      code: "Enter",
+      ctrlKey: true,
+    });
+    expect(createChatMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits Cmd+NumpadEnter exactly once", async () => {
+    await renderLoadedPage();
+    const answer = screen.getByLabelText("Clarification answer");
+    fireEvent.change(answer, { target: { value: "host-7" } });
+    vi.mocked(createChatMessage).mockImplementation(
+      () => new Promise<ChatMessageAccepted>(() => undefined),
+    );
+
+    fireEvent.keyDown(answer, {
+      key: "Enter",
+      code: "NumpadEnter",
+      metaKey: true,
+    });
+
+    await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the ordinary composer enabled and reuses its key after a pre-accept failure", async () => {
+    const ordinaryThread: ChatThreadDetail = {
+      ...thread,
+      status: "idle",
+      messages: [
+        thread.messages[0],
+        {
+          ...thread.messages[1],
+          content: "The previous analysis is complete.",
+          metadata_json: {},
+        },
+      ],
+    };
+    vi.mocked(listChatThreads).mockResolvedValue([ordinaryThread]);
+    vi.mocked(getChatThread).mockReset().mockResolvedValue(ordinaryThread);
+    vi.spyOn(window.crypto, "randomUUID").mockReturnValue(
+      "00000000-0000-4000-8000-000000000003",
+    );
+    vi.mocked(createChatMessage)
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockImplementationOnce(
+        () => new Promise<ChatMessageAccepted>(() => undefined),
+      );
+    await renderLoadedPage();
+
+    const composer = screen.getByLabelText("Investigation message");
+    fireEvent.change(composer, {
+      target: { value: "Investigate a second event" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
+    expect(screen.getByLabelText("Investigation message")).toHaveValue(
+      "Investigate a second event",
+    );
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(createChatMessage).mock.calls[0][2]).toBe(
+      "00000000-0000-4000-8000-000000000003",
+    );
+    expect(vi.mocked(createChatMessage).mock.calls[1][2]).toBe(
+      "00000000-0000-4000-8000-000000000003",
+    );
+  });
+
+  it("preserves the answer and idempotency key across a pre-accept error and retry", async () => {
+    vi.spyOn(window.crypto, "randomUUID").mockReturnValue(
+      "00000000-0000-4000-8000-000000000001",
+    );
+    vi.mocked(createChatMessage)
+      .mockRejectedValueOnce(new Error("network unavailable"))
+      .mockImplementationOnce(
+        () => new Promise<ChatMessageAccepted>(() => undefined),
+      );
+    await renderLoadedPage();
+
+    const answer = screen.getByLabelText("Clarification answer");
+    fireEvent.change(answer, { target: { value: "host-7" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Retry Answer" }),
+    ).toBeEnabled();
+    expect(screen.getByLabelText("Clarification answer")).toHaveValue(
+      "host-7",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+
+    await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(createChatMessage).mock.calls[0][2]).toBe(
+      "00000000-0000-4000-8000-000000000001",
+    );
+    expect(vi.mocked(createChatMessage).mock.calls[1][2]).toBe(
+      "00000000-0000-4000-8000-000000000001",
+    );
+  });
+
+  it("keeps an accepted failed follow-up retryable with the same content and key", async () => {
+    const answerOne = userMessage(3, "host-7");
+    const acceptedOne = accepted(answerOne, "run-1");
+    const failedDetail: ChatThreadDetail = {
+      ...thread,
+      status: "awaiting_followup",
+      messages: [...thread.messages, answerOne],
+    };
+    vi.spyOn(window.crypto, "randomUUID").mockReturnValue(
+      "00000000-0000-4000-8000-000000000002",
+    );
+    vi.mocked(getChatThread)
+      .mockReset()
+      .mockResolvedValueOnce(thread)
+      .mockResolvedValueOnce(failedDetail);
+    vi.mocked(getChatRun).mockResolvedValue({
+      ...acceptedOne.run,
+      status: "failed",
+      error_code: "rag_unavailable",
+      error_message: "RAG service unavailable",
+    });
+    vi.mocked(createChatMessage)
+      .mockResolvedValueOnce(acceptedOne)
+      .mockImplementationOnce(
+        () => new Promise<ChatMessageAccepted>(() => undefined),
+      );
+    await renderLoadedPage();
+    vi.useFakeTimers();
+
+    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+      target: { value: "host-7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "RAG service unavailable",
+    );
+    expect(screen.getByLabelText("Clarification answer")).toHaveValue(
+      "host-7",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(createChatMessage).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(createChatMessage).mock.calls[0].slice(1, 3)).toEqual(
+      vi.mocked(createChatMessage).mock.calls[1].slice(1, 3),
+    );
+  });
+
+  it("retains prior Q/A for a second follow-up, then restores the terminal transcript and composer", async () => {
+    const answerOne = userMessage(3, "host-7");
+    const questionTwo = followUpMessage(
+      4,
+      "When was the event first observed?",
+      2,
+    );
+    const secondDetail: ChatThreadDetail = {
+      ...thread,
+      status: "awaiting_followup",
+      messages: [...thread.messages, answerOne, questionTwo],
+    };
+    const answerTwo = userMessage(5, "09:32 UTC");
+    const finalAnswer: PersistedChatMessage = {
+      id: "message-6",
+      thread_id: thread.id,
+      ordinal: 6,
+      role: "assistant",
+      content: "The persisted terminal analysis is complete.",
+      retrieval_context_id: "retrieval-1",
+      metadata_json: {},
+      created_at: "2026-07-29T12:03:00Z",
+    };
+    const terminalDetail: ChatThreadDetail = {
+      ...thread,
+      status: "idle",
+      messages: [
+        ...thread.messages,
+        answerOne,
+        questionTwo,
+        answerTwo,
+        finalAnswer,
+      ],
+    };
+    const acceptedOne = accepted(answerOne, "run-1");
+    const acceptedTwo = accepted(answerTwo, "run-2");
+    vi.mocked(getChatThread)
+      .mockReset()
+      .mockResolvedValueOnce(thread)
+      .mockResolvedValueOnce(secondDetail)
+      .mockResolvedValueOnce(terminalDetail);
+    vi.mocked(createChatMessage)
+      .mockResolvedValueOnce(acceptedOne)
+      .mockResolvedValueOnce(acceptedTwo);
+    vi.mocked(getChatRun)
+      .mockResolvedValueOnce({ ...acceptedOne.run, status: "completed" })
+      .mockResolvedValueOnce({ ...acceptedTwo.run, status: "completed" });
+    await renderLoadedPage();
+    vi.useFakeTimers();
+
+    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+      target: { value: "host-7" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(
+      screen.getByText("When was the event first observed?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Which affected host produced this event?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("host-7")).toBeInTheDocument();
+    expect(screen.getByLabelText("Clarification answer")).toHaveValue("");
+
+    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+      target: { value: "09:32 UTC" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(
+      screen.queryByText("More detail required"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
+    expect(
+      screen.getByText("The persisted terminal analysis is complete."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Which affected host produced this event?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("When was the event first observed?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("09:32 UTC")).toBeInTheDocument();
   });
 });

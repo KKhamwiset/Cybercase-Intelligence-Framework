@@ -256,7 +256,19 @@ class ChatRunWorker:
             if run is None or run.thread_id != thread.id:
                 return False
 
-            thread.status = 'failed'
+            request_payload = run.request_payload
+            followup_round = (
+                request_payload.get('followup_round')
+                if isinstance(request_payload, dict)
+                else None
+            )
+            thread.status = (
+                'awaiting_followup'
+                if isinstance(followup_round, int)
+                and not isinstance(followup_round, bool)
+                and followup_round > 0
+                else 'failed'
+            )
             thread.active_rag_session_id = None
 
             run.status = 'failed'
@@ -344,6 +356,8 @@ async def resolve_followup_outcome(
 
     answer_outcome = map_rag_response(response)
     if not settings.chat_followup_policy_enabled:
+        return answer_outcome
+    if len(clarification_exchanges) >= settings.chat_followup_max_rounds:
         return answer_outcome
 
     try:

@@ -96,23 +96,28 @@ def reconstruct_clarification_chain(
     root = ordered[root_index]
     exchanges: list[ClarificationExchange] = []
     pending_question: str | None = None
+    latest_answer: str | None = None
     for message in ordered[root_index + 1 :]:
         if message.role == "assistant":
-            pending_question = message.content
-        elif message.role == "user" and pending_question is not None:
-            exchanges.append(
-                ClarificationExchange(
-                    question=pending_question,
-                    answer=message.content,
+            if pending_question is not None and latest_answer is not None:
+                exchanges.append(
+                    ClarificationExchange(
+                        question=pending_question,
+                        answer=latest_answer,
+                    )
                 )
-            )
-            pending_question = None
+            pending_question = message.content
+            latest_answer = None
+        elif message.role == "user" and pending_question is not None:
+            latest_answer = message.content
 
-    if pending_question is not None and pending_answer is not None:
+    if pending_answer is not None:
+        latest_answer = pending_answer
+    if pending_question is not None and latest_answer is not None:
         exchanges.append(
             ClarificationExchange(
                 question=pending_question,
-                answer=pending_answer,
+                answer=latest_answer,
             )
         )
 
@@ -163,6 +168,54 @@ class ChatMessageService:
                 existing_message = await self.db.get(
                     ChatMessage, existing_run.request_message_id
                 )
+                if existing_run.status == "failed":
+                    active_run_statement = select(ChatRun).where(
+                        ChatRun.thread_id == thread.id,
+                        ChatRun.status.in_(("queued", "running")),
+                    )
+                    active_run_result = await self.db.execute(
+                        active_run_statement
+                    )
+                    if active_run_result.scalar_one_or_none() is not None:
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail="Chat thread already has an active run",
+                        )
+
+                    latest_run_result = await self.db.execute(
+                        select(ChatRun.id)
+                        .where(ChatRun.thread_id == thread.id)
+                        .order_by(ChatRun.created_at.desc())
+                        .limit(1)
+                    )
+                    latest_run_id = latest_run_result.scalar_one_or_none()
+                    transcript_advanced = (
+                        existing_message is None
+                        or thread.next_message_ordinal
+                        != existing_message.ordinal + 1
+                    )
+                    if (
+                        transcript_advanced
+                        or latest_run_id != existing_run.id
+                    ):
+                        raise HTTPException(
+                            status_code=status.HTTP_409_CONFLICT,
+                            detail=(
+                                "Failed chat run is no longer the latest "
+                                "request"
+                            ),
+                        )
+
+                    existing_run.status = "queued"
+                    existing_run.error_code = None
+                    existing_run.error_message = None
+                    existing_run.started_at = None
+                    existing_run.finished_at = None
+                    existing_run.lease_owner = None
+                    existing_run.lease_expires_at = None
+                    thread.status = "processing"
+                    thread.active_rag_session_id = None
+                    await self.db.flush()
                 return existing_message, existing_run
 
             active_run_statement = select(ChatRun).where(

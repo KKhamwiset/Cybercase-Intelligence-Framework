@@ -12,6 +12,7 @@ interface FollowUpModuleProps {
   answer: string;
   entries: FollowUpEntry[];
   isSubmitting: boolean;
+  error?: string | null;
   onAnswerChange: (answer: string) => void;
   onSubmit: () => void;
 }
@@ -21,6 +22,7 @@ export default function FollowUpModule({
   answer,
   entries,
   isSubmitting,
+  error = null,
   onAnswerChange,
   onSubmit,
 }: FollowUpModuleProps) {
@@ -80,7 +82,7 @@ export default function FollowUpModule({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit();
+            if (!isSubmitting && answer.trim()) onSubmit();
           }}
           className="space-y-4 p-5"
         >
@@ -99,20 +101,38 @@ export default function FollowUpModule({
               value={answer}
               onChange={(event) => onAnswerChange(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
+                const isEnter =
+                  event.key === "Enter" || event.code === "NumpadEnter";
+                if (
+                  isEnter &&
+                  (event.ctrlKey || event.metaKey) &&
+                  !isSubmitting &&
+                  answer.trim()
+                ) {
                   event.preventDefault();
-                  onSubmit();
+                  event.currentTarget.form?.requestSubmit();
                 }
               }}
               placeholder="Type your answer here..."
               disabled={isSubmitting}
+              aria-label="Clarification answer"
               rows={3}
               className="w-full resize-none rounded-md border border-black/10 bg-neutral-50 px-4 py-3 text-sm text-black outline-none transition placeholder:text-neutral focus:border-black focus:bg-white disabled:opacity-50"
             />
             <div className="pointer-events-none absolute bottom-2 right-2 text-[10px] text-neutral">
-              Enter to send / Shift+Enter for new line
+              Ctrl/Cmd+Enter to send
             </div>
           </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-[#B42318]/25 bg-[#B42318]/5 px-4 py-3 text-sm leading-6 text-[#7A271A]"
+            >
+              <p className="font-black">Answer was not processed</p>
+              <p className="mt-1 break-words">{error}</p>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <button
@@ -120,7 +140,11 @@ export default function FollowUpModule({
               disabled={isSubmitting || !answer.trim()}
               className="btn-primary"
             >
-              {isSubmitting ? "Sending..." : "Send Answer"}
+              {isSubmitting
+                ? "Sending..."
+                : error
+                  ? "Retry Answer"
+                  : "Send Answer"}
             </button>
           </div>
         </form>

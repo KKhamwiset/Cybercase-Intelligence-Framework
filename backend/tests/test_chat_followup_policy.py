@@ -254,6 +254,80 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             [("Investigate this event", exchanges, "Still partial")],
         )
 
+    async def test_query_rounds_progress_from_initial_to_second_to_terminal(self) -> None:
+        source_run_id = uuid4()
+        first = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Initial partial answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(),
+            followup_root_ordinal=1,
+            source_run_id=source_run_id,
+            policy=_QuestionPolicy("Which host was affected?"),
+        )
+        first_exchange = ClarificationExchange(
+            question=first.content,
+            answer="host-7",
+        )
+        second = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Second partial answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(first_exchange,),
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=_QuestionPolicy("When was it first observed?"),
+        )
+        final = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Complete RAG answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(
+                first_exchange,
+                ClarificationExchange(
+                    question=second.content,
+                    answer="09:32 UTC",
+                ),
+            ),
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=_AnswerPolicy(),
+        )
+
+        self.assertEqual(first.thread_status, "awaiting_followup")
+        self.assertEqual(
+            first.metadata_json["chat_followup"]["round"],
+            1,
+        )
+        self.assertEqual(second.thread_status, "awaiting_followup")
+        self.assertEqual(
+            second.metadata_json["chat_followup"]["round"],
+            2,
+        )
+        self.assertEqual(final.thread_status, "idle")
+        self.assertEqual(final.content, "Complete RAG answer")
+
+    async def test_max_round_guard_returns_validated_rag_answer(self) -> None:
+        exchanges = tuple(
+            ClarificationExchange(
+                question=f"Question {index}",
+                answer=f"Answer {index}",
+            )
+            for index in range(settings.chat_followup_max_rounds)
+        )
+        policy = _QuestionPolicy("This question must not be asked")
+
+        outcome = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Bounded final answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=exchanges,
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=policy,
+        )
+
+        self.assertEqual(settings.chat_followup_max_rounds, 3)
+        self.assertEqual(policy.calls, [])
+        self.assertEqual(outcome.content, "Bounded final answer")
+        self.assertEqual(outcome.thread_status, "idle")
+
     async def test_sufficient_later_round_returns_rag_answer_and_idle(self) -> None:
         policy = _AnswerPolicy()
         outcome = await resolve_followup_outcome(

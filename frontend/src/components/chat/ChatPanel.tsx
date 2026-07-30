@@ -7,26 +7,42 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { PersistedChatMessage, ThreadStatus } from "@/lib/api";
+import FollowUpModule, {
+  type FollowUpEntry,
+} from "@/components/FollowUpModule";
 import { Icon } from "./icons";
 import type { RunPhase } from "./types";
+
+interface ActiveFollowUp {
+  question: string;
+  entries: FollowUpEntry[];
+}
 
 interface ChatPanelProps {
   messages: PersistedChatMessage[];
   input: string;
+  followUp: ActiveFollowUp | null;
+  followUpAnswer: string;
   threadStatus: ThreadStatus | null;
   phase: RunPhase;
   error: string | null;
   onInputChange: (value: string) => void;
+  onFollowUpAnswerChange: (value: string) => void;
+  onFollowUpSubmit: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
 export function ChatPanel({
   messages,
   input,
+  followUp,
+  followUpAnswer,
   threadStatus,
   phase,
   error,
   onInputChange,
+  onFollowUpAnswerChange,
+  onFollowUpSubmit,
   onSubmit,
 }: ChatPanelProps) {
   const endRef = useRef<HTMLDivElement>(null);
@@ -41,7 +57,7 @@ export function ChatPanel({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, phase, error]);
+  }, [messages, phase, error, followUp]);
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -101,7 +117,7 @@ export function ChatPanel({
                 </article>
               ))}
 
-              {isBusy && (
+              {isBusy && !followUp && (
                 <div className="flex justify-start" role="status" aria-live="polite">
                   <div className="flex items-center gap-3 border-l-2 border-[#171717] bg-white/60 px-5 py-3 text-sm font-semibold text-[#6B6A66]">
                     <span className="h-2 w-2 rounded-full bg-[#171717] motion-safe:animate-pulse" />
@@ -110,7 +126,7 @@ export function ChatPanel({
                 </div>
               )}
 
-              {error && (
+              {error && !followUp && (
                 <div
                   role="alert"
                   className="rounded-xl border border-[#B42318]/25 bg-[#B42318]/5 px-4 py-3 text-sm leading-6 text-[#7A271A]"
@@ -122,10 +138,23 @@ export function ChatPanel({
             </div>
           )}
 
+          {followUp && (
+            <FollowUpModule
+              question={followUp.question}
+              answer={followUpAnswer}
+              entries={followUp.entries}
+              isSubmitting={isBusy}
+              error={error}
+              onAnswerChange={onFollowUpAnswerChange}
+              onSubmit={onFollowUpSubmit}
+            />
+          )}
+
           <div ref={endRef} />
         </div>
       </div>
 
+      {!followUp && (
       <footer className="shrink-0 border-t border-[#DEDCD5] bg-[#F7F6F2]/95 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:px-7 sm:py-4 lg:px-10">
         <form onSubmit={onSubmit} className="mx-auto max-w-[800px]">
           <div className="flex items-end gap-2 rounded-2xl border border-[#C9C7BF] bg-white p-2 shadow-[0_8px_30px_rgba(23,23,23,0.07)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#171717] focus-within:shadow-[0_10px_34px_rgba(23,23,23,0.1)] focus-within:ring-2 focus-within:ring-[#171717]/10 motion-reduce:transition-none">
@@ -161,6 +190,7 @@ export function ChatPanel({
           </p>
         </form>
       </footer>
+      )}
     </section>
   );
 }

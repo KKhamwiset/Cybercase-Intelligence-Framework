@@ -96,6 +96,7 @@ class Settings(BaseSettings):
     chat_followup_policy_max_answer_chars: int = 8_000
     chat_followup_question_max_chars: int = 300
     chat_followup_combined_query_max_chars: int = 12_000
+    chat_followup_max_rounds: int = 3
 
     # ── Thanoy Legal AI ──────────────────────────────────────────────────
     thanoy_enabled: bool = bool(os.getenv("THANOY_ENABLED", "false").lower() in ("true", "1", "yes"))
