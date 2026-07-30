@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Sequence
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -15,8 +16,10 @@ from app.database import async_session
 from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.rag import QueryResponse
+from app.services.chat.chat_message import reconstruct_clarification_chain
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
+    ClarificationExchange,
     FollowUpPolicy,
 )
 from app.services.chat.rag_client import RagCallFailure, request_rag
@@ -35,7 +38,9 @@ class ClaimedChatRun:
     input_rag_session_id: str | None
     content: object
     rag_query: object
-    skip_followup_policy: bool
+    original_user_content: object
+    clarification_exchanges: tuple[ClarificationExchange, ...]
+    followup_root_ordinal: int
 
 
 @dataclass(frozen=True)
@@ -87,22 +92,104 @@ class ChatRunWorker:
                 else None
             )
             rag_query = (
-                request_payload.get('rag_query')
+                request_payload.get('rag_query', content)
                 if isinstance(request_payload, dict)
                 else None
             )
-            skip_followup_policy = bool(
-                request_payload.get('skip_followup_policy', False)
+            requested_root_ordinal = (
+                request_payload.get('followup_root_ordinal')
+                if isinstance(request_payload, dict)
+                else None
+            )
+            if (
+                not isinstance(requested_root_ordinal, int)
+                or isinstance(requested_root_ordinal, bool)
+                or requested_root_ordinal < 1
+            ):
+                requested_root_ordinal = None
+            requested_round = (
+                request_payload.get('followup_round')
+                if isinstance(request_payload, dict)
+                else None
+            )
+            if (
+                not isinstance(requested_round, int)
+                or isinstance(requested_round, bool)
+                or requested_round < 0
+            ):
+                requested_round = None
+            legacy_followup = (
+                request_payload.get('skip_followup_policy') is True
                 if isinstance(request_payload, dict)
                 else False
             )
+
+            original_user_content: object = content
+            clarification_exchanges: tuple[
+                ClarificationExchange, ...
+            ] = ()
+            followup_root_ordinal = requested_root_ordinal
+            if requested_root_ordinal is not None and requested_round == 0:
+                pass
+            elif requested_root_ordinal is None and not legacy_followup:
+                request_message_result = await self.db.execute(
+                    select(ChatMessage).where(
+                        ChatMessage.id == run.request_message_id
+                    )
+                )
+                request_message = request_message_result.scalar_one_or_none()
+                if request_message is not None:
+                    original_user_content = request_message.content
+                    followup_root_ordinal = request_message.ordinal
+            else:
+                history_result = await self.db.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.thread_id == run.thread_id)
+                    .order_by(ChatMessage.ordinal)
+                )
+                history = history_result.scalars().all()
+                request_index = next(
+                    (
+                        index
+                        for index, message in enumerate(history)
+                        if message.id == run.request_message_id
+                    ),
+                    None,
+                )
+                if request_index is not None:
+                    history = history[: request_index + 1]
+                chain = reconstruct_clarification_chain(
+                    history,
+                    root_ordinal=requested_root_ordinal,
+                )
+                if chain is not None:
+                    original_user_content = chain.original_user_content
+                    clarification_exchanges = chain.exchanges
+                    followup_root_ordinal = chain.root_ordinal
+                if followup_root_ordinal is None:
+                    request_message = next(
+                        (
+                            message
+                            for message in history
+                            if message.id == run.request_message_id
+                        ),
+                        None,
+                    )
+                    if request_message is not None:
+                        original_user_content = request_message.content
+                        followup_root_ordinal = request_message.ordinal
+            if followup_root_ordinal is None:
+                followup_root_ordinal = 1
+
             claimed_run = ClaimedChatRun(
                 id=run.id,
                 operation=run.operation,
                 input_rag_session_id=run.input_rag_session_id,
                 content=content,
                 rag_query=rag_query,
-                skip_followup_policy=skip_followup_policy,
+                original_user_content=original_user_content,
+                clarification_exchanges=clarification_exchanges,
+                followup_root_ordinal=followup_root_ordinal,
             )
             await self.db.flush()
 
@@ -248,19 +335,21 @@ async def resolve_followup_outcome(
     response: QueryResponse,
     *,
     original_user_content: str,
-    skip_followup_policy: bool,
+    clarification_exchanges: Sequence[ClarificationExchange],
+    followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
 ) -> AssistantOutcome:
-    """Apply at most one clarification and fail open to the RAG answer."""
+    """Reevaluate accumulated clarification context and fail open on errors."""
 
     answer_outcome = map_rag_response(response)
-    if skip_followup_policy or not settings.chat_followup_policy_enabled:
+    if not settings.chat_followup_policy_enabled:
         return answer_outcome
 
     try:
         decision = await (policy or AnthropicFollowUpPolicy()).decide(
-            user_content=original_user_content,
+            original_user_content=original_user_content,
+            clarification_exchanges=clarification_exchanges,
             rag_answer=response.answer,
         )
     except Exception as exc:
@@ -273,6 +362,12 @@ async def resolve_followup_outcome(
 
     if decision.action != "ask_followup":
         return answer_outcome
+    normalized_question = _normalized_question(decision.question)
+    if any(
+        _normalized_question(exchange.question) == normalized_question
+        for exchange in clarification_exchanges
+    ):
+        return answer_outcome
     return AssistantOutcome(
         content=decision.question,
         retrieval_context_id=None,
@@ -280,11 +375,21 @@ async def resolve_followup_outcome(
             "chat_followup": {
                 "kind": "clarification",
                 "source_run_id": str(source_run_id),
+                "root_ordinal": followup_root_ordinal,
+                "round": len(clarification_exchanges) + 1,
             }
         },
         thread_status="awaiting_followup",
         active_rag_session_id=None,
     )
+
+
+def _normalized_question(question: str) -> str:
+    normalized = unicodedata.normalize("NFKC", question)
+    normalized = " ".join(normalized.split()).casefold()
+    while normalized and unicodedata.category(normalized[-1]).startswith("P"):
+        normalized = normalized[:-1].rstrip()
+    return normalized
 
 
 async def process_chat_run(run_id: UUID) -> None:
@@ -302,14 +407,17 @@ async def process_chat_run(run_id: UUID) -> None:
             raise ValueError('Chat run request content is not a string')
         if not isinstance(claimed_run.rag_query, str):
             raise ValueError('Chat run RAG query is not a string')
+        if not isinstance(claimed_run.original_user_content, str):
+            raise ValueError('Chat follow-up root content is not a string')
         if claimed_run.operation != 'query':
             raise ValueError('Chat run operation is invalid')
 
         response = await request_rag(claimed_run.rag_query)
         outcome = await resolve_followup_outcome(
             response,
-            original_user_content=claimed_run.content,
-            skip_followup_policy=claimed_run.skip_followup_policy,
+            original_user_content=claimed_run.original_user_content,
+            clarification_exchanges=claimed_run.clarification_exchanges,
+            followup_root_ordinal=claimed_run.followup_root_ordinal,
             source_run_id=claimed_run.id,
         )
 
