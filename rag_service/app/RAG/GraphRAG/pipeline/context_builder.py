@@ -123,16 +123,11 @@ def build_generation_prompt(
             "คงศัพท์เทคนิคและ ATT&CK ID ไว้เป็นภาษาอังกฤษ"
         )
     else:
-        facts_instruction = (
-            " Ensure the CONFIRMED INCIDENT FACTS section above is fully reflected "
-            "in every relevant part of your answer — especially the Attack Sequence."
-            if facts else ""
-        )
         parts.append(
             "Using ONLY the provided context, explain the incident in plain language "
             "for prosecutors and law enforcement officers who have no cybersecurity background.\n"
             "Follow the four-section format from your instructions exactly.\n"
-            f"Cite ATT&CK IDs for every technique mentioned.{facts_instruction}"
+            "Cite ATT&CK IDs for every technique mentioned."
         )
 
     return "\n".join(parts)

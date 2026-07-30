@@ -20,31 +20,15 @@ import {
   type PersistedChatMessage,
   type ChatThreadDetail,
   type ChatThreadRead,
-  type MitreContextEntry,
   type ThreadStatus,
 } from "@/lib/api";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
-import { EvidencePanel } from "@/components/chat/EvidencePanel";
-import { InspectorPanel } from "@/components/chat/InspectorPanel";
-import { MitreMappingPanel } from "@/components/chat/MitreMappingPanel";
-import { ReportPanel } from "@/components/chat/ReportPanel";
-import { TimelinePanel } from "@/components/chat/TimelinePanel";
 import { Icon } from "@/components/chat/icons";
-import {
-  MobileWorkspaceTabs,
-  WorkspaceSidebar,
-} from "@/components/chat/WorkspaceSidebar";
-import type {
-  AnalysisAvailability,
-  InspectorSelection,
-  RunPhase,
-  WorkspaceTab,
-} from "@/components/chat/types";
+import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
+import type { RunPhase } from "@/components/chat/types";
 
 const POLL_INTERVAL_MS = 1000;
-const ANALYSIS_UNAVAILABLE_MESSAGE =
-  "Validated evidence, timeline, and report data are not exposed by the current backend yet.";
 
 const phaseLabels: Record<RunPhase, string> = {
   idle: "Ready",
@@ -66,33 +50,6 @@ function titleFromMessage(content: string): string {
   const normalized = content.replace(/\s+/g, " ").trim();
   if (normalized.length <= 60) return normalized;
   return `${normalized.slice(0, 57).trimEnd()}...`;
-}
-
-function latestAssistantContext(messages: PersistedChatMessage[]): {
-  retrievalContextId: string | null;
-  mitreRows: MitreContextEntry[];
-} {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role !== "assistant") continue;
-
-    const rawRows = message.metadata_json.mitre_table;
-    const mitreRows = Array.isArray(rawRows)
-      ? rawRows.filter(
-          (row): row is MitreContextEntry =>
-            typeof row === "object" && row !== null,
-        )
-      : [];
-
-    if (message.retrieval_context_id || mitreRows.length > 0) {
-      return {
-        retrievalContextId: message.retrieval_context_id,
-        mitreRows,
-      };
-    }
-  }
-
-  return { retrievalContextId: null, mitreRows: [] };
 }
 
 function waitForNextPoll(signal: AbortSignal): Promise<void> {
@@ -125,18 +82,11 @@ function isCanceled(signal: AbortSignal, error: unknown): boolean {
 }
 
 export default function ChatPage() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("chat");
   const [threads, setThreads] = useState<ChatThreadRead[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
   const [messages, setMessages] = useState<PersistedChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [retrievalContextId, setRetrievalContextId] = useState<string | null>(
-    null,
-  );
-  const [mitreRows, setMitreRows] = useState<MitreContextEntry[]>([]);
-  const [analysisAvailability, setAnalysisAvailability] =
-    useState<AnalysisAvailability>({ status: "idle", message: null });
   const [phase, setPhase] = useState<RunPhase>("idle");
   const [queryError, setQueryError] = useState<string | null>(null);
   const [threadsError, setThreadsError] = useState<string | null>(null);
@@ -146,7 +96,6 @@ export default function ChatPage() {
     null,
   );
   const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
-  const [selection, setSelection] = useState<InspectorSelection>(null);
 
   const activeThreadIdRef = useRef<string | null>(null);
   const selectionGenerationRef = useRef(0);
@@ -176,24 +125,13 @@ export default function ChatPage() {
     [],
   );
 
-  const clearDerivedState = useCallback(() => {
-    setRetrievalContextId(null);
-    setMitreRows([]);
-    setAnalysisAvailability({ status: "idle", message: null });
-    setSelection(null);
-  }, []);
-
   const applyThreadDetail = useCallback(
     (detail: ChatThreadDetail, failureMessage?: string | null) => {
       const orderedMessages = [...detail.messages].sort(
         (left, right) => left.ordinal - right.ordinal,
       );
-      const context = latestAssistantContext(orderedMessages);
-
       setMessages(orderedMessages);
       setThreadStatus(detail.status);
-      setRetrievalContextId(context.retrievalContextId);
-      setMitreRows(context.mitreRows);
       setPhase(phaseForThread(detail));
       upsertThread(detail);
 
@@ -204,15 +142,6 @@ export default function ChatPage() {
         );
       } else {
         setQueryError(null);
-      }
-
-      if (context.retrievalContextId) {
-        setAnalysisAvailability({
-          status: "unavailable",
-          message: ANALYSIS_UNAVAILABLE_MESSAGE,
-        });
-      } else {
-        setAnalysisAvailability({ status: "idle", message: null });
       }
     },
     [upsertThread],
@@ -294,13 +223,11 @@ export default function ChatPage() {
       setMessages([]);
       setThreadStatus(null);
       setQueryError(null);
-      clearDerivedState();
       setPhase("querying");
-      setActiveTab("chat");
 
       await loadThread(threadId, generation, controller.signal);
     },
-    [clearDerivedState, loadThread],
+    [loadThread],
   );
 
   useEffect(() => {
@@ -463,7 +390,6 @@ export default function ChatPage() {
 
         pendingSubmissionRef.current = null;
         setInput("");
-        clearDerivedState();
         setMessages((current) => {
           if (current.some((message) => message.id === accepted.message.id)) {
             return current;
@@ -538,11 +464,6 @@ export default function ChatPage() {
     })();
   };
 
-  const handleTabChange = (tab: WorkspaceTab) => {
-    setSelection(null);
-    setActiveTab(tab);
-  };
-
   const handleCancelDelete = useCallback(() => {
     if (deletingThreadId === null) setDeleteCandidate(null);
   }, [deletingThreadId]);
@@ -589,13 +510,10 @@ export default function ChatPage() {
     setInput("");
     setThreadStatus(null);
     setQueryError(null);
-    clearDerivedState();
     setPhase("idle");
-    setActiveTab("chat");
 
     if (remainingThreads[0]) await selectThread(remainingThreads[0].id);
   }, [
-    clearDerivedState,
     deleteCandidate,
     deletingThreadId,
     selectThread,
@@ -604,20 +522,9 @@ export default function ChatPage() {
 
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
-  const inspectorProps = {
-    caseId: activeThreadId,
-    retrievalContextId,
-    phase,
-    availability: analysisAvailability,
-    selection,
-  };
-  const inlineInspector = <InspectorPanel {...inspectorProps} inline />;
-
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
         threads={threads}
         activeThreadId={activeThreadId}
         threadsLoading={threadsLoading}
@@ -692,54 +599,17 @@ export default function ChatPage() {
           </div>
         </header>
 
-        <MobileWorkspaceTabs
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
-
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[#F7F6F2]">
           <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            {activeTab === "chat" && (
-              <ChatPanel
-                messages={messages}
-                input={input}
-                threadStatus={threadStatus}
-                phase={phase}
-                error={queryError}
-                onInputChange={setInput}
-                onSubmit={handleSubmit}
-              />
-            )}
-            {activeTab === "evidence" && (
-              <EvidencePanel
-                artifact={null}
-                availability={analysisAvailability}
-                inlineInspector={inlineInspector}
-                onSelect={setSelection}
-              />
-            )}
-            {activeTab === "mitre" && (
-              <MitreMappingPanel
-                rows={mitreRows}
-                inlineInspector={inlineInspector}
-                onSelect={setSelection}
-              />
-            )}
-            {activeTab === "timeline" && (
-              <TimelinePanel
-                events={[]}
-                inlineInspector={inlineInspector}
-                onSelect={setSelection}
-              />
-            )}
-            {activeTab === "report" && (
-              <ReportPanel
-                report={null}
-                reportabilityReasons={[]}
-                availability={analysisAvailability}
-                inlineInspector={inlineInspector}
-              />
-            )}
+            <ChatPanel
+              messages={messages}
+              input={input}
+              threadStatus={threadStatus}
+              phase={phase}
+              error={queryError}
+              onInputChange={setInput}
+              onSubmit={handleSubmit}
+            />
           </main>
 
         </div>

@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, cast
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session
+from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.rag import QueryResponse
+from app.services.chat.followup_policy import (
+    AnthropicFollowUpPolicy,
+    FollowUpPolicy,
+)
 from app.services.chat.rag_client import RagCallFailure, request_rag
 
 
-RunOperation = Literal['query', 'resume']
+logger = logging.getLogger("app.chat")
 RUN_LEASE_DURATION = timedelta(minutes=6)
 
 
@@ -28,6 +34,8 @@ class ClaimedChatRun:
     operation: str
     input_rag_session_id: str | None
     content: object
+    rag_query: object
+    skip_followup_policy: bool
 
 
 @dataclass(frozen=True)
@@ -78,11 +86,23 @@ class ChatRunWorker:
                 if isinstance(request_payload, dict)
                 else None
             )
+            rag_query = (
+                request_payload.get('rag_query')
+                if isinstance(request_payload, dict)
+                else None
+            )
+            skip_followup_policy = bool(
+                request_payload.get('skip_followup_policy', False)
+                if isinstance(request_payload, dict)
+                else False
+            )
             claimed_run = ClaimedChatRun(
                 id=run.id,
                 operation=run.operation,
                 input_rag_session_id=run.input_rag_session_id,
                 content=content,
+                rag_query=rag_query,
+                skip_followup_policy=skip_followup_policy,
             )
             await self.db.flush()
 
@@ -200,7 +220,7 @@ class ChatRunWorker:
 def map_rag_response(response: QueryResponse) -> AssistantOutcome:
     '''Map the validated RAG wire response into one durable assistant result.'''
 
-    if response.status == 'completed' and response.answer.strip():
+    if response.answer.strip():
         return AssistantOutcome(
             content=response.answer,
             retrieval_context_id=(
@@ -208,27 +228,62 @@ def map_rag_response(response: QueryResponse) -> AssistantOutcome:
                 if response.retrieval_context_id is not None
                 else None
             ),
-            metadata_json={'mitre_table': response.mitre_table},
+            metadata_json={
+                'mitre_table': [
+                    row.model_dump(mode='json')
+                    for row in response.mitre_table
+                ]
+            },
             thread_status='idle',
             active_rag_session_id=None,
-        )
-
-    if (
-        response.status == 'followup'
-        and response.followup_question.strip()
-        and response.session_id.strip()
-    ):
-        return AssistantOutcome(
-            content=response.followup_question,
-            retrieval_context_id=None,
-            metadata_json={},
-            thread_status='awaiting_followup',
-            active_rag_session_id=response.session_id.strip(),
         )
 
     raise RagCallFailure(
         'rag_invalid_response',
         'RAG service returned an invalid response',
+    )
+
+
+async def resolve_followup_outcome(
+    response: QueryResponse,
+    *,
+    original_user_content: str,
+    skip_followup_policy: bool,
+    source_run_id: UUID,
+    policy: FollowUpPolicy | None = None,
+) -> AssistantOutcome:
+    """Apply at most one clarification and fail open to the RAG answer."""
+
+    answer_outcome = map_rag_response(response)
+    if skip_followup_policy or not settings.chat_followup_policy_enabled:
+        return answer_outcome
+
+    try:
+        decision = await (policy or AnthropicFollowUpPolicy()).decide(
+            user_content=original_user_content,
+            rag_answer=response.answer,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Chat follow-up policy failed open source_run_id=%s exception_type=%s",
+            source_run_id,
+            type(exc).__name__,
+        )
+        return answer_outcome
+
+    if decision.action != "ask_followup":
+        return answer_outcome
+    return AssistantOutcome(
+        content=decision.question,
+        retrieval_context_id=None,
+        metadata_json={
+            "chat_followup": {
+                "kind": "clarification",
+                "source_run_id": str(source_run_id),
+            }
+        },
+        thread_status="awaiting_followup",
+        active_rag_session_id=None,
     )
 
 
@@ -245,15 +300,18 @@ async def process_chat_run(run_id: UUID) -> None:
     try:
         if not isinstance(claimed_run.content, str):
             raise ValueError('Chat run request content is not a string')
-        if claimed_run.operation not in ('query', 'resume'):
+        if not isinstance(claimed_run.rag_query, str):
+            raise ValueError('Chat run RAG query is not a string')
+        if claimed_run.operation != 'query':
             raise ValueError('Chat run operation is invalid')
 
-        response = await request_rag(
-            cast(RunOperation, claimed_run.operation),
-            claimed_run.content,
-            claimed_run.input_rag_session_id,
+        response = await request_rag(claimed_run.rag_query)
+        outcome = await resolve_followup_outcome(
+            response,
+            original_user_content=claimed_run.content,
+            skip_followup_policy=claimed_run.skip_followup_policy,
+            source_run_id=claimed_run.id,
         )
-        outcome = map_rag_response(response)
 
         async with async_session() as finalize_db:
             await ChatRunWorker(finalize_db).complete_run(

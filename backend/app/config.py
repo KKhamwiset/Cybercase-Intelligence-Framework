@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     anthropic_messages_url: str = "https://api.anthropic.com/v1/messages"
     experimental_analysis_enabled: bool = False
     rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
+    chat_followup_policy_enabled: bool = True
+    chat_followup_policy_model: str = "claude-haiku-4-5"
+    chat_followup_policy_timeout_seconds: float = 15.0
+    chat_followup_policy_max_output_tokens: int = 128
+    chat_followup_policy_max_user_chars: int = 4_000
+    chat_followup_policy_max_answer_chars: int = 8_000
+    chat_followup_question_max_chars: int = 300
+    chat_followup_combined_query_max_chars: int = 12_000
 
     # ── Thanoy Legal AI ──────────────────────────────────────────────────
     thanoy_enabled: bool = bool(os.getenv("THANOY_ENABLED", "false").lower() in ("true", "1", "yes"))

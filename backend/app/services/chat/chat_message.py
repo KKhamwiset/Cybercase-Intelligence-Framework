@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat import ChatMessageCreate, ChatMessageRead
+from app.services.chat.followup_policy import build_clarified_query
 
 
 class ChatMessageService:
@@ -65,13 +66,47 @@ class ChatMessageService:
                     detail="Chat thread already has an active run",
                 )
 
-            input_rag_session_id = thread.active_rag_session_id
+            rag_query = request.content
+            skip_followup_policy = thread.status == "awaiting_followup"
+            if skip_followup_policy:
+                history_result = await self.db.execute(
+                    select(ChatMessage)
+                    .where(ChatMessage.thread_id == thread.id)
+                    .order_by(ChatMessage.ordinal.desc())
+                    .limit(2)
+                )
+                history = history_result.scalars().all()
+                clarification = next(
+                    (
+                        message
+                        for message in history
+                        if message.role == "assistant"
+                    ),
+                    None,
+                )
+                original = next(
+                    (
+                        message
+                        for message in history
+                        if message.role == "user"
+                        and (
+                            clarification is None
+                            or message.ordinal < clarification.ordinal
+                        )
+                    ),
+                    None,
+                )
+                rag_query = build_clarified_query(
+                    original_user_content=original.content if original else "",
+                    clarification_question=(
+                        clarification.content if clarification else ""
+                    ),
+                    current_answer=request.content,
+                )
 
-            if input_rag_session_id is None:
-                operation = "query"
-            else:
-                operation = "resume"
-                thread.active_rag_session_id = None
+            # Legacy session IDs are historical only. Every new chat run uses
+            # the current completed-response RAG query boundary.
+            thread.active_rag_session_id = None
 
             ordinal = thread.next_message_ordinal
             thread.next_message_ordinal += 1
@@ -91,11 +126,15 @@ class ChatMessageService:
             run = ChatRun(
                 thread_id=thread.id,
                 request_message_id=message.id,
-                operation=operation,
-                input_rag_session_id=input_rag_session_id,
+                operation="query",
+                input_rag_session_id=None,
                 idempotency_key=request.idempotency_key,
                 request_fingerprint=request_fingerprint,
-                request_payload={"content": request.content},
+                request_payload={
+                    "content": request.content,
+                    "rag_query": rag_query,
+                    "skip_followup_policy": skip_followup_policy,
+                },
             )
 
             self.db.add(run)

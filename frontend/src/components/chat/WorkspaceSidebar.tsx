@@ -1,101 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, type KeyboardEvent } from "react";
 import type { ChatThreadRead } from "@/lib/api";
-import { Icon, type IconName } from "./icons";
-import { WORKSPACE_TABS, type WorkspaceTab } from "./types";
-
-interface TabListProps {
-  activeTab: WorkspaceTab;
-  onTabChange: (tab: WorkspaceTab) => void;
-  orientation: "vertical" | "horizontal";
-}
-
-const tabIcons: Record<WorkspaceTab, IconName> = {
-  chat: "chat",
-  evidence: "evidence",
-  mitre: "mitre",
-  timeline: "timeline",
-  report: "report",
-};
-
-function TabList({ activeTab, onTabChange, orientation }: TabListProps) {
-  const tabsRef = useRef<Array<HTMLButtonElement | null>>([]);
-
-  const moveFocus = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    currentIndex: number,
-  ) => {
-    const previousKey = orientation === "vertical" ? "ArrowUp" : "ArrowLeft";
-    const nextKey = orientation === "vertical" ? "ArrowDown" : "ArrowRight";
-    let nextIndex: number | null = null;
-
-    if (event.key === previousKey) {
-      nextIndex = (currentIndex - 1 + WORKSPACE_TABS.length) % WORKSPACE_TABS.length;
-    } else if (event.key === nextKey) {
-      nextIndex = (currentIndex + 1) % WORKSPACE_TABS.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = WORKSPACE_TABS.length - 1;
-    }
-
-    if (nextIndex === null) return;
-    event.preventDefault();
-    const nextTab = WORKSPACE_TABS[nextIndex];
-    onTabChange(nextTab.id);
-    tabsRef.current[nextIndex]?.focus();
-  };
-
-  return (
-    <div
-      role="tablist"
-      aria-label="Investigation workspace"
-      aria-orientation={orientation}
-      className={
-        orientation === "vertical"
-          ? "flex flex-col gap-1.5"
-          : "flex min-w-max gap-1.5 px-3 py-2.5"
-      }
-    >
-      {WORKSPACE_TABS.map((tab, index) => {
-        const selected = tab.id === activeTab;
-        return (
-          <button
-            key={tab.id}
-            ref={(node) => {
-              tabsRef.current[index] = node;
-            }}
-            type="button"
-            role="tab"
-            aria-label={tab.label}
-            id={`${orientation}-${tab.id}-tab`}
-            aria-selected={selected}
-            aria-controls={`${tab.id}-panel`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onTabChange(tab.id)}
-            onKeyDown={(event) => moveFocus(event, index)}
-            className={`flex min-h-11 items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold outline-none transition-[background-color,color,border-color] duration-150 motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 ${
-              selected
-                ? "bg-[#171717] text-white"
-                : "text-[#6B6A66] hover:bg-white hover:text-[#171717]"
-            } ${orientation === "vertical" ? "w-full" : "shrink-0"}`}
-          >
-            <Icon name={tabIcons[tab.id]} className="h-5 w-5 shrink-0" />
-            <span>
-              {tab.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import { Icon } from "./icons";
 
 interface WorkspaceNavigationProps {
-  activeTab: WorkspaceTab;
-  onTabChange: (tab: WorkspaceTab) => void;
   threads: ChatThreadRead[];
   activeThreadId: string | null;
   threadsLoading: boolean;
@@ -114,8 +23,6 @@ const threadStatusLabels: Record<ChatThreadRead["status"], string> = {
 };
 
 export function WorkspaceSidebar({
-  activeTab,
-  onTabChange,
   threads,
   activeThreadId,
   threadsLoading,
@@ -230,38 +137,6 @@ export function WorkspaceSidebar({
         )}
       </section>
 
-      <nav className="border-t border-[#DEDCD5] px-4 py-4" aria-label="Investigation views">
-        <p className="mb-2 px-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
-          Investigation views
-        </p>
-        <TabList
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          orientation="vertical"
-        />
-      </nav>
-
-      <p className="border-t border-[#DEDCD5] px-6 py-4 text-[11px] leading-5 text-[#6B6A66]">
-        Analysis views contain only data returned for the current run.
-      </p>
     </aside>
-  );
-}
-
-export function MobileWorkspaceTabs({
-  activeTab,
-  onTabChange,
-}: Pick<WorkspaceNavigationProps, "activeTab" | "onTabChange">) {
-  return (
-    <nav
-      className="overflow-x-auto border-b border-[#DEDCD5] bg-[#F7F6F2] md:hidden"
-      aria-label="Investigation views"
-    >
-      <TabList
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        orientation="horizontal"
-      />
-    </nav>
   );
 }
