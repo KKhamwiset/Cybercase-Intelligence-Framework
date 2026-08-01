@@ -417,6 +417,112 @@ describe("active chat route", () => {
     );
   });
 
+  it("uses an edited retry answer when the backend persists a second clarification", async () => {
+    const oldAnswer = userMessage(3, "old-host");
+    const editedAnswer = userMessage(4, "edited-host");
+    const questionTwo = followUpMessage(
+      5,
+      "When was the event first observed?",
+      2,
+    );
+    const acceptedOld = accepted(oldAnswer, "run-old");
+    const acceptedEdited = accepted(editedAnswer, "run-edited");
+    const failedDetail: ChatThreadDetail = {
+      ...thread,
+      status: "awaiting_followup",
+      messages: [...thread.messages, oldAnswer],
+    };
+    const secondDetail: ChatThreadDetail = {
+      ...thread,
+      status: "awaiting_followup",
+      messages: [...thread.messages, oldAnswer, editedAnswer, questionTwo],
+    };
+    vi.mocked(getChatThread)
+      .mockReset()
+      .mockResolvedValueOnce(thread)
+      .mockResolvedValueOnce(failedDetail)
+      .mockResolvedValueOnce(secondDetail);
+    vi.mocked(createChatMessage)
+      .mockResolvedValueOnce(acceptedOld)
+      .mockResolvedValueOnce(acceptedEdited);
+    vi.mocked(getChatRun)
+      .mockResolvedValueOnce({
+        ...acceptedOld.run,
+        status: "failed",
+        error_code: "rag_unavailable",
+        error_message: "RAG service unavailable",
+      })
+      .mockResolvedValueOnce({ ...acceptedEdited.run, status: "completed" });
+    await renderLoadedPage();
+    vi.useFakeTimers();
+
+    const answer = screen.getByLabelText("Clarification answer");
+    fireEvent.change(answer, { target: { value: "old-host" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+      target: { value: "edited-host" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(screen.getByText(questionTwo.content)).toBeInTheDocument();
+    expect(screen.getByText(editedAnswer.content)).toBeInTheDocument();
+    expect(screen.queryByText(oldAnswer.content)).not.toBeInTheDocument();
+  });
+
+  it("recovers a persisted answer after a lost POST response when the thread is reselected", async () => {
+    const answer = userMessage(3, "host-7");
+    const finalAnswer: PersistedChatMessage = {
+      id: "message-4",
+      thread_id: thread.id,
+      ordinal: 4,
+      role: "assistant",
+      content: "The recovered terminal analysis is complete.",
+      retrieval_context_id: "retrieval-1",
+      metadata_json: {},
+      created_at: "2026-07-29T12:03:00Z",
+    };
+    const terminalDetail: ChatThreadDetail = {
+      ...thread,
+      status: "idle",
+      messages: [...thread.messages, answer, finalAnswer],
+    };
+    vi.mocked(getChatThread)
+      .mockReset()
+      .mockResolvedValueOnce(thread)
+      .mockResolvedValueOnce(terminalDetail);
+    vi.mocked(createChatMessage).mockRejectedValueOnce(
+      new Error("response lost after acceptance"),
+    );
+    await renderLoadedPage();
+
+    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+      target: { value: answer.content },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    expect(
+      await screen.findByRole("button", { name: "Retry Answer" }),
+    ).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("Select saved chat"), {
+      target: { value: thread.id },
+    });
+
+    expect(
+      await screen.findByText(finalAnswer.content),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
+    expect(screen.queryByText("More detail required")).not.toBeInTheDocument();
+  });
+
   it("retains prior Q/A for a second follow-up, then restores the terminal transcript and composer", async () => {
     const answerOne = userMessage(3, "host-7");
     const questionTwo = followUpMessage(

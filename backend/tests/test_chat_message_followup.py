@@ -305,6 +305,14 @@ class ChatMessageFollowUpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.request_payload["followup_round"], 1)
         db.add.assert_not_called()
         db.flush.assert_awaited_once()
+        latest_run_statement = db.execute.await_args_list[3].args[0]
+        latest_run_sql = str(latest_run_statement)
+        self.assertIn("JOIN chat_messages", latest_run_sql)
+        self.assertIn(
+            "ORDER BY chat_messages.ordinal DESC, "
+            "chat_runs.created_at DESC, chat_runs.id DESC",
+            latest_run_sql,
+        )
 
     async def test_failed_idempotent_retry_rejects_an_active_run(self) -> None:
         thread_id = uuid4()

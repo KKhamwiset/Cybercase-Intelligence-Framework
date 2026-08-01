@@ -184,8 +184,16 @@ class ChatMessageService:
 
                     latest_run_result = await self.db.execute(
                         select(ChatRun.id)
+                        .join(
+                            ChatMessage,
+                            ChatMessage.id == ChatRun.request_message_id,
+                        )
                         .where(ChatRun.thread_id == thread.id)
-                        .order_by(ChatRun.created_at.desc())
+                        .order_by(
+                            ChatMessage.ordinal.desc(),
+                            ChatRun.created_at.desc(),
+                            ChatRun.id.desc(),
+                        )
                         .limit(1)
                     )
                     latest_run_id = latest_run_result.scalar_one_or_none()

@@ -22,143 +22,28 @@ import {
   type ChatThreadRead,
   type ThreadStatus,
 } from "@/lib/api";
-import type { FollowUpEntry } from "@/components/FollowUpModule";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
 import { Icon } from "@/components/chat/icons";
 import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
 import type { RunPhase } from "@/components/chat/types";
+import {
+  activeChatFollowUpForThread,
+  chatTranscriptMessages,
+  hasCompletedAssistantOutput,
+  persistedRequestOrdinal,
+  type ActiveChatFollowUp,
+} from "@/lib/chat-followup";
 
 const POLL_INTERVAL_MS = 1000;
-
-interface ActiveFollowUp {
-  question: string;
-  entries: FollowUpEntry[];
-  rootOrdinal: number;
-}
-
-interface FollowUpMetadata {
-  rootOrdinal: number;
-  round: number;
-}
 
 interface PendingSubmission {
   threadId: string;
   content: string;
   key: string;
   kind: "message" | "followup";
+  lastKnownMessageOrdinal: number;
   requestOrdinal?: number;
-}
-
-function followUpMetadata(
-  message: PersistedChatMessage,
-): FollowUpMetadata | null {
-  const value = message.metadata_json.chat_followup;
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("kind" in value) ||
-    value.kind !== "clarification" ||
-    !("root_ordinal" in value) ||
-    typeof value.root_ordinal !== "number" ||
-    !Number.isInteger(value.root_ordinal) ||
-    value.root_ordinal < 1 ||
-    !("round" in value) ||
-    typeof value.round !== "number" ||
-    !Number.isInteger(value.round) ||
-    value.round < 1
-  ) {
-    return null;
-  }
-
-  return {
-    rootOrdinal: value.root_ordinal,
-    round: value.round,
-  };
-}
-
-function activeFollowUpForThread(
-  persistedMessages: PersistedChatMessage[],
-  status: ThreadStatus | null,
-): ActiveFollowUp | null {
-  if (status !== "awaiting_followup") return null;
-
-  const ordered = [...persistedMessages].sort(
-    (left, right) => left.ordinal - right.ordinal,
-  );
-  const annotatedQuestions = ordered
-    .filter((message) => message.role === "assistant")
-    .map((message) => ({ message, metadata: followUpMetadata(message) }))
-    .filter(
-      (
-        candidate,
-      ): candidate is {
-        message: PersistedChatMessage;
-        metadata: FollowUpMetadata;
-      } => candidate.metadata !== null,
-    );
-
-  const activeMessage = [...ordered]
-    .reverse()
-    .find((message) => message.role === "assistant");
-  if (!activeMessage) return null;
-  const activeMetadata = followUpMetadata(activeMessage);
-
-  const rootOrdinal =
-    activeMetadata?.rootOrdinal ??
-    [...ordered]
-      .reverse()
-      .find(
-        (message) =>
-          message.role === "user" &&
-          message.ordinal < activeMessage.ordinal,
-      )?.ordinal;
-  if (rootOrdinal === undefined) return null;
-
-  const priorQuestions = activeMetadata
-    ? annotatedQuestions.filter(
-        (candidate) =>
-          candidate.metadata.rootOrdinal === rootOrdinal &&
-          candidate.message.ordinal < activeMessage.ordinal,
-      )
-    : [];
-  const entries = priorQuestions.flatMap((candidate, index) => {
-    const nextQuestionOrdinal =
-      priorQuestions[index + 1]?.message.ordinal ?? activeMessage.ordinal;
-    const answer = ordered.find(
-      (message) =>
-        message.role === "user" &&
-        message.ordinal > candidate.message.ordinal &&
-        message.ordinal < nextQuestionOrdinal,
-    );
-    return answer
-      ? [{ question: candidate.message.content, answer: answer.content }]
-      : [];
-  });
-
-  return {
-    question: activeMessage.content,
-    entries,
-    rootOrdinal,
-  };
-}
-
-function hasCompletedAssistantOutput(
-  detail: ChatThreadDetail,
-  requestOrdinal: number,
-): boolean {
-  if (
-    detail.status !== "idle" &&
-    detail.status !== "awaiting_followup"
-  ) {
-    return false;
-  }
-  return detail.messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      message.ordinal > requestOrdinal &&
-      Boolean(message.content.trim()),
-  );
 }
 
 const phaseLabels: Record<RunPhase, string> = {
@@ -221,7 +106,7 @@ export default function ChatPage() {
   const [followUpAnswer, setFollowUpAnswer] = useState("");
   const [pendingFollowUp, setPendingFollowUp] = useState<{
     threadId: string;
-    followUp: ActiveFollowUp;
+    followUp: ActiveChatFollowUp;
   } | null>(null);
   const [phase, setPhase] = useState<RunPhase>("idle");
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -267,20 +152,45 @@ export default function ChatPage() {
       setPhase(phaseForThread(detail));
       upsertThread(detail);
 
+      const pending = pendingSubmissionRef.current;
+      const recoveredRequestOrdinal =
+        pending?.threadId === detail.id && pending.requestOrdinal === undefined
+          ? persistedRequestOrdinal(
+              detail,
+              pending.lastKnownMessageOrdinal,
+              pending.content,
+            )
+          : undefined;
+      if (
+        pending?.threadId === detail.id &&
+        recoveredRequestOrdinal !== undefined
+      ) {
+        pendingSubmissionRef.current = {
+          ...pending,
+          requestOrdinal: recoveredRequestOrdinal,
+        };
+      }
+      const requestOrdinal =
+        pending?.threadId === detail.id
+          ? pending.requestOrdinal ?? recoveredRequestOrdinal
+          : undefined;
+
       if (failureMessage || detail.status === "failed") {
         setQueryError(
           failureMessage ||
             "Background processing failed. Retry the saved message.",
         );
-      } else {
+      } else if (
+        pending?.threadId !== detail.id ||
+        requestOrdinal !== undefined
+      ) {
         setQueryError(null);
       }
 
-      const pending = pendingSubmissionRef.current;
       if (
         pending?.threadId === detail.id &&
-        pending.requestOrdinal !== undefined &&
-        hasCompletedAssistantOutput(detail, pending.requestOrdinal)
+        requestOrdinal !== undefined &&
+        hasCompletedAssistantOutput(detail, requestOrdinal)
       ) {
         pendingSubmissionRef.current = null;
         setPendingFollowUp(null);
@@ -375,7 +285,9 @@ export default function ChatPage() {
       );
       setMessages([]);
       setThreadStatus(null);
-      setQueryError(null);
+      setQueryError((current) =>
+        pending?.threadId === threadId ? current : null,
+      );
       setPhase("querying");
 
       await loadThread(threadId, generation, controller.signal);
@@ -500,7 +412,7 @@ export default function ChatPage() {
   const submitContent = (
     rawContent: string,
     kind: PendingSubmission["kind"],
-    followUp?: ActiveFollowUp,
+    followUp?: ActiveChatFollowUp,
   ) => {
     if (phase === "querying" || phase === "analyzing") return;
 
@@ -538,11 +450,20 @@ export default function ChatPage() {
         pending?.threadId === threadId && pending.content === content
           ? pending.key
           : window.crypto.randomUUID();
+      const lastKnownMessageOrdinal =
+        pending?.threadId === threadId && pending.content === content
+          ? pending.lastKnownMessageOrdinal
+          : existingMessages.reduce(
+              (latestOrdinal, message) =>
+                Math.max(latestOrdinal, message.ordinal),
+              0,
+            );
       pendingSubmissionRef.current = {
         threadId,
         content,
         key: idempotencyKey,
         kind,
+        lastKnownMessageOrdinal,
       };
       if (kind === "followup" && followUp) {
         setPendingFollowUp({ threadId, followUp });
@@ -719,17 +640,13 @@ export default function ChatPage() {
 
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
-  const persistedFollowUp = activeFollowUpForThread(messages, threadStatus);
+  const persistedFollowUp = activeChatFollowUpForThread(messages, threadStatus);
   const displayFollowUp =
     persistedFollowUp ??
     (pendingFollowUp?.threadId === activeThreadId
       ? pendingFollowUp.followUp
       : null);
-  const visibleMessages = displayFollowUp
-    ? messages.filter(
-        (message) => message.ordinal <= displayFollowUp.rootOrdinal,
-      )
-    : messages;
+  const visibleMessages = chatTranscriptMessages(messages, displayFollowUp);
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
