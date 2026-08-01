@@ -23,10 +23,16 @@ import {
   type ThreadStatus,
 } from "@/lib/api";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { ChatExtractionView } from "@/components/chat/ChatExtractionView";
+import { ChatReportView } from "@/components/chat/ChatReportView";
 import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
 import { Icon } from "@/components/chat/icons";
 import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
-import type { RunPhase } from "@/components/chat/types";
+import {
+  workspaceViewLabels,
+  type RunPhase,
+  type WorkspaceView,
+} from "@/components/chat/types";
 import {
   activeChatFollowUpForThread,
   chatTranscriptMessages,
@@ -34,6 +40,7 @@ import {
   persistedRequestOrdinal,
   type ActiveChatFollowUp,
 } from "@/lib/chat-followup";
+import { latestChatDemoExtractionForMessages } from "@/lib/chat-extraction";
 
 const POLL_INTERVAL_MS = 1000;
 
@@ -98,6 +105,7 @@ function isCanceled(signal: AbortSignal, error: unknown): boolean {
 }
 
 export default function ChatPage() {
+  const [activeView, setActiveView] = useState<WorkspaceView>("chat");
   const [threads, setThreads] = useState<ChatThreadRead[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
@@ -326,6 +334,7 @@ export default function ChatPage() {
 
   const handleNewChat = useCallback(async () => {
     if (creatingThread) return;
+    setActiveView("chat");
     setCreatingThread(true);
     setThreadsError(null);
     try {
@@ -647,6 +656,7 @@ export default function ChatPage() {
       ? pendingFollowUp.followUp
       : null);
   const visibleMessages = chatTranscriptMessages(messages, displayFollowUp);
+  const latestExtraction = latestChatDemoExtractionForMessages(messages);
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
@@ -658,6 +668,8 @@ export default function ChatPage() {
         onNewChat={() => void handleNewChat()}
         onRequestDelete={setDeleteCandidate}
         deletingThreadId={deletingThreadId}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -676,9 +688,30 @@ export default function ChatPage() {
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[#6B6A66]">
                 <span className={`h-1.5 w-1.5 rounded-full ${phase === "error" ? "bg-[#B42318]" : phase === "querying" || phase === "analyzing" ? "bg-[#171717] motion-safe:animate-pulse" : "bg-[#8A8984]"}`} />
-                {phaseLabels[phase]}
+                <span>{workspaceViewLabels[activeView]}</span>
+                <span aria-hidden="true">·</span>
+                <span>{phaseLabels[phase]}</span>
               </p>
             </div>
+          </div>
+
+          <div className="flex w-full items-center gap-2 md:hidden">
+            <label htmlFor="mobile-workspace-view" className="sr-only">
+              Select workspace
+            </label>
+            <select
+              id="mobile-workspace-view"
+              value={activeView}
+              onChange={(event) =>
+                setActiveView(event.target.value as WorkspaceView)
+              }
+              aria-label="Select workspace"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#C9C7BF] bg-white px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
+            >
+              <option value="chat">Chat</option>
+              <option value="extraction">Evidence &amp; timeline</option>
+              <option value="report">Report generation</option>
+            </select>
           </div>
 
           <div className="flex w-full items-center gap-2 md:hidden">
@@ -726,25 +759,49 @@ export default function ChatPage() {
 
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[#F7F6F2]">
           <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <ChatPanel
-              messages={visibleMessages}
-              input={input}
-              followUp={displayFollowUp}
-              followUpAnswer={followUpAnswer}
-              threadStatus={threadStatus}
-              phase={phase}
-              error={queryError}
-              onInputChange={setInput}
-              onFollowUpAnswerChange={setFollowUpAnswer}
-              onFollowUpSubmit={() =>
-                submitContent(
-                  followUpAnswer,
-                  "followup",
-                  displayFollowUp ?? undefined,
-                )
-              }
-              onSubmit={handleSubmit}
-            />
+            {activeView === "chat" ? (
+              <div
+                id="workspace-chat-panel"
+                role="tabpanel"
+                aria-label="Chat"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <ChatPanel
+                  messages={visibleMessages}
+                  input={input}
+                  followUp={displayFollowUp}
+                  followUpAnswer={followUpAnswer}
+                  threadStatus={threadStatus}
+                  phase={phase}
+                  error={queryError}
+                  onInputChange={setInput}
+                  onFollowUpAnswerChange={setFollowUpAnswer}
+                  onFollowUpSubmit={() =>
+                    submitContent(
+                      followUpAnswer,
+                      "followup",
+                      displayFollowUp ?? undefined,
+                    )
+                  }
+                  onSubmit={handleSubmit}
+                />
+              </div>
+            ) : activeView === "extraction" ? (
+              <ChatExtractionView
+                extraction={latestExtraction}
+                onOpenChat={() => setActiveView("chat")}
+              />
+            ) : (
+              <ChatReportView
+                key={`${activeThreadId ?? "new-chat"}:${messages
+                  .map((message) => `${message.id}:${message.ordinal}`)
+                  .join(",")}`}
+                threadTitle={activeThread?.title ?? "New chat"}
+                messages={messages}
+                latestExtraction={latestExtraction}
+                onOpenChat={() => setActiveView("chat")}
+              />
+            )}
           </main>
 
         </div>

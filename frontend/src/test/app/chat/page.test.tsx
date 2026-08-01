@@ -184,12 +184,13 @@ describe("active chat route", () => {
       "thread-1",
       expect.any(AbortSignal),
     ));
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByText("Evidence")).not.toBeInTheDocument();
-    expect(screen.queryByText("MITRE Mapping")).not.toBeInTheDocument();
-    expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
-    expect(screen.queryByText("Report")).not.toBeInTheDocument();
-    expect(screen.queryByText("Investigation views")).not.toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "Workspace views" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "Evidence & timeline" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Report generation" })).toBeInTheDocument();
     expect(
       screen.queryByText(
         "Which endpoint or service first showed signs of compromise?",
@@ -200,6 +201,156 @@ describe("active chat route", () => {
         "What evidence confirms when the suspicious activity began?",
       ),
     ).not.toBeInTheDocument();
+  });
+
+  it("switches to the selected thread's latest extraction and removes it from the transcript", async () => {
+    const extractedThread: ChatThreadDetail = {
+      ...thread,
+      status: "idle",
+      messages: [
+        thread.messages[0],
+        {
+          ...thread.messages[1],
+          content: "Older assistant extraction.",
+          metadata_json: {
+            chat_extraction: {
+              mode: "deterministic_demo",
+              evidence: [
+                {
+                  evidence_id: "E-OLD",
+                  title: "Older candidate",
+                  description: "Older description.",
+                },
+              ],
+              timeline: [],
+            },
+          },
+        },
+        {
+          ...thread.messages[0],
+          id: "message-3",
+          ordinal: 3,
+          content: "Additional incident detail.",
+          created_at: "2026-07-29T12:01:00Z",
+        },
+        {
+          ...thread.messages[1],
+          id: "message-4",
+          ordinal: 4,
+          content: "Latest assistant extraction.",
+          metadata_json: {
+            chat_extraction: {
+              mode: "deterministic_demo",
+              evidence: [
+                {
+                  evidence_id: "E-NEW",
+                  title: "Latest candidate",
+                  description: "Latest description.",
+                },
+              ],
+              timeline: [
+                {
+                  event_id: "T-NEW",
+                  timestamp: "12:30",
+                  event: "Latest event.",
+                  evidence_ids: ["E-NEW"],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    };
+    vi.mocked(getChatThread).mockReset().mockResolvedValue(extractedThread);
+
+    await renderLoadedPage();
+    expect(screen.getByText("Latest assistant extraction.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Evidence & timeline" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Chat-reported candidates" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Latest candidate")).toBeInTheDocument();
+    expect(screen.getByText("Latest event.")).toBeInTheDocument();
+    expect(screen.queryByText("Latest assistant extraction.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Older candidate")).not.toBeInTheDocument();
+  });
+
+  it("shows an empty extraction state for a thread without persisted extraction", async () => {
+    await renderLoadedPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Evidence & timeline" }));
+
+    expect(screen.getByText("No extraction for this chat yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
+  });
+
+  it("generates the selected thread's client-side demo report on demand", async () => {
+    await renderLoadedPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+
+    expect(screen.getByText("Demo report workspace")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate demo report" })).toBeEnabled();
+    expect(
+      screen.queryByRole("heading", { name: /1\. Case Summary/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate demo report" }));
+
+    expect(
+      screen.getByRole("heading", { name: /1\. Case Summary/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /7\. System Limitations/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Incomplete / Unverified")).toBeInTheDocument();
+    expect(screen.getByText("No persisted extraction evidence candidates are available.")).toBeInTheDocument();
+  });
+
+  it("switches workspace views from the mobile selector", async () => {
+    await renderLoadedPage();
+    const selector = screen.getByLabelText("Select workspace");
+
+    fireEvent.change(selector, { target: { value: "report" } });
+
+    expect(screen.getByText("Demo report workspace")).toBeInTheDocument();
+    expect(selector).toHaveValue("report");
+  });
+
+  it("keeps the generated report scoped to the newly selected thread", async () => {
+    const otherThread: ChatThreadDetail = {
+      id: "thread-2",
+      title: "Other investigation",
+      status: "idle",
+      created_at: "2026-07-29T13:00:00Z",
+      updated_at: "2026-07-29T13:01:00Z",
+      messages: [
+        {
+          ...thread.messages[0],
+          id: "message-other-1",
+          thread_id: "thread-2",
+          content: "Other thread narrative.",
+        },
+      ],
+    };
+    vi.mocked(listChatThreads).mockResolvedValue([thread, otherThread]);
+    vi.mocked(getChatThread).mockImplementation(async (threadId) =>
+      threadId === otherThread.id ? otherThread : thread,
+    );
+
+    await renderLoadedPage();
+    fireEvent.change(screen.getByLabelText("Select saved chat"), {
+      target: { value: otherThread.id },
+    });
+    expect(await screen.findByText("Other thread narrative.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate demo report" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Other investigation" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Other thread narrative.")).toBeInTheDocument();
+    expect(screen.queryByText("Investigate this PowerShell event.")).not.toBeInTheDocument();
   });
 
   it("uses only the latest assistant message as the awaiting legacy fallback", async () => {

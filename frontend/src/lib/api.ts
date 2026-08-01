@@ -75,6 +75,33 @@ export interface ChatMessageAccepted {
   run: ChatRun;
 }
 
+export interface ChatDemoEvidence {
+  evidence_id: string;
+  title: string;
+  description: string;
+  status: "reported";
+  confidence: "low";
+  source_type: "chat_text";
+}
+
+export interface ChatDemoTimelineEvent {
+  event_id: string;
+  timestamp: string | null;
+  event: string;
+  status: "reported";
+  evidence_ids: string[];
+  source_type: "chat_text";
+}
+
+export interface ChatDemoExtraction {
+  version: number;
+  mode: "deterministic_demo";
+  status: "candidate";
+  disclaimer: string;
+  evidence: ChatDemoEvidence[];
+  timeline: ChatDemoTimelineEvent[];
+}
+
 export const listChatThreads = async (
   signal?: AbortSignal,
 ): Promise<ChatThreadRead[]> => {

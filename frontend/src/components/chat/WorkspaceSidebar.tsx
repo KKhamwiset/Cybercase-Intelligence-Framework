@@ -3,6 +3,11 @@
 import Link from "next/link";
 import type { ChatThreadRead } from "@/lib/api";
 import { Icon } from "./icons";
+import type { IconName } from "./icons";
+import {
+  workspaceViewLabels,
+  type WorkspaceView,
+} from "./types";
 
 interface WorkspaceNavigationProps {
   threads: ChatThreadRead[];
@@ -13,6 +18,8 @@ interface WorkspaceNavigationProps {
   onNewChat: () => void;
   onRequestDelete: (thread: ChatThreadRead) => void;
   deletingThreadId: string | null;
+  activeView: WorkspaceView;
+  onViewChange: (view: WorkspaceView) => void;
 }
 
 const threadStatusLabels: Record<ChatThreadRead["status"], string> = {
@@ -21,6 +28,12 @@ const threadStatusLabels: Record<ChatThreadRead["status"], string> = {
   awaiting_followup: "Follow-up",
   failed: "Failed",
 };
+
+const workspaceTabs: Array<{ view: WorkspaceView; icon: IconName }> = [
+  { view: "chat", icon: "chat" },
+  { view: "extraction", icon: "evidence" },
+  { view: "report", icon: "report" },
+];
 
 export function WorkspaceSidebar({
   threads,
@@ -31,6 +44,8 @@ export function WorkspaceSidebar({
   onNewChat,
   onRequestDelete,
   deletingThreadId,
+  activeView,
+  onViewChange,
 }: WorkspaceNavigationProps) {
   return (
     <aside className="hidden h-full w-[272px] shrink-0 flex-col border-r border-[#DEDCD5] bg-[#F4F3EF] md:flex">
@@ -62,6 +77,38 @@ export function WorkspaceSidebar({
           <span>New chat</span>
         </button>
       </div>
+
+      <nav
+        aria-label="Workspace views"
+        role="tablist"
+        className="px-4 pt-5"
+      >
+        <div className="space-y-1">
+          {workspaceTabs.map(({ view, icon }) => {
+            const selected = view === activeView;
+            return (
+              <button
+                key={view}
+                id={`workspace-tab-${view}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={`workspace-${view}-panel`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => onViewChange(view)}
+                className={`flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 text-left text-sm font-bold outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 motion-reduce:transition-none ${
+                  selected
+                    ? "border-[#DEDCD5] bg-white text-[#171717] shadow-[0_1px_2px_rgba(23,23,23,0.04)]"
+                    : "border-transparent text-[#6B6A66] hover:bg-white/70 hover:text-[#171717]"
+                }`}
+              >
+                <Icon name={icon} className="h-5 w-5 shrink-0" />
+                <span>{workspaceViewLabels[view]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       <section
         aria-label="Saved chats"

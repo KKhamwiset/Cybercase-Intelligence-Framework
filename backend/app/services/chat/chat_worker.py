@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Sequence
 from uuid import UUID, uuid4
@@ -17,6 +17,7 @@ from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.rag import QueryResponse
 from app.services.chat.chat_message import reconstruct_clarification_chain
+from app.services.chat.demo_extraction import add_demo_chat_extraction
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
@@ -434,6 +435,7 @@ async def process_chat_run(run_id: UUID) -> None:
             followup_root_ordinal=claimed_run.followup_root_ordinal,
             source_run_id=claimed_run.id,
         )
+        outcome = attach_demo_extraction(outcome, claimed_run)
 
         async with async_session() as finalize_db:
             await ChatRunWorker(finalize_db).complete_run(
@@ -465,3 +467,27 @@ async def _record_failure(
             error_code,
             error_message,
         )
+
+
+def attach_demo_extraction(
+    outcome: AssistantOutcome,
+    claimed_run: ClaimedChatRun,
+) -> AssistantOutcome:
+    """Attach demo candidates only to terminal assistant answers."""
+
+    if outcome.thread_status != "idle":
+        return outcome
+
+    source_text = "\n".join(
+        [
+            str(claimed_run.original_user_content),
+            *(exchange.answer for exchange in claimed_run.clarification_exchanges),
+        ]
+    )
+    return replace(
+        outcome,
+        metadata_json=add_demo_chat_extraction(
+            outcome.metadata_json,
+            source_text,
+        ),
+    )
