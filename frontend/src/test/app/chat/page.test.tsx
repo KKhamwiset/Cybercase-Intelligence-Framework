@@ -177,7 +177,7 @@ describe("active chat route", () => {
     expect(screen.getByText("More detail required")).toBeInTheDocument();
     expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
     expect(
-      screen.queryByLabelText("Investigation message"),
+      screen.queryByLabelText("Chat message"),
     ).not.toBeInTheDocument();
 
     await waitFor(() => expect(getChatThread).toHaveBeenCalledWith(
@@ -219,7 +219,7 @@ describe("active chat route", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
     expect(
-      screen.queryByLabelText("Investigation message"),
+      screen.queryByLabelText("Chat message"),
     ).not.toBeInTheDocument();
   });
 
@@ -306,15 +306,15 @@ describe("active chat route", () => {
       );
     await renderLoadedPage();
 
-    const composer = screen.getByLabelText("Investigation message");
+    const composer = screen.getByLabelText("Chat message");
     fireEvent.change(composer, {
       target: { value: "Investigate a second event" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     await screen.findByRole("alert");
-    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
-    expect(screen.getByLabelText("Investigation message")).toHaveValue(
+    expect(screen.getByLabelText("Chat message")).toBeEnabled();
+    expect(screen.getByLabelText("Chat message")).toHaveValue(
       "Investigate a second event",
     );
     expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
@@ -519,7 +519,7 @@ describe("active chat route", () => {
     expect(
       await screen.findByText(finalAnswer.content),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
+    expect(screen.getByLabelText("Chat message")).toBeEnabled();
     expect(screen.queryByText("More detail required")).not.toBeInTheDocument();
   });
 
@@ -603,7 +603,7 @@ describe("active chat route", () => {
     expect(
       screen.queryByText("More detail required"),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Investigation message")).toBeEnabled();
+    expect(screen.getByLabelText("Chat message")).toBeEnabled();
     expect(
       screen.getByText("The persisted terminal analysis is complete."),
     ).toBeInTheDocument();

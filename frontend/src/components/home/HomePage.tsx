@@ -9,26 +9,26 @@ const pillars: Array<{
 }> = [
   {
     number: "01",
-    title: "Investigate",
+    title: "Ask",
     description:
-      "Turn scattered incident details, logs, and reports into a structured case context.",
-    label: "Case intake",
+      "Bring an incident, question, or piece of evidence into one persistent conversation.",
+    label: "Start anywhere",
     type: "bars",
   },
   {
     number: "02",
-    title: "Map",
+    title: "Clarify",
     description:
-      "Connect observed behaviors with MITRE ATT&CK techniques and supporting evidence.",
-    label: "Threat mapping",
+      "Work through missing context with focused, backend-managed follow-up questions.",
+    label: "Guided context",
     type: "grid",
   },
   {
     number: "03",
-    title: "Report",
+    title: "Continue",
     description:
-      "Generate analyst-ready reports with findings, gaps, evidence, and recommendations.",
-    label: "Report generation",
+      "Keep saved chat threads available so every investigation can pick up where it left off.",
+    label: "Saved threads",
     type: "line",
   },
 ];
@@ -126,14 +126,14 @@ export default function HomePage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/cases"
+              href="/chat"
               className="hidden text-[11px] font-bold uppercase tracking-wider text-black/60 hover:text-black sm:block"
             >
-              Open workspace
+              Open chat
             </Link>
 
             <Link
-              href="/cases"
+              href="/chat"
               className="flex items-center gap-3 bg-black px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition hover:bg-black/80"
             >
               Start case
@@ -160,7 +160,7 @@ export default function HomePage() {
             </p>
 
             <h1 className="mt-7 text-5xl font-light leading-[0.94] tracking-normal sm:text-6xl md:text-8xl">
-              Make every case
+              Make every investigation
               <br />
               <span className="font-normal">clearer, faster,</span>
               <br />
@@ -168,17 +168,17 @@ export default function HomePage() {
             </h1>
 
             <p className="mx-auto mt-8 max-w-xl text-sm leading-relaxed text-black/55 md:text-base">
-              CyberCase transforms fragmented incident data into structured
-              intelligence, MITRE ATT&CK mappings, evidence gaps, and
-              investigation-ready reports.
+              CyberCase turns fragmented incident details into a persistent
+              conversation where you can ask questions, add evidence, and
+              keep the reasoning in one place.
             </p>
 
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
-                href="/cases"
+                href="/chat"
                 className="bg-black px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-white transition hover:bg-black/80"
               >
-                Analyze a case
+                Start a chat
               </Link>
 
               <a
@@ -192,10 +192,10 @@ export default function HomePage() {
 
           <div className="absolute bottom-7 left-5 z-10 max-w-52.5 md:bottom-10 md:left-10">
             <p className="text-[10px] font-bold uppercase tracking-widest text-black/45">
-              Evidence-led analysis
+              Evidence-led conversation
             </p>
             <p className="mt-2 text-xs leading-relaxed text-black/55">
-              Ground every output in retrieved context, verified facts, and
+              Keep each conversation grounded in retrieved context and
               analyst-confirmed details.
             </p>
           </div>
@@ -205,7 +205,7 @@ export default function HomePage() {
               Built for analysts
             </p>
             <p className="mt-2 text-xs text-black/55">
-              RAG · Graph Intelligence · MITRE ATT&CK
+              Persistent chat · Guided follow-up · Saved threads
             </p>
           </div>
         </section>
@@ -221,15 +221,15 @@ export default function HomePage() {
                 CyberCase platform
               </p>
               <h2 className="mt-4 max-w-2xl text-4xl font-light leading-none tracking-normal md:text-6xl">
-                From incident signals
+                From an open question
                 <br />
-                to actionable intelligence.
+                to a clear next step.
               </h2>
             </div>
 
             <p className="max-w-xs text-sm leading-relaxed text-white/45">
-              A structured workflow for threat investigation, evidence
-              validation, MITRE mapping, and report generation.
+              A persistent workflow for asking, clarifying, and returning to
+              every saved conversation.
             </p>
           </div>
 
@@ -275,12 +275,12 @@ export default function HomePage() {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-light text-red-600">01</span>
                 <span className="text-xs font-bold uppercase tracking-widest">
-                  Guided investigation
+                  Guided chat
                 </span>
               </div>
 
               <Link
-                href="/cases"
+                href="/chat"
                 className="border border-black px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition hover:bg-black hover:text-white"
               >
                 Open chat
@@ -294,22 +294,22 @@ export default function HomePage() {
                 </p>
 
                 <h2 className="mt-5 text-5xl font-light leading-[0.95] tracking-normal md:text-7xl">
-                  Improve your
+                  Keep your
                   <br />
-                  <span className="text-black/20">case confidence.</span>
+                  <span className="text-black/20">context together.</span>
                 </h2>
 
                 <p className="mt-7 max-w-md text-sm leading-relaxed text-black/55">
-                  CyberCase identifies missing details early, asks precise
-                  follow-up questions, and keeps the investigation grounded in
-                  available evidence.
+                  CyberCase keeps the context in one thread, asks focused
+                  follow-up questions when something is missing, and lets you
+                  return to saved conversations.
                 </p>
 
                 <Link
-                  href="/cases"
+                  href="/chat"
                   className="mt-9 inline-flex w-fit items-center gap-3 bg-black px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-white transition hover:bg-black/80"
                 >
-                  Start investigation
+                  Start a conversation
                   <span className="text-red-500">●</span>
                 </Link>
               </div>
@@ -318,23 +318,23 @@ export default function HomePage() {
                 {[
                   [
                     "01",
-                    "Collect",
-                    "Capture incident facts, evidence, and observed indicators.",
+                    "Start",
+                    "Open a chat and describe what you need to understand.",
                   ],
                   [
                     "02",
-                    "Validate",
-                    "Detect ambiguity and request the missing details.",
+                    "Clarify",
+                    "Answer focused follow-ups when more context is needed.",
                   ],
                   [
                     "03",
-                    "Connect",
-                    "Map verified behavior to MITRE and related intelligence.",
+                    "Continue",
+                    "Keep each accepted message and response in the thread.",
                   ],
                   [
                     "04",
-                    "Generate",
-                    "Produce structured reports ready for analyst review.",
+                    "Return",
+                    "Come back to any saved chat without losing the thread.",
                   ],
                 ].map(([number, title, description]) => (
                   <div
@@ -370,15 +370,14 @@ export default function HomePage() {
             </p>
 
             <h2 className="mt-5 text-4xl font-light leading-none tracking-normal md:text-6xl">
-              Grounded outputs,
+              Grounded answers,
               <br />
               not guesses.
             </h2>
 
             <p className="mt-7 max-w-md text-sm leading-relaxed text-white/50">
-              Retrieval-Augmented Generation, knowledge graphs, and
-              analyst-confirmed facts work together to reduce hallucination and
-              make findings traceable.
+              Retrieval-Augmented Generation and persisted conversation context
+              work together to keep answers traceable and useful.
             </p>
           </div>
 
@@ -386,20 +385,20 @@ export default function HomePage() {
             <div className="space-y-6">
               {[
                 [
-                  "RAG Retrieval",
-                  "Relevant laws, case documents, and CTI context.",
+                  "Persistent context",
+                  "Keep the accepted conversation available across sessions.",
                 ],
                 [
-                  "Graph Intelligence",
-                  "Verified relationships between techniques, evidence, and standards.",
+                  "Guided follow-up",
+                  "Ask for the missing detail before continuing the analysis.",
                 ],
                 [
-                  "Gap Analysis",
-                  "Targeted follow-ups when context is insufficient.",
+                  "Saved threads",
+                  "Switch between multiple conversations from one workspace.",
                 ],
                 [
-                  "Report Engine",
-                  "Structured outputs for incident response and documentation.",
+                  "Clear handoff",
+                  "Keep questions, answers, and backend responses together.",
                 ],
               ].map(([title, description], index) => (
                 <article
@@ -433,14 +432,11 @@ export default function HomePage() {
             <Link href="/chat" className="hover:text-black">
               Workspace
             </Link>
-            <Link href="/report" className="hover:text-black">
-              Reports
-            </Link>
             <a href="#platform" className="hover:text-black">
               Platform
             </a>
           </div>
-          <p>Built for evidence-led cyber investigations.</p>
+          <p>Built for evidence-led cyber conversations.</p>
         </footer>
       </div>
     </main>

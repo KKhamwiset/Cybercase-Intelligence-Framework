@@ -51,14 +51,14 @@ export function ChatTranscript({
               <Icon name="chat" className="h-6 w-6" />
             </span>
             <p className="mt-8 text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#6B6A66]">
-              Investigation workspace
+              Chat workspace
             </p>
             <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-[#171717] sm:text-4xl">
-              Start an investigation
+              Start a conversation
             </h2>
             <p className="mt-4 max-w-lg text-sm leading-6 text-[#6B6A66] sm:text-base sm:leading-7">
-              Describe the incident. CyberCase restores this persisted
-              conversation and shows only data returned by the backend.
+              Ask a question or describe an incident. CyberCase restores this
+              saved conversation and shows only data returned by the backend.
             </p>
           </div>
         ) : (

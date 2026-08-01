@@ -16,9 +16,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CyberCase Framework - Incident Intelligence",
+  title: "CyberCase Framework - Chat Workspace",
   description:
-    "A professional agentic RAG workspace for cybersecurity case analysis, MITRE ATT&CK mapping, and evidence-traceable reporting.",
+    "A persistent chat workspace for evidence-led cybersecurity analysis and guided follow-up.",
 };
 
 export default function RootLayout({

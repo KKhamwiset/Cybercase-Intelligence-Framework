@@ -42,9 +42,9 @@ export function ChatComposer({
             placeholder={
               isAwaitingFollowUp
                 ? "Answer the assistant’s follow-up question"
-                : "Describe the incident or evidence"
+                : "Ask a question or describe the incident"
             }
-            aria-label="Investigation message"
+            aria-label="Chat message"
             className="max-h-36 min-h-11 flex-1 resize-y bg-transparent px-2 py-2.5 text-base leading-6 text-[#171717] outline-none placeholder:text-[#8A8984] disabled:cursor-wait disabled:text-[#8A8984]"
           />
 

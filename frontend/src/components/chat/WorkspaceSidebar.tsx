@@ -47,7 +47,7 @@ export function WorkspaceSidebar({
             CyberCase
           </span>
           <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-gray-500">
-            Investigation
+            Chat workspace
           </span>
         </span>
       </Link>
