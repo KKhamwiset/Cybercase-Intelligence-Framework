@@ -8,7 +8,8 @@ PostgreSQL และ `rag_service` ตาม implementation ปัจจุบ�
 - Frontend ดูแล UI state, thread selection, request cancellation และ polling
 - Backend เป็นเจ้าของ thread lifecycle, message ordering, background runs และการ validate request
 - PostgreSQL เป็นแหล่งข้อมูลถาวรของ threads, messages และ runs
-- `rag_service` ประมวลผล query/resume และเก็บ follow-up session ไว้ใน memory
+- `rag_service` ประมวลผลแต่ละคำขอผ่าน `/query`; backend เป็นเจ้าของ clarification state
+  และประกอบ context ที่สะสมจากข้อความใน PostgreSQL
 
 ข้อมูลจาก `rag_service` ไม่ถูกเขียนตรงจาก frontend ทุก request ต้องผ่าน backend
 
@@ -40,7 +41,8 @@ Backend transaction
         ↓
 202 Accepted { message, run }
         ↓
-Background worker → rag_service /query หรือ /resume
+Background worker → rag_service /query
+  (original incident + accumulated clarification context เมื่อมี)
         ↓
 Backend transaction
   create assistant message
@@ -61,8 +63,11 @@ Frontend สร้าง `idempotency_key` หนึ่งค่าต่อ log
 - `idle`: แสดงคำตอบสุดท้ายและหยุด polling
 - `failed`: แสดง error; ถ้ารู้ `run_id` สามารถอ่านรายละเอียดจาก run endpoint
 
-เมื่อ thread เป็น `awaiting_followup` backend เก็บ `active_rag_session_id` ไว้ การส่งข้อความถัดไป
-จึงสร้าง run operation `resume` แทน `query` และ backend เรียก `rag_service /resume`
+เมื่อ thread เป็น `awaiting_followup` คำตอบถัดไปจะถูกบันทึกเป็น user message ตามปกติ
+backend สร้าง clarification chain ใหม่จาก messages ที่เรียงลำดับแล้ว จากนั้นสร้าง run operation `query`
+และเรียก `rag_service /query` อีกครั้งด้วย incident เดิม รวมคำถามและคำตอบ clarification ที่สะสมไว้
+
+`rag_service` ไม่ได้เป็นเจ้าของ interactive follow-up session และ chat flow ปัจจุบันไม่เรียก `/resume`
 
 Frontend ไม่ถือ RAG session เป็น source of truth และไม่เรียก `rag_service` โดยตรง
 
@@ -137,8 +142,8 @@ DELETE สำเร็จต้องได้ status `204` และ response b
 2. DELETE เป็น hard delete และยังไม่มี Trash/Restore
 3. การลบ processing thread ลบ persisted rows ทันที แต่ไม่สามารถ cancel upstream RAG request ได้
    worker อาจคำนวณต่อจนจบแล้วทิ้งผล เพราะ run/thread ถูกลบแล้ว
-4. Follow-up session อยู่ใน memory ของ `rag_service`; การลบ thread ยังไม่มี endpoint สำหรับล้าง session ทันที
-5. Evidence, timeline และ report lifecycle ยังต้องยึด backend contract ที่ expose จริง ห้ามเติม mock data
+4. Report tab เป็น demo-only ที่ประกอบผลใน frontend จาก selected chat เท่านั้น ผลไม่ถูก persist แยกเป็น report,
+   ยังไม่ผ่านการ verify และไม่มี backend case/report lifecycle
 
 ก่อนใช้ใน multi-user deployment ต้องเพิ่ม authenticated user ownership และ filter ทุก chat query/delete
 ตาม owner

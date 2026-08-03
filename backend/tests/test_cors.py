@@ -6,7 +6,7 @@ from app.main import app
 def test_localhost_frontend_cors_preflight_is_allowed() -> None:
     client = TestClient(app)
     response = client.options(
-        "/api/v1/cases",
+        "/api/v1/chats",
         headers={
             "Origin": "http://localhost:3000",
             "Access-Control-Request-Method": "GET",

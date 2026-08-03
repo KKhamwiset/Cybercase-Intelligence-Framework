@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import async_session
 from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
-from app.schemas.rag import QueryResponse
+from app.schemas.chat.rag import QueryResponse
 from app.services.chat.chat_message import reconstruct_clarification_chain
 from app.services.chat.demo_extraction import add_demo_chat_extraction
 from app.services.chat.followup_policy import (

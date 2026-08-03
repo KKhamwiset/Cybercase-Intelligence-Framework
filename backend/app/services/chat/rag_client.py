@@ -6,7 +6,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.config import settings
-from app.schemas.rag import QueryRequest, QueryResponse
+from app.schemas.chat.rag import QueryRequest, QueryResponse
 
 
 RAG_HTTP_TIMEOUT_SECONDS = 300.0

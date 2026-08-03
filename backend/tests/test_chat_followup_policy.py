@@ -5,7 +5,7 @@ from uuid import uuid4
 import httpx
 
 from app.config import settings
-from app.schemas.rag import QueryResponse
+from app.schemas.chat.rag import QueryResponse
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
