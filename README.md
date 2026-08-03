@@ -1,163 +1,128 @@
 # CyberCase Intelligence Framework
 
-CyberCase Intelligence Framework is an interactive web-based Retrieval-Augmented Generation (RAG) platform for cybercrime case analysis. It helps users submit incident details, identify missing investigative information, map technical evidence to cybersecurity knowledge such as MITRE ATT&CK, and generate structured investigation reports.
+CyberCase is a single-user chat application for MITRE ATT&CK-assisted cybersecurity incident analysis. A Next.js frontend stores chat activity through a FastAPI backend, and the backend sends each analysis request to the standalone GraphRAG service.
 
-It features a modern Next.js frontend, a high-performance FastAPI backend, and a standalone RAG service that combines vector retrieval, graph-based MITRE ATT&CK knowledge, and LLM reasoning to provide grounded, evidence-based analysis.
+The current product boundary is intentionally narrow:
 
-## Project Structure
+- PostgreSQL persists chat threads, messages, and background runs.
+- The backend exposes health and chat APIs only.
+- The RAG service owns retrieval and answer generation.
+- Interactive clarification is owned by the backend. Each clarification round sends a new RAG `/query` containing the accumulated incident context.
+- The frontend can assemble an extraction view and a seven-section report for the selected chat. That report is a demo-only, client-side, non-persistent, unverified artifact; it is not a backend case report.
 
-*   `Documents/`: Source reference documents and case-analysis knowledge assets.
-*   `rag_service/`: Standalone RAG service with GraphRAG pipelines.
-*   `backend/`: FastAPI application providing API endpoints, backed by PostgreSQL and SQLAlchemy. Calls `rag_service` for RAG capabilities.
-*   `frontend/`: Next.js 15 web application with a modern dark-theme UI.
+The application is not ready for multi-user deployment because the chat routes do not yet enforce authentication or per-user ownership.
+
+## Services
+
+| Service | Path | Port | Responsibility |
+| --- | --- | --- | --- |
+| Frontend | `frontend/` | 3000 | Chat UI plus client-side demo extraction/report views |
+| Backend | `backend/` | 8000 | Chat persistence, background runs, clarification policy, and RAG orchestration |
+| RAG service | `rag_service/` | 8001 | GraphRAG retrieval and answer generation through `/query` |
+| PostgreSQL | Compose service `db` | 5433 on the host | Persistent chat data |
+
+Neo4j and Qdrant are external services used by `rag_service`.
 
 ## Quick Start
 
-### 1. Environment Setup
+### Docker Compose
 
-#### Python (for RAG and Backend)
-Create a virtual environment to manage Python dependencies:
-```bash
-# In the project root directory
-python -m venv env_mitre
+Doppler supplies the API keys and external database settings consumed by the services:
+
+```powershell
+doppler run -- docker compose up --build
 ```
 
-Activate the virtual environment:
-*   **Windows:** `.\env_mitre\Scripts\activate`
-*   **macOS/Linux:** `source env_mitre/bin/activate`
+This starts PostgreSQL, the backend, the RAG service, and the frontend. The named PostgreSQL volume is persistent; do not use `docker compose down -v` unless deleting local database data is intentional.
 
-Install the required Python packages:
-```bash
-# This script installs dependencies for both backend and rag_service
+Apply the database migrations after the database is available. The migration graph has a single current head:
+
+```powershell
+cd backend
+doppler run -- python -m alembic upgrade head
+```
+
+### Local Development
+
+Create and activate a Python environment, then install the backend and RAG dependencies:
+
+```powershell
+python -m venv env_mitre
+.\env_mitre\Scripts\Activate.ps1
 python install_deps.py
 ```
 
-### 2. Environment Management (Doppler)
-This project uses **Doppler** to manage environment variables securely. This replaces the need for manual `.env` files.
+Run each service in its own terminal:
 
-#### Login & Setup
-If you haven't already, authenticate and select the project configuration:
-```bash
-doppler login
-doppler setup
+```powershell
+cd rag_service
+doppler run -- uvicorn app.main:app --port 8001 --reload
 ```
 
-#### Running with Secrets
-To run any command with environment variables injected:
-```bash
-doppler run -- <command>
-```
-
-### 3. Database Setup
-You need a running PostgreSQL database. You can use the provided `docker-compose.yml`:
-```bash
-docker-compose up -d
-```
-
-### 4. RAG Service Setup (FastAPI)
-```bash
-cd rag_service/app
-# Start the RAG service with Doppler secrets
-doppler run -- uvicorn main:app --port 8001
-```
-The RAG service will be available at `http://localhost:8001`.
-
-### 5. Backend Setup (FastAPI)
-You don't need a `.env` file if you use Doppler.
-```bash
+```powershell
 cd backend
-# Run migrations using Doppler secrets
-doppler run -- alembic upgrade head
-
-# Start the server with Doppler secrets
-doppler run -- uvicorn app.main:app --reload
+doppler run -- python -m alembic upgrade head
+doppler run -- uvicorn app.main:app --port 8000 --reload
 ```
-The backend will be available at `http://localhost:8000`.
 
-### 6. Frontend Setup
-Create a `.env.local` file in the `frontend/` directory.
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
-The frontend will be available at `http://localhost:3000`.
 
-### 7. RAG CLI Tools
-You can also run the RAG pipelines directly via CLI for testing:
-```bash
-cd rag_service/app/RAG/GraphRAG
-python main.py --test
-```
-*(Requires `ANTHROPIC_API_KEY` to be set in your environment for generation capabilities).*
+Open `http://localhost:3000/chat`. Backend OpenAPI documentation is available at `http://localhost:8000/docs`.
 
-## Documentation
-*   `SKILL.md`: Technical overview and guidelines for AI agents working on the codebase.
+## Backend API
 
-## Evidence-Traceable Preliminary Legal Relevance Reports
+All application endpoints use the `/api/v1` prefix.
 
-The report workflow now builds an evidence registry and Case Fact Pack before generating a preliminary investigation report. The report is evidence-locked: facts, timeline items, MITRE mappings, and optional legal relevance must cite known evidence IDs such as `E-001`.
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/health` | Check backend and database health |
+| `GET` | `/api/v1/chats` | List chat threads |
+| `POST` | `/api/v1/chats` | Create a chat thread |
+| `GET` | `/api/v1/chats/{thread_id}` | Read a thread and its ordered messages |
+| `PATCH` | `/api/v1/chats/{thread_id}` | Rename a thread |
+| `DELETE` | `/api/v1/chats/{thread_id}` | Permanently delete a thread and its dependent rows |
+| `POST` | `/api/v1/chats/{thread_id}/messages` | Persist a user message and enqueue a background run |
+| `GET` | `/api/v1/chats/{thread_id}/runs/{run_id}` | Read a known background run's status or error |
 
-```mermaid
-flowchart LR
-    A[Case input or upload] --> B[Evidence registry]
-    B --> C[Case Fact Pack]
-    C --> D{Completeness gate}
-    D -->|Incomplete| E[Follow-up session]
-    E --> C
-    D -->|Sufficient or force generate| F[Hybrid RAG / GraphRAG]
-    F --> G[Evidence-locked report]
-    G --> H[Human review status]
-```
+There are no backend case, report, user, upload/OCR, or standalone RAG-proxy routes in the chat-only application.
 
-### Terminology
+## Chat and Clarification Flow
 
-* `confirmed`: supported by submitted or retrieved evidence and treated as verified for the preliminary report.
-* `reported`: provided by the user, uploaded content, logs, or OCR extraction but still requiring review.
-* `inferred`: derived from retrieval or analysis and requiring investigator confirmation.
-* `unknown`: missing or not supported by available evidence.
+1. The frontend creates or selects a persisted chat thread.
+2. Posting a message returns `202 Accepted` with the stored message and queued run.
+3. The backend worker calls `rag_service` at `POST /query`.
+4. The backend evaluates whether the accumulated incident context needs a focused clarification.
+5. If clarification is needed, the assistant question is persisted and the thread enters `awaiting_followup`.
+6. A clarification answer is stored as a normal user message. The backend reconstructs the active clarification chain and starts another `/query` with the original incident text plus accumulated questions and answers.
+7. The frontend polls the authoritative thread state until the run is complete or failed.
 
-### Legal Mode
+The frontend never calls `rag_service` directly, and the chat flow does not call a RAG `/resume` endpoint.
 
-Legal relevance is disabled by default. When enabled, the system uses preliminary wording and includes this disclaimer:
+## Demo Report Boundary
 
-> This is preliminary investigation support only and is not a legal conclusion.
+The Report tab reads the currently selected chat and builds its output in the browser. It does not create a report record, invoke a backend report workflow, or verify the underlying evidence. Refreshing or switching away does not create a separately persisted report artifact. Treat the output as a demonstration draft requiring human review, not an investigation finding or legal conclusion.
 
-The system must not determine guilt or innocence, claim court admissibility, make final legal conclusions, or invent laws, MITRE techniques, evidence, dates, or citations.
+## Validation
 
-### Evidence IDs And Provenance Metadata
-
-* User text and uploaded files are registered as evidence references such as `E-001`, `E-002`.
-* Uploaded files include provenance metadata: original filename, content type, SHA-256 hash, upload timestamp, extraction method, and page number when available.
-* This is evidence provenance metadata, not chain-of-custody compliance.
-* Report validators reject unknown evidence IDs and MITRE technique IDs that were not present in retrieved MITRE data.
-
-### Report API Summary
-
-The actual report generation is managed by the backend `ReportWorkflowService` and `backend/app/services/reporting/generator.py::ReportGenerator`.
-
-* `POST /api/v1/cases/{case_id}/report`: start report analysis for a specific case from its facts and evidence.
-* `POST /api/v1/cases/{case_id}/report/resume`: resume report generation for a case after a follow-up answer is submitted.
-* `GET /api/v1/cases/{case_id}/report`: retrieve the latest generated report for a case.
-* `GET /api/v1/reports`: retrieve all reports summaries for the reports registry library.
-* `GET /api/v1/reports/{report_id}`: retrieve a generated report and Case Fact Pack.
-* `PATCH /api/v1/reports/{report_id}/review-status`: update review status (`draft`, `ai_generated`, `reviewed`, `approved`).
-
-Report generation is case-owned. Standalone legacy `/reports/generate`, `/reports/generate-file`, and `/reports/resume` endpoints are not exposed.
-
-### Migrations And Tests
-
-This platform stores generated report/review and session states in the PostgreSQL database via SQLAlchemy models `ReportRecord` and `ReportSessionRecord`. Migrations are managed by Alembic. To apply migrations, run:
-
-```bash
+```powershell
 cd backend
-alembic upgrade head
+..\env_mitre\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
+python -m alembic heads
 ```
 
-Run focused checks with:
-
-```bash
-cd backend && pytest
-cd frontend && npm run lint
-cd frontend && npm run build
+```powershell
+cd frontend
+npm run lint
+npm run test
+npm run build
 ```
+
+```powershell
+docker compose config --quiet
+```
+
+See `docs/chat-frontend-backend-integration.md` for the detailed frontend/backend chat contract.

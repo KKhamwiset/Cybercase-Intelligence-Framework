@@ -32,7 +32,7 @@ jobs:
 
       # ============ BACKEND ============
       - name: Build Backend image
-        run: docker build -t kkhw/cybercase-framework-backend:latest -f backend/Dockerfile .
+        run: docker build -t kkhw/cybercase-framework-backend:latest ./backend
 
       - name: Push Backend image
         run: docker push kkhw/cybercase-framework-backend:latest

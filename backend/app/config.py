@@ -77,16 +77,10 @@ class Settings(BaseSettings):
 
         return list(set(origins))  # Deduplicate
 
-    # ── App ──────────────────────────────────────────────────────────────
+    # ── Chat application ─────────────────────────────────────────────────
     debug: bool = True
     anthropic_api_key: str = ""
-    analysis_llm_model: str = "claude-haiku-4-5"
-    analysis_llm_timeout_seconds: float = 60.0
-    analysis_llm_max_output_tokens: int = 4096
-    analysis_semantic_max_output_tokens: int = 128
-    analysis_retrieval_timeout_seconds: float = 30.0
     anthropic_messages_url: str = "https://api.anthropic.com/v1/messages"
-    experimental_analysis_enabled: bool = False
     rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
     chat_followup_policy_enabled: bool = True
     chat_followup_policy_model: str = "claude-haiku-4-5"
@@ -97,12 +91,5 @@ class Settings(BaseSettings):
     chat_followup_question_max_chars: int = 300
     chat_followup_combined_query_max_chars: int = 12_000
     chat_followup_max_rounds: int = 3
-
-    # ── Thanoy Legal AI ──────────────────────────────────────────────────
-    thanoy_enabled: bool = bool(os.getenv("THANOY_ENABLED", "false").lower() in ("true", "1", "yes"))
-    thanoy_api_key: str = os.getenv("THANOY_API_KEY", "")
-    thanoy_api_url: str = os.getenv("THANOY_API_URL", "https://api.iapp.co.th/v1/thanoy")
-    thanoy_timeout: float = 25.0
-
 
 settings = Settings()

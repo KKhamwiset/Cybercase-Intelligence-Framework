@@ -3,10 +3,11 @@
 This file provides system architecture, rules, guidelines, and commands for AI coding assistants and developers working on the CyberCase Intelligence Framework repository.
 
 ## 🌟 Project Overview
-**CyberCase Intelligence Framework** is an enterprise-grade full-stack Agentic RAG platform designed to analyze cybersecurity incidents. It maps threat activities to **MITRE ATT&CK intelligence (STIX 2.1)** and supports interactive case analysis, evidence-based justification, follow-up questioning, and structured investigation reporting. It features:
+**CyberCase Intelligence Framework** is a chat-focused full-stack Agentic RAG application for cybersecurity incident analysis. It maps threat activity to **MITRE ATT&CK intelligence (STIX 2.1)** and supports persisted chat plus backend-owned clarification. The frontend report view is demo-only, client-side, non-persistent, and unverified; there is no backend case/report workflow. It features:
 - Multi-query hybrid retrieval fusing Dense Vector (Qdrant) and Graph Expansion (Neo4j).
 - Self-reflection and context-sufficiency loops using LangGraph.
 - Cross-lingual support (translating queries from Thai to English and translating reasoning back).
+- A single-user chat API backed by PostgreSQL. Authentication and per-user ownership are not implemented.
 
 ---
 
@@ -16,7 +17,7 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 - **Agentic Pipeline**: LangGraph (State Machine) + LangChain LCEL
 - **Graph Database**: Neo4j (Enterprise/Community)
 - **Vector Database**: Qdrant (1024-dim, BGE-M3 embeddings)
-- **Primary LLM Models** (`RAG/GraphRAG/config.py`):
+- **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py`):
   - **Reasoning**: `claude-sonnet-4-20250514` (or latest Sonnet)
   - **Evaluator / Token-efficiency**: `claude-haiku-4-5`
   - **Embedding**: `BAAI/bge-m3` (FP16, 1024-dim)
@@ -28,31 +29,28 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 ## 📂 Key Project Structure & Paths
 ```
 Cybercase Framework/
-├── backend/                  # FastAPI Backend API
+├── backend/                  # FastAPI chat persistence/orchestration API
 │   ├── app/
 │   │   ├── main.py           # FastAPI entrypoint
-│   │   ├── models/           # SQLAlchemy models (async pg)
-│   │   ├── routers/          # API endpoints (RAG queries & sessions)
+│   │   ├── models/chat.py     # Persisted chat threads, messages, and runs
+│   │   ├── routers/           # Health and chat endpoints
+│   │   ├── services/chat/     # Chat lifecycle, worker, clarification, RAG client
 │   │   └── database.py       # Async engine and session management
-│   ├── RAG/GraphRAG/         # Agentic RAG Pipeline Engine
-│   │   ├── ingestion/        # Parse STIX JSON & ingest into Neo4j + Qdrant
-│   │   │   └── ingest_stix.py
-│   │   ├── pipeline/
-│   │   │   ├── agent_graph.py     # LangGraph state machine flow
-│   │   │   ├── context_builder.py # context formatting for reasoning
-│   │   │   └── evaluator.py       # Sufficiency assessment (case facts / technical)
-│   │   ├── retrieval/
-│   │   │   └── hybrid_retriever.py # Qdrant dense vector + Neo4j 2-hop search
-│   │   ├── evaluation/       # RAGAS metric evaluations
-│   │   └── config.py         # Global configuration, thresholds, model routing
 │   └── alembic/              # Async PostgreSQL migrations
+├── rag_service/              # Standalone GraphRAG FastAPI service
+│   └── app/RAG/GraphRAG/
+│       ├── ingestion/         # Parse STIX JSON and ingest into Neo4j + Qdrant
+│       ├── pipeline/          # LangGraph, context builder, and evaluator
+│       ├── retrieval/         # Dense + graph retrieval and fusion
+│       ├── evaluation/        # RAG evaluation tools
+│       └── config.py          # RAG settings and model routing
 ├── frontend/                 # Next.js 15 Web Application
 │   └── src/
-│       ├── app/              # App router (dashboard, incident analyzer, chat)
+│       ├── app/chat/         # Persisted chat workspace
 │       └── components/       # Tailwind v4 reusable UI blocks
 ├── Documents/                # Reference documents and case-analysis knowledge assets
 ├── Mitre_ATT&CK Doc/         # STIX 2.1 JSON enterprise, mobile, ICS attack patterns
-└── docker-compose.yml        # Docker setup (PostgreSQL, PgAdmin, Neo4j, Qdrant)
+└── docker-compose.yml        # PostgreSQL, backend, rag-service, and frontend
 ```
 
 ---
@@ -71,26 +69,25 @@ python install_deps.py
 cd backend
 doppler run -- uvicorn app.main:app --reload
 
-# Upgrade DB Schema using Alembic migrations
-alembic upgrade head
+# Upgrade the single-head DB migration graph
+python -m alembic upgrade head
 ```
 
 ### RAG Pipeline CLI & Interactivity
 ```bash
-cd backend/RAG/GraphRAG
+cd rag_service/app
 
 # Ingest all STIX 2.1 bundle data into Qdrant & Neo4j
-python main.py --ingest
+python -m RAG.GraphRAG.main --ingest
 
 # Run interactive RAG playground
-python main.py
+python -m RAG.GraphRAG.main
 
 # Run pipeline in LangGraph Agentic mode
-python main.py --agent
+python -m RAG.GraphRAG.main --agent
 
 # Run RAGAS metrics evaluation
-cd evaluation
-python eval_runner.py
+python -m RAG.GraphRAG.evaluation.eval_runner
 ```
 
 ### Frontend Development
@@ -104,8 +101,8 @@ npm run build   # Production compile
 
 ### Docker Infrastructure
 ```bash
-# Spin up databases and admin panels in the background
-docker-compose up -d
+# Start PostgreSQL, backend, rag-service, and frontend
+doppler run -- docker compose up --build
 ```
 
 ---
@@ -115,11 +112,11 @@ docker-compose up -d
 ### Python & FastAPI
 1. **Async Everywhere**: Use `async def` and await async DB operations (`SQLAlchemy` or `Motor`/`Redis` calls). Never block the main FastAPI thread.
 2. **Type-Safety & Pydantic**: Ensure all incoming requests and response payloads are strictly typed using Pydantic models.
-3. **Database Sessions**: Obtain the DB session async via dependency injection: `async for db in get_db_session()`.
+3. **Database Sessions**: Obtain the async DB session through the existing `get_db` FastAPI dependency.
 
 ### LangGraph Agentic Loops
 1. **State Immutability**: Ensure state updates in `agent_graph.py` return a modified state dictionary instead of modifying keys in-place.
-2. **Confidence checks**: The `evaluator.py` must return either `SUFFICIENT`, `INSUFFICIENT`, or `BROADEN_SEARCH`. If `INSUFFICIENT`, output an engaging `followup_question`.
+2. **Confidence checks**: The RAG evaluator returns `SUFFICIENT` or `INSUFFICIENT`; an insufficient result selects a bounded recovery strategy such as `BROADEN_SEARCH` or `ACKNOWLEDGE_LIMIT`. It does not pause for user input.
 3. **Grace Limit**: Limit loop iterations strictly. Never let self-reflection run for more than 2-3 iterations to avoid infinite API cost.
 
 ### Next.js & React
@@ -136,7 +133,12 @@ The `hybrid_retriever.py` queries Qdrant vectors and retrieves matching nodes fr
 2. **Graph Expansion**: Performs 2-hop depth Cypher queries in Neo4j to pull associated techniques, sub-techniques, software, and mitigations.
 3. **Fusion (RRF)**: Merges results using Reciprocal Rank Fusion to compile context that is fed to `context_builder.py`.
 
-### Context Sufficiency Flow (Evaluator)
-- Evaluates if the context retrieved contains enough incident facts to support MITRE ATT&CK mapping and report generation.
-- If **Sufficient** → Reasoning model outputs final technical analysis and structured investigation brief.
-- If **Insufficient** → Backend stores session states in PostgreSQL, raises `status: "followup"`, asks user a clarification question, and awaits `POST /api/v1/rag/resume` with `session_id`.
+### Context Sufficiency And Chat Clarification
+- `rag_service` evaluates whether retrieved context is sufficient for a grounded MITRE ATT&CK answer.
+- If sufficient, the reasoning model returns the completed technical answer.
+- If insufficient, the RAG graph may rewrite and broaden retrieval within its retry budget, then returns the best supported result or acknowledges the limit. It never exposes an interactive `/resume` step to chat.
+- Separately, the backend chat worker evaluates the accumulated incident conversation. If a focused clarification is needed, it persists the assistant question. The next answer is persisted as a normal user message, and the backend calls `rag_service POST /query` again with the original incident plus the accumulated clarification exchanges.
+
+### Backend Route Boundary
+
+The backend exposes only `/api/v1/health` and the `/api/v1/chats` thread/message/run routes. Do not add case, report, user, upload/OCR, or standalone RAG-proxy endpoints without an explicit product decision. The frontend Report tab is not evidence that a backend report API exists.

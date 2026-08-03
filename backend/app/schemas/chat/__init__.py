@@ -4,6 +4,12 @@ from app.schemas.chat.requests import (
     ChatThreadCreate,
     ChatThreadUpdate,
 )
+from app.schemas.chat.rag import (
+    MitreTableRow,
+    QueryRequest,
+    QueryResponse,
+    RagQueryRequest,
+)
 from app.schemas.chat.responses import (
     ChatMessageAccepted,
     ChatMessageRead,
@@ -21,4 +27,8 @@ __all__ = [
     "ChatThreadDetail",
     "ChatThreadRead",
     "ChatThreadUpdate",
+    "MitreTableRow",
+    "QueryRequest",
+    "QueryResponse",
+    "RagQueryRequest",
 ]

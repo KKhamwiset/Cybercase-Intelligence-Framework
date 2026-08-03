@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**CyberCase Intelligence Framework** is a full-stack RAG platform that analyzes cybersecurity incidents using MITRE ATT&CK intelligence. It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), and self-reflection loops. Interactive follow-up handling lives in the Backend case-analysis workflow — the RAG service itself never pauses.
+**CyberCase Intelligence Framework** is a chat-focused full-stack RAG application that analyzes cybersecurity incidents using MITRE ATT&CK intelligence. It features an agentic pipeline with hybrid retrieval, cross-lingual support (Thai ↔ English), and self-reflection loops. Persistent interactive clarification lives in the backend chat workflow; the RAG service itself never pauses. The frontend Report tab is a demo-only, client-side, non-persistent, unverified view, not a backend report workflow.
 
 ## Service Layout
 
@@ -13,7 +13,7 @@ The platform is split into three services (see `docker-compose.yml`):
 | Service | Path | Port | Role |
 |---------|------|------|------|
 | Frontend | `frontend/` | 3000 | Next.js UI |
-| Backend API | `backend/` | 8000 | FastAPI gateway + PostgreSQL (users, health). Proxies all RAG calls to the RAG service over HTTP (`RAG_SERVICE_URL`) |
+| Backend API | `backend/` | 8000 | FastAPI chat persistence/orchestration + PostgreSQL. The chat worker calls the RAG service over HTTP (`RAG_SERVICE_URL`) |
 | RAG Service | `rag_service/` | 8001 | FastAPI service hosting the GraphRAG pipeline; serves `/query`, `/health`, `/retrieval-contexts/{id}` |
 
 The RAG pipeline code lives at `rag_service/app/RAG/GraphRAG/` (it was migrated out of `backend/` — backend no longer contains any RAG code). `rag_service/finetune/` holds the MITRE ATT&CK specialist fine-tune module (cloud QLoRA training + A/B compare; see its `README.md`).
@@ -87,12 +87,11 @@ Neo4j and Qdrant are cloud-hosted — no local containers for them.
 
 ### High-Level Stack
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS 4
-- **Backend API**: FastAPI + SQLAlchemy (async) + PostgreSQL — thin gateway, calls RAG service via httpx
+- **Backend API**: FastAPI + SQLAlchemy (async) + PostgreSQL — owns chat threads/messages/runs, background work, and clarification policy; calls the RAG service via HTTPX
 - **RAG Engine**: LangGraph (agentic loop) + LangChain LCEL, hosted in `rag_service`
 - **Vector DB**: Qdrant (BGE-M3 embeddings, 1024-dim, FP16)
 - **Graph DB**: Neo4j (MITRE ATT&CK STIX entities + relationships)
 - **LLMs**: Claude Sonnet 4 (reasoning/translation), Claude Haiku 4.5 (evaluation); optional local Ollama mode (`--local`)
-- **OCR**: Typhoon OCR for document uploads (`/rag/query-file`)
 
 ### Agentic RAG Pipeline (`rag_service/app/RAG/GraphRAG/pipeline/`)
 
@@ -126,16 +125,14 @@ The pipeline never pauses for user input.
 
 ### API Endpoints
 
-Backend gateway (`backend/app/routers/`, prefix `/api/v1`) — query routes proxy to the RAG service, report routes are handled locally by the Backend `ReportWorkflowService`:
-- `GET /api/v1/health` — System health + DB status
-- `POST /api/v1/rag/query` — Query RAG (chain or agent mode via `use_agent`)
-- `POST /api/v1/rag/query-file` — Upload a document (PDF/image); Typhoon OCR extracts markdown, then queries RAG in chain mode
-- `POST /api/v1/cases/{case_id}/report` — Start RAG-driven report generation for a case
-- `POST /api/v1/cases/{case_id}/report/resume` — Resume report follow-up session
-- `GET /api/v1/cases/{case_id}/report` — Get latest report for a case
-- `GET /api/v1/reports` — List all persisted reports registry summaries
-- `GET /api/v1/reports/{report_id}` — Get report details
-- `PATCH /api/v1/reports/{report_id}/review-status` — Update report review status
+Backend (`backend/app/routers/`, prefix `/api/v1`) exposes only the health and persistent-chat boundary:
+- `GET /api/v1/health` — backend and database health
+- `GET`, `POST /api/v1/chats` — list or create chat threads
+- `GET`, `PATCH`, `DELETE /api/v1/chats/{thread_id}` — read, rename, or permanently delete one thread
+- `POST /api/v1/chats/{thread_id}/messages` — persist a user message and enqueue a background run (`202`)
+- `GET /api/v1/chats/{thread_id}/runs/{run_id}` — inspect a known run's status/error
+
+There are no backend case, report, user, upload/OCR, or standalone RAG-proxy routes. Chat is currently single-user and has no authentication or ownership boundary.
 
 RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `POST /query`, `GET /retrieval-contexts/{context_id}`.
 
@@ -150,16 +147,11 @@ RAG service (`rag_service/app/main.py`, port 8001, no prefix): `GET /health`, `P
 | Config | `config.py` | All RAG settings (models, topK, DB URLs) |
 | Ingestion | `ingestion/` | Parse STIX JSON, populate Neo4j + Qdrant |
 
-### Follow-Up Handling (moved out of the RAG service, 2026-07-28)
-The RAG service's follow-up module (pause → ask → `POST /resume`) was removed; `GraphRAGAgent.query()` always returns `status: "completed"`. Interactive clarification belongs to the Backend case-analysis workflow (`app/services/report_workflow.py`, `app/services/case_chat.py`), which asks its own questions, persists the answers on the case, and re-queries `POST /query` with the enriched incident text. See `rag_service/docs/FOLLOWUP_REMOVAL.md`.
+### Chat Clarification Boundary
 
-⚠️ `CaseChatService.send_message(action="followup")` still calls the RAG service `/resume` directly (`backend/app/services/case_chat.py:607`). That call now 404s, which the service already maps to `status="expired"` — the chat follow-up action is inert until reimplemented Backend-side.
+The backend owns bounded clarification in `backend/app/services/chat/`. A user answer is stored as a normal chat message. The backend reconstructs the active clarification chain from ordered persisted messages and issues another RAG `POST /query` containing the original incident plus accumulated question/answer context. The chat path never calls RAG `/resume`, and the frontend never calls `rag_service` directly.
 
-### Report Workflow States
-The report generator endpoints return one of these three precise response states:
-1. `completed`: contains `report_id`, `report`, and optional rendered `answer`.
-2. `followup`: only for a real incomplete report; includes a valid stored `session_id`; can be resumed through the backend workflow.
-3. `context_expired`: returned when `retrieval_context_id` is missing, expired, or unavailable (includes `error_code: "retrieval_context_expired"` and a user-facing message instructing the caller to rerun RAG analysis). This state deliberately contains no `session_id` and is not resumable.
+The frontend may derive an extraction and seven-section report from the selected persisted thread. The report is assembled in the browser, is not separately persisted, and must remain visibly demo-only and unverified unless a new backend contract is explicitly approved.
 ## Key Configuration (`rag_service/app/RAG/GraphRAG/config.py`)
 - **Embedding model**: `BAAI/bge-m3` (1024-dim, FP16)
 - **Reranker**: `BAAI/bge-reranker-v2-m3` (multilingual incl. Thai)
@@ -173,7 +165,7 @@ The report generator endpoints return one of these three precise response states
 
 ## Secrets & Environment
 - **Doppler** is used for secrets management (replaces `.env` files in deployed environments); local dev can use `.env` files
-- Backend reads `DATABASE_URL` (or `POSTGRES_*`), `RAG_SERVICE_URL`, `ANTHROPIC_API_KEY`, `TYPHOON_OCR_API_KEY`/`TYPHOON_API_KEY`
+- Backend runtime and online migrations read `POSTGRES_*`; chat also reads `RAG_SERVICE_URL` and `ANTHROPIC_API_KEY`
 - RAG service reads `ANTHROPIC_API_KEY`, `NEO4J_URI`/`NEO4J_USER`/`NEO4J_PASSWORD`, `QDRANT_URL`/`QDRANT_API_KEY`, `OPENROUTER_API_KEY`
 - Deployment targets **Railway** platform via GitHub Actions in `.github/workflows/deploy.yml`
 

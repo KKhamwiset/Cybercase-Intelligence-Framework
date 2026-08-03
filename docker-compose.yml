@@ -40,9 +40,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-cybercase_framework}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      TYPHOON_OCR_API_KEY: ${TYPHOON_OCR_API_KEY:-}
-      TYPHOON_API_KEY: ${TYPHOON_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       RAG_SERVICE_URL: http://rag-service:8001
     ports:
       - "8000:8000"
@@ -76,7 +73,6 @@ services:
       - "8001:8001"
     volumes:
       - ./rag_service/app:/app/app
-      - ./backend/app:/app/backend/app:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
   # ── Next.js Frontend ────────────────────────────────────────────────────────
