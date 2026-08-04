@@ -2,35 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import type { PersistedChatMessage, ThreadStatus } from "@/lib/api";
-import FollowUpModule from "@/components/FollowUpModule";
 import { Icon } from "./icons";
 import type { RunPhase } from "./types";
 
-interface ActiveFollowUp {
-  question: string;
-  entries: Array<{ question: string; answer: string }>;
-}
-
 interface ChatTranscriptProps {
   messages: PersistedChatMessage[];
-  followUp: ActiveFollowUp | null;
-  followUpAnswer: string;
   threadStatus: ThreadStatus | null;
   phase: RunPhase;
   error: string | null;
-  onFollowUpAnswerChange: (value: string) => void;
-  onFollowUpSubmit: () => void;
 }
 
 export function ChatTranscript({
   messages,
-  followUp,
-  followUpAnswer,
   threadStatus,
   phase,
   error,
-  onFollowUpAnswerChange,
-  onFollowUpSubmit,
 }: ChatTranscriptProps) {
   const endRef = useRef<HTMLDivElement>(null);
   const isBusy =
@@ -40,7 +26,7 @@ export function ChatTranscript({
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, phase, error, followUp]);
+  }, [messages, phase, error]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-7 lg:px-10">
@@ -91,7 +77,7 @@ export function ChatTranscript({
               </article>
             ))}
 
-            {isBusy && !followUp && (
+            {isBusy && (
               <div className="flex justify-start" role="status" aria-live="polite">
                 <div className="flex items-center gap-3 border-l-2 border-[#171717] bg-white/60 px-5 py-3 text-sm font-semibold text-[#6B6A66]">
                   <span className="h-2 w-2 rounded-full bg-[#171717] motion-safe:animate-pulse" />
@@ -100,7 +86,7 @@ export function ChatTranscript({
               </div>
             )}
 
-            {error && !followUp && (
+            {error && (
               <div
                 role="alert"
                 className="rounded-xl border border-[#B42318]/25 bg-[#B42318]/5 px-4 py-3 text-sm leading-6 text-[#7A271A]"
@@ -110,18 +96,6 @@ export function ChatTranscript({
               </div>
             )}
           </div>
-        )}
-
-        {followUp && (
-          <FollowUpModule
-            question={followUp.question}
-            answer={followUpAnswer}
-            entries={followUp.entries}
-            isSubmitting={isBusy}
-            error={error}
-            onAnswerChange={onFollowUpAnswerChange}
-            onSubmit={onFollowUpSubmit}
-          />
         )}
 
         <div ref={endRef} />

@@ -165,7 +165,7 @@ describe("active chat route", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the persisted follow-up question in the module and hides the ordinary composer", async () => {
+  it("renders the persisted follow-up question as an ordinary assistant message", async () => {
     render(<ChatPage />);
 
     expect(
@@ -174,10 +174,9 @@ describe("active chat route", () => {
     expect(screen.getAllByText("Saved investigation").length).toBeGreaterThan(0);
     expect(screen.getByText("Recent chats")).toBeInTheDocument();
     expect(screen.getByText("Follow-up required")).toBeInTheDocument();
-    expect(screen.getByText("More detail required")).toBeInTheDocument();
-    expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
+    expect(screen.getByLabelText("Chat message")).toBeEnabled();
     expect(
-      screen.queryByLabelText("Chat message"),
+      screen.queryByLabelText("Clarification answer"),
     ).not.toBeInTheDocument();
 
     await waitFor(() => expect(getChatThread).toHaveBeenCalledWith(
@@ -368,16 +367,13 @@ describe("active chat route", () => {
     expect(
       screen.getByText("Which affected host produced this event?"),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Clarification answer")).toBeEnabled();
-    expect(
-      screen.queryByLabelText("Chat message"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Chat message")).toBeEnabled();
   });
 
   it("blocks blank answers, keeps plain Enter multiline, and submits Ctrl+Enter exactly once", async () => {
     await renderLoadedPage();
-    const answer = screen.getByLabelText("Clarification answer");
-    const send = screen.getByRole("button", { name: "Send Answer" });
+    const answer = screen.getByLabelText("Chat message");
+    const send = screen.getByRole("button", { name: "Send message" });
 
     expect(send).toBeDisabled();
     fireEvent.change(answer, { target: { value: "   " } });
@@ -405,7 +401,7 @@ describe("active chat route", () => {
     await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(1));
     expect(answer).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Sending..." }),
+      screen.getByRole("button", { name: "Send message" }),
     ).toBeDisabled();
     fireEvent.keyDown(answer, {
       key: "Enter",
@@ -417,7 +413,7 @@ describe("active chat route", () => {
 
   it("submits Cmd+NumpadEnter exactly once", async () => {
     await renderLoadedPage();
-    const answer = screen.getByLabelText("Clarification answer");
+    const answer = screen.getByLabelText("Chat message");
     fireEvent.change(answer, { target: { value: "host-7" } });
     vi.mocked(createChatMessage).mockImplementation(
       () => new Promise<ChatMessageAccepted>(() => undefined),
@@ -492,17 +488,17 @@ describe("active chat route", () => {
       );
     await renderLoadedPage();
 
-    const answer = screen.getByLabelText("Clarification answer");
+    const answer = screen.getByLabelText("Chat message");
     fireEvent.change(answer, { target: { value: "host-7" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(
-      await screen.findByRole("button", { name: "Retry Answer" }),
+      await screen.findByRole("button", { name: "Send message" }),
     ).toBeEnabled();
-    expect(screen.getByLabelText("Clarification answer")).toHaveValue(
+    expect(screen.getByLabelText("Chat message")).toHaveValue(
       "host-7",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => expect(createChatMessage).toHaveBeenCalledTimes(2));
     expect(vi.mocked(createChatMessage).mock.calls[0][2]).toBe(
@@ -542,10 +538,10 @@ describe("active chat route", () => {
     await renderLoadedPage();
     vi.useFakeTimers();
 
-    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+    fireEvent.change(screen.getByLabelText("Chat message"), {
       target: { value: "host-7" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);
@@ -554,10 +550,10 @@ describe("active chat route", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "RAG service unavailable",
     );
-    expect(screen.getByLabelText("Clarification answer")).toHaveValue(
+    expect(screen.getByLabelText("Chat message")).toHaveValue(
       "host-7",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
     });
@@ -607,18 +603,18 @@ describe("active chat route", () => {
     await renderLoadedPage();
     vi.useFakeTimers();
 
-    const answer = screen.getByLabelText("Clarification answer");
+    const answer = screen.getByLabelText("Chat message");
     fireEvent.change(answer, { target: { value: "old-host" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+    fireEvent.change(screen.getByLabelText("Chat message"), {
       target: { value: "edited-host" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Retry Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);
@@ -655,12 +651,12 @@ describe("active chat route", () => {
     );
     await renderLoadedPage();
 
-    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+    fireEvent.change(screen.getByLabelText("Chat message"), {
       target: { value: answer.content },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(
-      await screen.findByRole("button", { name: "Retry Answer" }),
+      await screen.findByRole("button", { name: "Send message" }),
     ).toBeEnabled();
 
     fireEvent.change(screen.getByLabelText("Select saved chat"), {
@@ -724,10 +720,10 @@ describe("active chat route", () => {
     await renderLoadedPage();
     vi.useFakeTimers();
 
-    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+    fireEvent.change(screen.getByLabelText("Chat message"), {
       target: { value: "host-7" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);
@@ -740,12 +736,12 @@ describe("active chat route", () => {
       screen.getByText("Which affected host produced this event?"),
     ).toBeInTheDocument();
     expect(screen.getByText("host-7")).toBeInTheDocument();
-    expect(screen.getByLabelText("Clarification answer")).toHaveValue("");
+    expect(screen.getByLabelText("Chat message")).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("Clarification answer"), {
+    fireEvent.change(screen.getByLabelText("Chat message"), {
       target: { value: "09:32 UTC" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send Answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await act(async () => {
       await Promise.resolve();
       await vi.advanceTimersByTimeAsync(1000);

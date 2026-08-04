@@ -43,6 +43,32 @@ class _FailingPolicy:
         raise TimeoutError("policy timed out")
 
 
+class _InvalidOutputPolicy:
+    async def decide(
+        self,
+        *,
+        original_user_content: str,
+        clarification_exchanges: tuple[ClarificationExchange, ...],
+        rag_answer: str,
+    ) -> object:
+        return {
+            "action": "ask_followup",
+            "question": "Which host was affected?",
+            "unexpected": True,
+        }
+
+
+class _InvalidJsonPolicy:
+    async def decide(
+        self,
+        *,
+        original_user_content: str,
+        clarification_exchanges: tuple[ClarificationExchange, ...],
+        rag_answer: str,
+    ) -> FollowUpDecision:
+        raise json.JSONDecodeError("invalid policy JSON", "{", 0)
+
+
 class _AnswerPolicy:
     calls = 0
 
@@ -398,8 +424,82 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
+    async def test_invalid_policy_output_fails_open_to_rag_answer(self) -> None:
+        outcome = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Useful RAG answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(),
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=_InvalidOutputPolicy(),
+        )
+
+        self.assertEqual(outcome.content, "Useful RAG answer")
+        self.assertEqual(outcome.thread_status, "idle")
+
+    async def test_invalid_json_policy_output_fails_open_to_rag_answer(self) -> None:
+        outcome = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Useful RAG answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(),
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=_InvalidJsonPolicy(),
+        )
+
+        self.assertEqual(outcome.content, "Useful RAG answer")
+        self.assertEqual(outcome.thread_status, "idle")
+
+    async def test_unavailable_answer_stops_follow_up_without_calling_policy(
+        self,
+    ) -> None:
+        policy = _QuestionPolicy("Which affected host produced this event?")
+        outcome = await resolve_followup_outcome(
+            QueryResponse(status="completed", answer="Current RAG answer"),
+            original_user_content="Investigate this event",
+            clarification_exchanges=(
+                ClarificationExchange(
+                    question="Which host was affected?",
+                    answer="The relevant host is unavailable.",
+                ),
+            ),
+            followup_root_ordinal=1,
+            source_run_id=uuid4(),
+            policy=policy,
+        )
+
+        self.assertEqual(outcome.content, "Current RAG answer")
+        self.assertEqual(outcome.thread_status, "idle")
+        self.assertEqual(policy.calls, [])
+
 
 class ClarifiedQueryTests(unittest.TestCase):
+    def test_decision_rejects_multiple_questions_and_line_breaks(self) -> None:
+        invalid_questions = (
+            "Which host? When did it happen?",
+            "Which host?\rWhen did it happen?",
+            "Which host?\u2028When did it happen?",
+        )
+        for question in invalid_questions:
+            with self.subTest(question=repr(question)):
+                with self.assertRaises(ValueError):
+                    FollowUpDecision(action="ask_followup", question=question)
+
+    def test_decision_rejects_invalid_shapes(self) -> None:
+        with self.assertRaises(ValueError):
+            FollowUpDecision(action="answer", question="Which host?")
+        with self.assertRaises(ValueError):
+            FollowUpDecision(
+                action="ask_followup",
+                question="q" * (settings.chat_followup_question_max_chars + 1),
+            )
+        with self.assertRaises(ValueError):
+            FollowUpDecision(
+                action="ask_followup",
+                question="Which host?",
+                extra="unexpected",
+            )
+
     def test_question_validation_supports_languages_without_question_mark(self) -> None:
         decision = FollowUpDecision(
             action="ask_followup",
