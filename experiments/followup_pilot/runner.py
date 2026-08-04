@@ -55,7 +55,6 @@ class FollowUpPolicyLike(Protocol):
         *,
         original_user_content: str,
         clarification_exchanges: Sequence[ClarificationExchange],
-        rag_answer: str,
     ) -> FollowUpDecision: ...
 
 
@@ -160,6 +159,106 @@ def print_answer_sheet(case: PilotCase, output_fn: OutputCallable = print) -> No
     output_fn(f"- ข้อมูลนอกเหนือจากนี้: {OUTSIDE_ANSWER_SHEET}")
 
 
+async def _build_result(
+    *,
+    case: PilotCase,
+    method: Method,
+    policy_position: str,
+    policy_calls: int,
+    started_at: datetime,
+    total_started: float,
+    questions: list[QuestionRecord],
+    current_query: str,
+    latest_response: QueryResponse,
+    stopped_by: str,
+    failure_reason: str | None,
+    rag_calls: list[RagCallRecord],
+    experiment_id: str | None,
+    rag_model: str,
+    followup_model: str,
+) -> ExperimentResult:
+    return ExperimentResult(
+        experiment_id=experiment_id or str(uuid4()),
+        case_id=case.case_id,
+        method=method,
+        original_request=case.original_request,
+        initial_context=case.initial_context,
+        questions=questions,
+        followup_rounds=len(questions),
+        final_rag_query=current_query,
+        final_analysis=latest_response.answer,
+        stopped_by=stopped_by,
+        failure_reason=failure_reason,
+        rag_model=rag_model,
+        followup_model=followup_model,
+        started_at=started_at,
+        finished_at=utc_now(),
+        latency_ms=max(0, round((perf_counter() - total_started) * 1000)),
+        rag_calls=rag_calls,
+        policy_position=policy_position,
+        policy_calls=policy_calls,
+        rag_call_count=len(rag_calls),
+    )
+
+
+def _get_answer_provider(
+    *,
+    case: PilotCase,
+    answer_provider: AnswerProvider | None,
+    input_fn: InputCallable,
+    output_fn: OutputCallable,
+) -> AnswerProvider:
+    if answer_provider is not None:
+        return answer_provider
+    print_answer_sheet(case, output_fn)
+    return _interactive_answer_provider(input_fn=input_fn, output_fn=output_fn)
+
+
+async def _decide(
+    policy: FollowUpPolicyLike,
+    *,
+    original_user_content: str,
+    exchanges: Sequence[ClarificationExchange],
+) -> FollowUpDecision:
+    raw_decision = await policy.decide(
+        original_user_content=original_user_content,
+        clarification_exchanges=tuple(exchanges),
+    )
+    return FollowUpDecision.model_validate(raw_decision)
+
+
+def _record_answer(
+    *,
+    case: PilotCase,
+    answer_provider: AnswerProvider,
+    round_number: int,
+    question: str,
+    questions: list[QuestionRecord],
+    exchanges: list[ClarificationExchange],
+) -> str:
+    human_answer = answer_provider(case, round_number, question)
+    if not human_answer.answer.strip():
+        raise ValueError("human answer must not be blank")
+    question_record = QuestionRecord(
+        round=round_number,
+        question=question,
+        answer=human_answer.answer.strip(),
+        is_compound=human_answer.is_compound,
+        requested_fields=list(human_answer.requested_fields),
+    )
+    questions.append(question_record)
+    exchanges.append(
+        ClarificationExchange(
+            question=question_record.question,
+            answer=question_record.answer,
+        )
+    )
+    return build_clarified_query(
+        original_user_content=build_initial_query(case),
+        clarification_exchanges=tuple(exchanges),
+    )
+
+
 async def run_no_followup(
     case: PilotCase,
     *,
@@ -176,30 +275,29 @@ async def run_no_followup(
         round_number=0,
         rag_call=rag_call,
     )
-    finished_at = utc_now()
-    return ExperimentResult(
-        experiment_id=experiment_id or str(uuid4()),
-        case_id=case.case_id,
+    return await _build_result(
+        case=case,
         method="no_followup",
-        original_request=case.original_request,
-        initial_context=case.initial_context,
+        policy_position="none",
+        policy_calls=0,
+        started_at=started_at,
+        total_started=total_started,
         questions=[],
-        followup_rounds=0,
-        final_rag_query=initial_query,
-        final_analysis=response.answer,
+        current_query=initial_query,
+        latest_response=response,
         stopped_by="no_followup",
+        failure_reason=None,
+        rag_calls=[call_record],
+        experiment_id=experiment_id,
         rag_model=rag_model,
         followup_model=followup_model,
-        started_at=started_at,
-        finished_at=finished_at,
-        latency_ms=max(0, round((perf_counter() - total_started) * 1000)),
-        rag_calls=[call_record],
     )
 
 
-async def run_adaptive_followup(
+async def _run_post_rag_adaptive(
     case: PilotCase,
     *,
+    method: Method,
     rag_call: RagCallable = request_rag,
     policy: FollowUpPolicyLike | None = None,
     answer_provider: AnswerProvider | None = None,
@@ -227,23 +325,23 @@ async def run_adaptive_followup(
     exchanges: list[ClarificationExchange] = []
     stopped_by = "max_rounds"
     failure_reason: str | None = None
+    policy_calls = 0
     active_policy = policy or AnthropicFollowUpPolicy()
-    active_answer_provider = answer_provider
-    if active_answer_provider is None:
-        print_answer_sheet(case, output_fn)
-        active_answer_provider = _interactive_answer_provider(
-            input_fn=input_fn,
-            output_fn=output_fn,
-        )
+    active_answer_provider = _get_answer_provider(
+        case=case,
+        answer_provider=answer_provider,
+        input_fn=input_fn,
+        output_fn=output_fn,
+    )
 
     for round_number in range(1, max_rounds + 1):
+        policy_calls += 1
         try:
-            raw_decision = await active_policy.decide(
+            decision = await _decide(
+                active_policy,
                 original_user_content=initial_query,
-                clarification_exchanges=tuple(exchanges),
-                rag_answer=latest_response.answer,
+                exchanges=exchanges,
             )
-            decision = FollowUpDecision.model_validate(raw_decision)
         except Exception as exc:
             stopped_by = "policy_failure"
             failure_reason = type(exc).__name__
@@ -259,26 +357,13 @@ async def run_adaptive_followup(
             failure_reason = "duplicate_question"
             break
 
-        human_answer = active_answer_provider(case, round_number, decision.question)
-        if not human_answer.answer.strip():
-            raise ValueError("human answer must not be blank")
-        question_record = QuestionRecord(
-            round=round_number,
+        current_query = _record_answer(
+            case=case,
+            answer_provider=active_answer_provider,
+            round_number=round_number,
             question=decision.question,
-            answer=human_answer.answer.strip(),
-            is_compound=human_answer.is_compound,
-            requested_fields=list(human_answer.requested_fields),
-        )
-        questions.append(question_record)
-        exchanges.append(
-            ClarificationExchange(
-                question=question_record.question,
-                answer=question_record.answer,
-            )
-        )
-        current_query = build_clarified_query(
-            original_user_content=initial_query,
-            clarification_exchanges=tuple(exchanges),
+            questions=questions,
+            exchanges=exchanges,
         )
         latest_response, call_record = await _timed_rag_call(
             query=current_query,
@@ -289,27 +374,194 @@ async def run_adaptive_followup(
         if round_number == max_rounds:
             stopped_by = "max_rounds"
 
-    finished_at = utc_now()
-    return ExperimentResult(
-        experiment_id=experiment_id or str(uuid4()),
-        case_id=case.case_id,
-        method="adaptive_followup",
-        original_request=case.original_request,
-        initial_context=case.initial_context,
+    return await _build_result(
+        case=case,
+        method=method,
+        policy_position="post_rag",
+        policy_calls=policy_calls,
+        started_at=started_at,
+        total_started=total_started,
         questions=questions,
-        followup_rounds=len(questions),
-        final_rag_query=current_query,
-        final_analysis=latest_response.answer,
+        current_query=current_query,
+        latest_response=latest_response,
         stopped_by=stopped_by,
         failure_reason=failure_reason,
+        rag_calls=rag_calls,
+        experiment_id=experiment_id,
         rag_model=rag_model,
         followup_model=followup_model,
-        started_at=started_at,
-        finished_at=finished_at,
-        latency_ms=max(0, round((perf_counter() - total_started) * 1000)),
-        rag_calls=rag_calls,
     )
 
+
+async def run_post_rag_adaptive(
+    case: PilotCase,
+    *,
+    rag_call: RagCallable = request_rag,
+    policy: FollowUpPolicyLike | None = None,
+    answer_provider: AnswerProvider | None = None,
+    input_fn: InputCallable = input,
+    output_fn: OutputCallable = print,
+    experiment_id: str | None = None,
+    rag_model: str = "existing-rag-service",
+    followup_model: str = settings.chat_followup_policy_model,
+    max_rounds: int = MAX_FOLLOWUP_ROUNDS,
+) -> ExperimentResult:
+    return await _run_post_rag_adaptive(
+        case,
+        method="post_rag_adaptive",
+        rag_call=rag_call,
+        policy=policy,
+        answer_provider=answer_provider,
+        input_fn=input_fn,
+        output_fn=output_fn,
+        experiment_id=experiment_id,
+        rag_model=rag_model,
+        followup_model=followup_model,
+        max_rounds=max_rounds,
+    )
+
+
+async def run_adaptive_followup(
+    case: PilotCase,
+    *,
+    rag_call: RagCallable = request_rag,
+    policy: FollowUpPolicyLike | None = None,
+    answer_provider: AnswerProvider | None = None,
+    input_fn: InputCallable = input,
+    output_fn: OutputCallable = print,
+    experiment_id: str | None = None,
+    rag_model: str = "existing-rag-service",
+    followup_model: str = settings.chat_followup_policy_model,
+    max_rounds: int = MAX_FOLLOWUP_ROUNDS,
+) -> ExperimentResult:
+    """Backward-compatible name for the historical post-RAG baseline."""
+    return await _run_post_rag_adaptive(
+        case,
+        method="adaptive_followup",
+        rag_call=rag_call,
+        policy=policy,
+        answer_provider=answer_provider,
+        input_fn=input_fn,
+        output_fn=output_fn,
+        experiment_id=experiment_id,
+        rag_model=rag_model,
+        followup_model=followup_model,
+        max_rounds=max_rounds,
+    )
+
+
+async def run_pre_rag_adaptive(
+    case: PilotCase,
+    *,
+    rag_call: RagCallable = request_rag,
+    policy: FollowUpPolicyLike | None = None,
+    answer_provider: AnswerProvider | None = None,
+    input_fn: InputCallable = input,
+    output_fn: OutputCallable = print,
+    experiment_id: str | None = None,
+    rag_model: str = "existing-rag-service",
+    followup_model: str = settings.chat_followup_policy_model,
+    max_rounds: int = MAX_FOLLOWUP_ROUNDS,
+) -> ExperimentResult:
+    if not 1 <= max_rounds <= MAX_FOLLOWUP_ROUNDS:
+        raise ValueError("max_rounds must be between 1 and 3")
+
+    started_at = utc_now()
+    total_started = perf_counter()
+    initial_query = build_initial_query(case)
+    current_query = initial_query
+    questions: list[QuestionRecord] = []
+    exchanges: list[ClarificationExchange] = []
+    rag_calls: list[RagCallRecord] = []
+    latest_response: QueryResponse | None = None
+    stopped_by = "max_rounds"
+    failure_reason: str | None = None
+    policy_calls = 0
+    active_policy = policy or AnthropicFollowUpPolicy()
+    active_answer_provider = _get_answer_provider(
+        case=case,
+        answer_provider=answer_provider,
+        input_fn=input_fn,
+        output_fn=output_fn,
+    )
+
+    for round_number in range(1, max_rounds + 1):
+        policy_calls += 1
+        try:
+            decision = await _decide(
+                active_policy,
+                original_user_content=initial_query,
+                exchanges=exchanges,
+            )
+        except Exception as exc:
+            stopped_by = "policy_failure"
+            failure_reason = type(exc).__name__
+            latest_response, call_record = await _timed_rag_call(
+                query=current_query,
+                round_number=len(rag_calls),
+                rag_call=rag_call,
+            )
+            rag_calls.append(call_record)
+            break
+
+        if decision.action == "answer":
+            stopped_by = "policy_answer"
+            latest_response, call_record = await _timed_rag_call(
+                query=current_query,
+                round_number=len(rag_calls),
+                rag_call=rag_call,
+            )
+            rag_calls.append(call_record)
+            break
+
+        normalized = _normalize_question(decision.question)
+        if any(_normalize_question(item.question) == normalized for item in questions):
+            stopped_by = "policy_failure"
+            failure_reason = "duplicate_question"
+            latest_response, call_record = await _timed_rag_call(
+                query=current_query,
+                round_number=len(rag_calls),
+                rag_call=rag_call,
+            )
+            rag_calls.append(call_record)
+            break
+
+        current_query = _record_answer(
+            case=case,
+            answer_provider=active_answer_provider,
+            round_number=round_number,
+            question=decision.question,
+            questions=questions,
+            exchanges=exchanges,
+        )
+        if round_number == max_rounds:
+            stopped_by = "max_rounds"
+            latest_response, call_record = await _timed_rag_call(
+                query=current_query,
+                round_number=len(rag_calls),
+                rag_call=rag_call,
+            )
+            rag_calls.append(call_record)
+
+    if latest_response is None:
+        raise RuntimeError("pre-RAG pilot completed without a RAG response")
+    return await _build_result(
+        case=case,
+        method="pre_rag_adaptive",
+        policy_position="pre_rag",
+        policy_calls=policy_calls,
+        started_at=started_at,
+        total_started=total_started,
+        questions=questions,
+        current_query=current_query,
+        latest_response=latest_response,
+        stopped_by=stopped_by,
+        failure_reason=failure_reason,
+        rag_calls=rag_calls,
+        experiment_id=experiment_id,
+        rag_model=rag_model,
+        followup_model=followup_model,
+    )
 
 def save_result(
     result: ExperimentResult,
@@ -339,6 +591,10 @@ async def run_method(
             if key in {"rag_call", "experiment_id", "rag_model", "followup_model"}
         }
         return await run_no_followup(case, **allowed)  # type: ignore[arg-type]
+    if method == "pre_rag_adaptive":
+        return await run_pre_rag_adaptive(case, **kwargs)  # type: ignore[arg-type]
+    if method == "post_rag_adaptive":
+        return await run_post_rag_adaptive(case, **kwargs)  # type: ignore[arg-type]
     return await run_adaptive_followup(case, **kwargs)  # type: ignore[arg-type]
 
 
@@ -348,7 +604,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--method",
         required=True,
-        choices=("no_followup", "adaptive_followup", "all"),
+        choices=("no_followup", "adaptive_followup", "post_rag_adaptive", "pre_rag_adaptive", "all"),
     )
     parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS_DIR)
     parser.add_argument(
@@ -363,7 +619,7 @@ async def _run_cli(args: argparse.Namespace) -> list[Path]:
     case = load_case(args.case)
     experiment_id = str(uuid4())
     methods: tuple[Method, ...] = (
-        ("no_followup", "adaptive_followup")
+        ("no_followup", "post_rag_adaptive", "pre_rag_adaptive")
         if args.method == "all"
         else (args.method,)
     )
@@ -399,5 +655,7 @@ __all__ = [
     "run_adaptive_followup",
     "run_method",
     "run_no_followup",
+    "run_post_rag_adaptive",
+    "run_pre_rag_adaptive",
     "save_result",
 ]

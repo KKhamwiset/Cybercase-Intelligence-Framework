@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any, Sequence
@@ -24,6 +25,7 @@ from app.services.chat.followup_policy import (
     ClarificationExchange,
     FollowUpDecision,
     FollowUpPolicy,
+    build_clarified_query,
 )
 from app.services.chat.rag_client import RagCallFailure, request_rag
 
@@ -347,31 +349,28 @@ def map_rag_response(response: QueryResponse) -> AssistantOutcome:
 
 
 async def resolve_followup_outcome(
-    response: QueryResponse,
     *,
     original_user_content: str,
     clarification_exchanges: Sequence[ClarificationExchange],
     followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
-) -> AssistantOutcome:
-    """Reevaluate accumulated clarification context and fail open on errors."""
+) -> AssistantOutcome | None:
+    """Run the clarification gate; None means proceed to RAG."""
 
-    answer_outcome = map_rag_response(response)
     if not settings.chat_followup_policy_enabled:
-        return answer_outcome
+        return None
     if len(clarification_exchanges) >= settings.chat_followup_max_rounds:
-        return answer_outcome
+        return None
     if clarification_exchanges and _answer_indicates_unavailable(
         clarification_exchanges[-1].answer
     ):
-        return answer_outcome
+        return None
 
     try:
         raw_decision = await (policy or AnthropicFollowUpPolicy()).decide(
             original_user_content=original_user_content,
             clarification_exchanges=clarification_exchanges,
-            rag_answer=response.answer,
         )
         decision = FollowUpDecision.model_validate(raw_decision)
     except Exception as exc:
@@ -380,16 +379,16 @@ async def resolve_followup_outcome(
             source_run_id,
             type(exc).__name__,
         )
-        return answer_outcome
+        return None
 
     if decision.action != "ask_followup":
-        return answer_outcome
+        return None
     normalized_question = _normalized_question(decision.question)
     if any(
         _normalized_question(exchange.question) == normalized_question
         for exchange in clarification_exchanges
     ):
-        return answer_outcome
+        return None
     return AssistantOutcome(
         content=decision.question,
         retrieval_context_id=None,
@@ -455,7 +454,12 @@ def _answer_indicates_unavailable(answer: str) -> bool:
     )
 
 
-async def process_chat_run(run_id: UUID) -> None:
+async def process_chat_run(
+    run_id: UUID,
+    *,
+    policy: FollowUpPolicy | None = None,
+    rag_call: Callable[[str], Awaitable[QueryResponse]] | None = None,
+) -> None:
     '''Process one run in-process; queued work is lost if this process exits.'''
 
     worker_id = f'chat-run:{uuid4()}'
@@ -475,14 +479,30 @@ async def process_chat_run(run_id: UUID) -> None:
         if claimed_run.operation != 'query':
             raise ValueError('Chat run operation is invalid')
 
-        response = await request_rag(claimed_run.rag_query)
-        outcome = await resolve_followup_outcome(
-            response,
+        clarification_outcome = await resolve_followup_outcome(
             original_user_content=claimed_run.original_user_content,
             clarification_exchanges=claimed_run.clarification_exchanges,
             followup_root_ordinal=claimed_run.followup_root_ordinal,
             source_run_id=claimed_run.id,
+            policy=policy,
         )
+        if clarification_outcome is not None:
+            async with async_session() as finalize_db:
+                await ChatRunWorker(finalize_db).complete_run(
+                    run_id,
+                    worker_id,
+                    clarification_outcome,
+                )
+            return
+
+        rag_query = claimed_run.rag_query
+        if claimed_run.clarification_exchanges:
+            rag_query = build_clarified_query(
+                original_user_content=claimed_run.original_user_content,
+                clarification_exchanges=claimed_run.clarification_exchanges,
+            )
+        response = await (rag_call or request_rag)(rag_query)
+        outcome = map_rag_response(response)
         outcome = attach_demo_extraction(outcome, claimed_run)
 
         async with async_session() as finalize_db:

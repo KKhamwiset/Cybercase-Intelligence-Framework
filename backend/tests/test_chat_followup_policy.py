@@ -1,5 +1,7 @@
+import inspect
 import json
 import unittest
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import httpx
@@ -12,7 +14,11 @@ from app.services.chat.followup_policy import (
     FollowUpDecision,
     build_clarified_query,
 )
-from app.services.chat.chat_worker import resolve_followup_outcome
+from app.services.chat.chat_worker import (
+    ClaimedChatRun,
+    process_chat_run,
+    resolve_followup_outcome,
+)
 
 
 class _AskPolicy:
@@ -23,8 +29,8 @@ class _AskPolicy:
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> FollowUpDecision:
+        del original_user_content, clarification_exchanges
         self.calls += 1
         return FollowUpDecision(
             action="ask_followup",
@@ -38,8 +44,8 @@ class _FailingPolicy:
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> FollowUpDecision:
+        del original_user_content, clarification_exchanges
         raise TimeoutError("policy timed out")
 
 
@@ -49,8 +55,8 @@ class _InvalidOutputPolicy:
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> object:
+        del original_user_content, clarification_exchanges
         return {
             "action": "ask_followup",
             "question": "Which host was affected?",
@@ -64,8 +70,8 @@ class _InvalidJsonPolicy:
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> FollowUpDecision:
+        del original_user_content, clarification_exchanges
         raise json.JSONDecodeError("invalid policy JSON", "{", 0)
 
 
@@ -77,8 +83,8 @@ class _AnswerPolicy:
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> FollowUpDecision:
+        del original_user_content, clarification_exchanges
         self.calls += 1
         return FollowUpDecision(action="answer", question="")
 
@@ -86,32 +92,22 @@ class _AnswerPolicy:
 class _QuestionPolicy:
     def __init__(self, question: str):
         self.question = question
-        self.calls: list[
-            tuple[str, tuple[ClarificationExchange, ...], str]
-        ] = []
+        self.calls: list[tuple[str, tuple[ClarificationExchange, ...]]] = []
 
     async def decide(
         self,
         *,
         original_user_content: str,
         clarification_exchanges: tuple[ClarificationExchange, ...],
-        rag_answer: str,
     ) -> FollowUpDecision:
-        self.calls.append(
-            (
-                original_user_content,
-                tuple(clarification_exchanges),
-                rag_answer,
-            )
-        )
+        self.calls.append((original_user_content, tuple(clarification_exchanges)))
         return FollowUpDecision(
             action="ask_followup",
             question=self.question,
         )
 
-
 class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
-    async def test_structured_policy_uses_bounded_accumulated_context(self) -> None:
+    async def test_structured_policy_uses_only_bounded_case_context(self) -> None:
         original_key = settings.anthropic_api_key
         settings.anthropic_api_key = "test-key"
         captured: dict[str, object] = {}
@@ -143,33 +139,17 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
                 decision = await AnthropicFollowUpPolicy().decide(
                     original_user_content=(
                         "ORIGINAL PREFIX "
-                        + "u"
-                        * (
-                            settings.chat_followup_policy_max_user_chars
-                            + 10
-                        )
+                        + "u" * (settings.chat_followup_policy_max_user_chars + 10)
                     ),
                     clarification_exchanges=tuple(
                         ClarificationExchange(
                             question=f"Question {index} " + ("q" * 500),
                             answer=(
-                                (
-                                    "NEWEST ANSWER "
-                                    if index == 3
-                                    else f"Older answer {index} "
-                                )
+                                ("NEWEST ANSWER " if index == 3 else f"Older answer {index} ")
                                 + ("x" * 5_000)
                             ),
                         )
                         for index in range(1, 4)
-                    ),
-                    rag_answer=(
-                        "RAG PREFIX "
-                        + "a"
-                        * (
-                            settings.chat_followup_policy_max_answer_chars
-                            + 10
-                        )
                     ),
                     client=client,
                 )
@@ -178,50 +158,92 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(decision.action, "ask_followup")
         self.assertEqual(decision.question, "Which host was affected?")
-        self.assertIn("untrusted data", str(captured["system"]))
-        self.assertIn("accumulated incident context", str(captured["system"]))
-        self.assertIn("Do not re-ask", str(captured["system"]))
-        user_payload = captured["messages"]
-        assert isinstance(user_payload, list)
-        message_content = user_payload[0]["content"]
-        assert isinstance(message_content, str)
-        supplied = json.loads(message_content.split("\n", 1)[1])
+        self.assertIn("KNOWN", str(captured["system"]))
+        self.assertIn("EXPLICITLY_UNKNOWN", str(captured["system"]))
+        self.assertIn("Generic knowledge", str(captured["system"]))
+        self.assertNotIn("rag_answer", json.dumps(captured))
+        provider_schema = captured["output_config"]["format"]["schema"]
+        self.assertNotIn("oneOf", provider_schema)
+        self.assertEqual(
+            provider_schema,
+            {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["answer", "ask_followup"],
+                    },
+                    "question": {"type": "string"},
+                },
+                "required": ["action", "question"],
+                "additionalProperties": False,
+            },
+        )
+        supplied = json.loads(
+            str(captured["messages"][0]["content"]).split("\n", 1)[1]
+        )
+        self.assertEqual(
+            set(supplied), {"original_user_content", "clarification_exchanges"}
+        )
         self.assertLessEqual(
             len(supplied["original_user_content"]),
             settings.chat_followup_policy_max_user_chars,
         )
-        self.assertLessEqual(
-            len(supplied["rag_answer"]),
-            settings.chat_followup_policy_max_answer_chars,
-        )
         self.assertTrue(
             supplied["original_user_content"].startswith("ORIGINAL PREFIX ")
         )
-        self.assertTrue(supplied["rag_answer"].startswith("RAG PREFIX "))
         self.assertTrue(
             supplied["clarification_exchanges"][-1]["answer"].startswith(
                 "NEWEST ANSWER "
             )
         )
-        supplied_size = (
-            len(supplied["original_user_content"])
-            + len(supplied["rag_answer"])
-            + sum(
-                len(exchange["question"]) + len(exchange["answer"])
-                for exchange in supplied["clarification_exchanges"]
-            )
+        supplied_size = len(supplied["original_user_content"]) + sum(
+            len(exchange["question"]) + len(exchange["answer"])
+            for exchange in supplied["clarification_exchanges"]
         )
         self.assertLessEqual(
             supplied_size,
             settings.chat_followup_combined_query_max_chars,
         )
 
+    async def test_answer_decision_with_empty_question_is_schema_valid(self) -> None:
+        original_key = settings.anthropic_api_key
+        settings.anthropic_api_key = "test-key"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            del request
+            return httpx.Response(
+                200,
+                json={
+                    "stop_reason": "end_turn",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": '{"action":"answer","question":""}',
+                        }
+                    ],
+                },
+            )
+
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(handler)
+            ) as client:
+                decision = await AnthropicFollowUpPolicy().decide(
+                    original_user_content="What is phishing?",
+                    clarification_exchanges=(),
+                    client=client,
+                )
+        finally:
+            settings.anthropic_api_key = original_key
+
+        self.assertEqual(decision, FollowUpDecision(action="answer", question=""))
+        self.assertNotIn("rag_answer", inspect.signature(AnthropicFollowUpPolicy.decide).parameters)
 
 class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
     async def test_policy_question_becomes_only_assistant_outcome(self) -> None:
         source_run_id = uuid4()
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Partial answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(),
             followup_root_ordinal=7,
@@ -229,6 +251,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=_AskPolicy(),
         )
 
+        assert outcome is not None
         self.assertEqual(
             outcome.content,
             "Which affected host produced this event?",
@@ -249,7 +272,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             1,
         )
 
-    async def test_second_insufficiency_asks_distinct_second_question(self) -> None:
+    async def test_previous_clarification_answer_is_visible_to_next_policy(self) -> None:
         exchanges = (
             ClarificationExchange(
                 question="Which host was affected?",
@@ -258,7 +281,6 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         )
         policy = _QuestionPolicy("When was the event first observed?")
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Still partial"),
             original_user_content="Investigate this event",
             clarification_exchanges=exchanges,
             followup_root_ordinal=3,
@@ -266,44 +288,33 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=policy,
         )
 
-        self.assertEqual(
-            outcome.content,
-            "When was the event first observed?",
-        )
-        self.assertEqual(outcome.thread_status, "awaiting_followup")
-        self.assertEqual(
-            outcome.metadata_json["chat_followup"]["round"],
-            2,
-        )
-        self.assertEqual(
-            policy.calls,
-            [("Investigate this event", exchanges, "Still partial")],
-        )
+        assert outcome is not None
+        self.assertEqual(outcome.content, "When was the event first observed?")
+        self.assertEqual(policy.calls, [("Investigate this event", exchanges)])
 
     async def test_query_rounds_progress_from_initial_to_second_to_terminal(self) -> None:
         source_run_id = uuid4()
         first = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Initial partial answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(),
             followup_root_ordinal=1,
             source_run_id=source_run_id,
             policy=_QuestionPolicy("Which host was affected?"),
         )
+        assert first is not None
         first_exchange = ClarificationExchange(
             question=first.content,
             answer="host-7",
         )
         second = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Second partial answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(first_exchange,),
             followup_root_ordinal=1,
             source_run_id=uuid4(),
             policy=_QuestionPolicy("When was it first observed?"),
         )
+        assert second is not None
         final = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Complete RAG answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(
                 first_exchange,
@@ -318,19 +329,12 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(first.thread_status, "awaiting_followup")
-        self.assertEqual(
-            first.metadata_json["chat_followup"]["round"],
-            1,
-        )
+        self.assertEqual(first.metadata_json["chat_followup"]["round"], 1)
         self.assertEqual(second.thread_status, "awaiting_followup")
-        self.assertEqual(
-            second.metadata_json["chat_followup"]["round"],
-            2,
-        )
-        self.assertEqual(final.thread_status, "idle")
-        self.assertEqual(final.content, "Complete RAG answer")
+        self.assertEqual(second.metadata_json["chat_followup"]["round"], 2)
+        self.assertIsNone(final)
 
-    async def test_max_round_guard_returns_validated_rag_answer(self) -> None:
+    async def test_max_round_guard_proceeds_without_calling_policy(self) -> None:
         exchanges = tuple(
             ClarificationExchange(
                 question=f"Question {index}",
@@ -341,7 +345,6 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         policy = _QuestionPolicy("This question must not be asked")
 
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Bounded final answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=exchanges,
             followup_root_ordinal=1,
@@ -351,22 +354,16 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(settings.chat_followup_max_rounds, 3)
         self.assertEqual(policy.calls, [])
-        self.assertEqual(outcome.content, "Bounded final answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
 
-    async def test_sufficient_later_round_returns_rag_answer_and_idle(self) -> None:
+    async def test_answer_decision_proceeds_to_rag(self) -> None:
         policy = _AnswerPolicy()
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Complete analysis"),
             original_user_content="Investigate this event",
             clarification_exchanges=(
                 ClarificationExchange(
                     question="Which host was affected?",
                     answer="host-7",
-                ),
-                ClarificationExchange(
-                    question="When was it first observed?",
-                    answer="09:32 UTC",
                 ),
             ),
             followup_root_ordinal=3,
@@ -375,13 +372,11 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(policy.calls, 1)
-        self.assertEqual(outcome.content, "Complete analysis")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
 
-    async def test_exact_normalized_duplicate_question_stops_safely(self) -> None:
+    async def test_exact_normalized_duplicate_question_proceeds_safely(self) -> None:
         policy = _QuestionPolicy("  WHICH   HOST was affected?! ")
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Current RAG answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(
                 ClarificationExchange(
@@ -394,14 +389,12 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=policy,
         )
 
-        self.assertEqual(outcome.content, "Current RAG answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
 
-    async def test_later_policy_error_fails_open_to_rag_answer(self) -> None:
+    async def test_later_policy_error_fails_open_to_rag(self) -> None:
         source_run_id = uuid4()
         with self.assertLogs("app.chat", level="WARNING") as captured:
             outcome = await resolve_followup_outcome(
-                QueryResponse(status="completed", answer="Useful RAG answer"),
                 original_user_content="Investigate this event",
                 clarification_exchanges=(
                     ClarificationExchange(
@@ -414,8 +407,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
                 policy=_FailingPolicy(),
             )
 
-        self.assertEqual(outcome.content, "Useful RAG answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
         self.assertEqual(
             captured.output,
             [
@@ -424,9 +416,8 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-    async def test_invalid_policy_output_fails_open_to_rag_answer(self) -> None:
+    async def test_invalid_policy_output_fails_open_to_rag(self) -> None:
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Useful RAG answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(),
             followup_root_ordinal=1,
@@ -434,12 +425,10 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=_InvalidOutputPolicy(),
         )
 
-        self.assertEqual(outcome.content, "Useful RAG answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
 
-    async def test_invalid_json_policy_output_fails_open_to_rag_answer(self) -> None:
+    async def test_invalid_json_policy_output_fails_open_to_rag(self) -> None:
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Useful RAG answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(),
             followup_root_ordinal=1,
@@ -447,15 +436,11 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=_InvalidJsonPolicy(),
         )
 
-        self.assertEqual(outcome.content, "Useful RAG answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
 
-    async def test_unavailable_answer_stops_follow_up_without_calling_policy(
-        self,
-    ) -> None:
+    async def test_unavailable_answer_is_not_reasked(self) -> None:
         policy = _QuestionPolicy("Which affected host produced this event?")
         outcome = await resolve_followup_outcome(
-            QueryResponse(status="completed", answer="Current RAG answer"),
             original_user_content="Investigate this event",
             clarification_exchanges=(
                 ClarificationExchange(
@@ -468,10 +453,168 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=policy,
         )
 
-        self.assertEqual(outcome.content, "Current RAG answer")
-        self.assertEqual(outcome.thread_status, "idle")
+        self.assertIsNone(outcome)
         self.assertEqual(policy.calls, [])
 
+class _SessionContext:
+    async def __aenter__(self) -> None:
+        return None
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+
+class _EventPolicy:
+    def __init__(self, events: list[str], decision: object = None, error: Exception | None = None):
+        self.events = events
+        self.decision = decision
+        self.error = error
+
+    async def decide(self, *, original_user_content, clarification_exchanges):
+        del original_user_content, clarification_exchanges
+        self.events.append("policy")
+        if self.error is not None:
+            raise self.error
+        return self.decision
+
+
+class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
+    async def _run(
+        self,
+        *,
+        policy: object,
+        exchanges: tuple[ClarificationExchange, ...] = (),
+    ) -> tuple[list[str], list[object], list[str]]:
+        events: list[str] = []
+        if isinstance(policy, _EventPolicy):
+            policy.events = events
+        completed: list[object] = []
+        rag_queries: list[str] = []
+        claimed = ClaimedChatRun(
+            id=uuid4(),
+            operation="query",
+            input_rag_session_id=None,
+            content="Original incident request",
+            rag_query="Original incident request",
+            original_user_content="Original incident request",
+            clarification_exchanges=exchanges,
+            followup_root_ordinal=1,
+        )
+        worker = Mock()
+        worker.claim_run = AsyncMock(return_value=claimed)
+
+        async def complete(run_id, worker_id, outcome):
+            del run_id, worker_id
+            completed.append(outcome)
+            events.append(f"complete:{outcome.thread_status}")
+            return True
+
+        worker.complete_run = AsyncMock(side_effect=complete)
+
+        async def rag_call(query: str) -> QueryResponse:
+            rag_queries.append(query)
+            events.append("rag")
+            return QueryResponse(status="completed", answer="final RAG answer")
+
+        with (
+            patch(
+                "app.services.chat.chat_worker.async_session",
+                return_value=_SessionContext(),
+            ),
+            patch(
+                "app.services.chat.chat_worker.ChatRunWorker",
+                return_value=worker,
+            ),
+        ):
+            await process_chat_run(
+                claimed.id,
+                policy=policy,
+                rag_call=rag_call,
+            )
+        return events, completed, rag_queries
+
+    async def test_policy_runs_before_rag_and_ask_skips_rag(self) -> None:
+        events, completed, rag_queries = await self._run(
+            policy=_EventPolicy(
+                [],
+                FollowUpDecision(
+                    action="ask_followup",
+                    question="Which host was affected?",
+                ),
+            )
+        )
+
+        self.assertEqual(events, ["policy", "complete:awaiting_followup"])
+        self.assertEqual(rag_queries, [])
+        self.assertEqual(len(completed), 1)
+        self.assertEqual(completed[0].content, "Which host was affected?")
+        self.assertEqual(
+            completed[0].metadata_json["chat_followup"]["kind"],
+            "clarification",
+        )
+
+    async def test_answer_calls_rag_exactly_once_after_policy(self) -> None:
+        events, completed, rag_queries = await self._run(
+            policy=_EventPolicy(
+                [],
+                FollowUpDecision(action="answer", question=""),
+            )
+        )
+
+        self.assertEqual(events, ["policy", "rag", "complete:idle"])
+        self.assertEqual(len(rag_queries), 1)
+        self.assertEqual(completed[0].content, "final RAG answer")
+
+    async def test_policy_failure_fails_open_to_one_rag_call(self) -> None:
+        events, completed, rag_queries = await self._run(
+            policy=_EventPolicy([], error=TimeoutError("policy timed out"))
+        )
+
+        self.assertEqual(events, ["policy", "rag", "complete:idle"])
+        self.assertEqual(len(rag_queries), 1)
+        self.assertEqual(completed[0].content, "final RAG answer")
+
+    async def test_max_rounds_proceed_to_one_rag_call_without_policy(self) -> None:
+        exchanges = tuple(
+            ClarificationExchange(question=f"q{n}", answer=f"a{n}")
+            for n in range(settings.chat_followup_max_rounds)
+        )
+        events, completed, rag_queries = await self._run(
+            policy=_EventPolicy(
+                [],
+                FollowUpDecision(
+                    action="ask_followup",
+                    question="must not be called",
+                ),
+            ),
+            exchanges=exchanges,
+        )
+
+        self.assertEqual(events, ["rag", "complete:idle"])
+        self.assertEqual(len(rag_queries), 1)
+        self.assertEqual(completed[0].thread_status, "idle")
+
+    async def test_duplicate_question_is_rejected_then_rag_runs_once(self) -> None:
+        exchanges = (
+            ClarificationExchange(
+                question="Which host was affected?",
+                answer="host-7",
+            ),
+        )
+        events, completed, rag_queries = await self._run(
+            policy=_EventPolicy(
+                [],
+                FollowUpDecision(
+                    action="ask_followup",
+                    question=" WHICH   HOST was affected?! ",
+                ),
+            ),
+            exchanges=exchanges,
+        )
+
+        self.assertEqual(events, ["policy", "rag", "complete:idle"])
+        self.assertEqual(len(rag_queries), 1)
+        self.assertEqual(completed[0].thread_status, "idle")
 
 class ClarifiedQueryTests(unittest.TestCase):
     def test_decision_rejects_multiple_questions_and_line_breaks(self) -> None:

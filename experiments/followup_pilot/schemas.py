@@ -8,7 +8,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-Method = Literal["no_followup", "adaptive_followup"]
+Method = Literal[
+    "no_followup",
+    "adaptive_followup",
+    "post_rag_adaptive",
+    "pre_rag_adaptive",
+]
+PolicyPosition = Literal["none", "pre_rag", "post_rag"]
 StoppedBy = Literal[
     "policy_answer",
     "max_rounds",
@@ -103,6 +109,18 @@ class ExperimentResult(StrictModel):
     finished_at: datetime
     latency_ms: int = Field(ge=0)
     rag_calls: list[RagCallRecord]
+    policy_position: PolicyPosition = "none"
+    policy_calls: int = Field(default=0, ge=0)
+    rag_call_count: int = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def backfill_legacy_metadata(self) -> "ExperimentResult":
+        if self.method in {"adaptive_followup", "post_rag_adaptive"}:
+            if self.policy_position == "none":
+                self.policy_position = "post_rag"
+        if self.rag_call_count == 0 and self.rag_calls:
+            self.rag_call_count = len(self.rag_calls)
+        return self
 
 
 class SystemMetrics(StrictModel):
@@ -136,6 +154,7 @@ __all__ = [
     "FieldRating",
     "HiddenField",
     "Method",
+    "PolicyPosition",
     "PilotCase",
     "QuestionRecord",
     "RagCallRecord",

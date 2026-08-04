@@ -18,6 +18,8 @@ from experiments.followup_pilot.runner import (
     load_case,
     run_adaptive_followup,
     run_no_followup,
+    run_post_rag_adaptive,
+    run_pre_rag_adaptive,
     save_result,
 )
 from experiments.followup_pilot.schemas import (
@@ -32,8 +34,20 @@ CASE_PATH = (
 )
 
 
+INSUFFICIENT_CASE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "cases"
+    / "m365_phishing_insufficient_001.json"
+)
+
+SUFFICIENT_CASE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "cases"
+    / "m365_phishing_sufficient_001.json"
+)
+
 class FakeRag:
-    def __init__(self, answers: list[str]) -> None:
+    def __init__(self, answers: list[str], events: list[str] | None = None) -> None:
         self.responses = [
             QueryResponse(
                 status="completed",
@@ -43,31 +57,37 @@ class FakeRag:
             for index, answer in enumerate(answers)
         ]
         self.queries: list[str] = []
+        self.events = events if events is not None else []
 
     async def __call__(self, query: str) -> QueryResponse:
         self.queries.append(query)
+        self.events.append("rag")
         if not self.responses:
             raise AssertionError("unexpected external-style RAG call")
         return self.responses.pop(0)
 
 
 class FakePolicy:
-    def __init__(self, outcomes: list[FollowUpDecision | Exception]) -> None:
+    def __init__(
+        self,
+        outcomes: list[FollowUpDecision | Exception],
+        events: list[str] | None = None,
+    ) -> None:
         self.outcomes = list(outcomes)
         self.calls: list[dict[str, object]] = []
+        self.events = events if events is not None else []
 
     async def decide(
         self,
         *,
         original_user_content: str,
         clarification_exchanges: object,
-        rag_answer: str,
     ) -> FollowUpDecision:
+        self.events.append("policy")
         self.calls.append(
             {
                 "original": original_user_content,
                 "exchanges": tuple(clarification_exchanges),  # type: ignore[arg-type]
-                "rag_answer": rag_answer,
             }
         )
         if not self.outcomes:
@@ -76,7 +96,6 @@ class FakePolicy:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
-
 
 class FixedRng:
     def shuffle(self, values: list[ExperimentResult]) -> None:
@@ -244,6 +263,179 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.final_analysis, "latest safe analysis")
         self.assertEqual(len(rag.queries), 1)
 
+    async def test_pre_rag_asks_before_any_rag_call(self) -> None:
+        events: list[str] = []
+        rag = FakeRag(["final analysis"], events)
+        policy = FakePolicy(
+            [
+                FollowUpDecision(action="ask_followup", question="Which account?"),
+                FollowUpDecision(action="answer", question=""),
+            ],
+            events,
+        )
+        provider = answer_provider([HumanAnswer(answer="finance@example.com")])
+
+        result = await run_pre_rag_adaptive(
+            self.case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=provider,
+        )
+
+        self.assertEqual(events, ["policy", "policy", "rag"])
+        self.assertEqual(len(rag.queries), 1)
+        self.assertEqual(result.method, "pre_rag_adaptive")
+        self.assertEqual(result.policy_position, "pre_rag")
+        self.assertEqual(result.policy_calls, 2)
+        self.assertEqual(result.rag_call_count, 1)
+        second_exchanges = policy.calls[1]["exchanges"]
+        self.assertEqual(
+            [(item.question, item.answer) for item in second_exchanges],
+            [("Which account?", "finance@example.com")],
+        )
+
+    async def test_insufficient_case_asks_for_material_fact_before_rag(self) -> None:
+        case = load_case(INSUFFICIENT_CASE_PATH)
+        events: list[str] = []
+        rag = FakeRag(["grounded analysis"], events)
+        policy = FakePolicy(
+            [
+                FollowUpDecision(
+                    action="ask_followup",
+                    question="How did the attacker obtain access to the account?",
+                ),
+                FollowUpDecision(action="answer", question=""),
+            ],
+            events,
+        )
+
+        result = await run_pre_rag_adaptive(
+            case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=answer_provider(
+                [
+                    HumanAnswer(
+                        answer=case.hidden_answers["initial_access"],
+                        requested_fields=("initial_access",),
+                    )
+                ]
+            ),
+        )
+
+        self.assertEqual(case.case_id, "m365_phishing_insufficient_001")
+        self.assertIn("does not state whether access resulted", case.initial_context)
+        self.assertEqual(events, ["policy", "policy", "rag"])
+        self.assertEqual(len(result.questions), 1)
+        self.assertEqual(result.questions[0].requested_fields, ["initial_access"])
+        self.assertEqual(
+            result.questions[0].question,
+            "How did the attacker obtain access to the account?",
+        )
+        self.assertEqual(result.rag_call_count, 1)
+        self.assertEqual(result.stopped_by, "policy_answer")
+
+    async def test_sufficient_case_proceeds_to_rag_without_followup(self) -> None:
+        case = load_case(SUFFICIENT_CASE_PATH)
+        events: list[str] = []
+        rag = FakeRag(["grounded analysis"], events)
+        policy = FakePolicy(
+            [FollowUpDecision(action="answer", question="")],
+            events,
+        )
+
+        result = await run_pre_rag_adaptive(
+            case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=answer_provider([]),
+        )
+
+        self.assertIn("clicked the link", case.initial_context)
+        self.assertEqual(events, ["policy", "rag"])
+        self.assertEqual(result.questions, [])
+        self.assertEqual(result.policy_calls, 1)
+        self.assertEqual(result.rag_call_count, 1)
+        self.assertEqual(result.stopped_by, "policy_answer")
+
+    async def test_pre_rag_max_rounds_calls_rag_after_the_last_answer(self) -> None:
+        events: list[str] = []
+        rag = FakeRag(["final analysis"], events)
+        policy = FakePolicy(
+            [
+                FollowUpDecision(action="ask_followup", question=f"question {n}?")
+                for n in range(1, 4)
+            ],
+            events,
+        )
+        provider = answer_provider(
+            [HumanAnswer(answer=f"answer {n}") for n in range(1, 4)]
+        )
+
+        result = await run_pre_rag_adaptive(
+            self.case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=provider,
+        )
+
+        self.assertEqual(events, ["policy", "policy", "policy", "rag"])
+        self.assertEqual(result.stopped_by, "max_rounds")
+        self.assertEqual(result.policy_calls, 3)
+        self.assertEqual(result.rag_call_count, 1)
+        self.assertEqual(len(rag.queries), 1)
+
+    async def test_pre_rag_policy_failure_fails_open_to_one_rag_call(self) -> None:
+        events: list[str] = []
+        rag = FakeRag(["safe analysis"], events)
+        policy = FakePolicy([TimeoutError("policy timed out")], events)
+
+        result = await run_pre_rag_adaptive(
+            self.case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=answer_provider([]),
+        )
+
+        self.assertEqual(events, ["policy", "rag"])
+        self.assertEqual(result.stopped_by, "policy_failure")
+        self.assertEqual(result.failure_reason, "TimeoutError")
+        self.assertEqual(result.rag_call_count, 1)
+
+    async def test_post_rag_baseline_keeps_rag_before_policy(self) -> None:
+        events: list[str] = []
+        rag = FakeRag(["initial analysis"], events)
+        policy = FakePolicy(
+            [FollowUpDecision(action="answer", question="")],
+            events,
+        )
+
+        result = await run_post_rag_adaptive(
+            self.case,
+            rag_call=rag,
+            policy=policy,
+            answer_provider=answer_provider([]),
+        )
+
+        self.assertEqual(events, ["rag", "policy"])
+        self.assertEqual(result.method, "post_rag_adaptive")
+        self.assertEqual(result.policy_position, "post_rag")
+        self.assertEqual(result.policy_calls, 1)
+        self.assertEqual(result.rag_call_count, 1)
+
+    def test_historical_result_files_remain_loadable(self) -> None:
+        results_dir = CASE_PATH.parents[1] / "results"
+        paths = sorted(results_dir.glob("*.json"))
+        self.assertTrue(paths)
+        for path in paths:
+            with self.subTest(path=path.name):
+                result = ExperimentResult.model_validate_json(
+                    path.read_text(encoding="utf-8")
+                )
+                self.assertIn(
+                    result.method,
+                    {"no_followup", "adaptive_followup", "post_rag_adaptive", "pre_rag_adaptive"},
+                )
     async def test_result_file_contains_required_metadata(self) -> None:
         result = await run_no_followup(self.case, rag_call=FakeRag(["analysis"]))
         with tempfile.TemporaryDirectory() as directory:
@@ -253,6 +445,9 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(loaded.case_id, self.case.case_id)
         self.assertEqual(loaded.rag_model, "existing-rag-service")
         self.assertEqual(len(loaded.rag_calls), 1)
+        self.assertEqual(loaded.rag_call_count, 1)
+        self.assertEqual(loaded.policy_position, 'none')
+        self.assertEqual(loaded.policy_calls, 0)
         self.assertGreaterEqual(loaded.latency_ms, 0)
 
 

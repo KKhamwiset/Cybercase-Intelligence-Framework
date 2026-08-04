@@ -1,0 +1,25 @@
+{
+  "case_id": "m365_phishing_sufficient_001",
+  "language": "en",
+  "original_request": "Determine the exact initial-access mechanism and MITRE ATT&CK sub-technique used to obtain access to the Microsoft 365 account. Return one incident-specific supported conclusion, not a list of possibilities, and do not infer facts that are not in the case file.",
+  "initial_context": "At 09:05 UTC, finance@example.com received a phishing email containing a link to a fake Microsoft 365 sign-in page. The employee clicked the link and entered the account username and password. At 09:32 UTC, security monitoring detected an unauthorized sign-in to finance@example.com from 203.0.113.77 using the captured credentials. Mailbox access was confirmed. The response team reset the password, revoked active sessions, and enforced MFA. No data download or copying has been confirmed.",
+  "hidden_answers": {
+    "affected_account": "The affected account was finance@example.com.",
+    "initial_access": "An employee clicked a link in a phishing email and entered a username and password into a fake Microsoft 365 sign-in page."
+  },
+  "unknown_information": {
+    "data_exfiltration": "There is no evidence confirming that data was downloaded or copied out of the tenant."
+  },
+  "reference_fields": {
+    "incident_type": "Microsoft 365 account compromise following credential phishing.",
+    "affected_account": "finance@example.com",
+    "initial_access": "An employee clicked a link in a phishing email and entered a username and password into a fake Microsoft 365 sign-in page.",
+    "phishing_time": "2026-08-04 09:05 UTC",
+    "unauthorized_login_time": "2026-08-04 09:32 UTC",
+    "source_ip": "203.0.113.77",
+    "attacker_action": "The attacker signed in using credentials captured by the phishing page.",
+    "impact": "Unauthorized mailbox access was confirmed.",
+    "response_actions": "The password was reset, active sessions were revoked, and MFA was enforced.",
+    "data_exfiltration": "unknown"
+  }
+}

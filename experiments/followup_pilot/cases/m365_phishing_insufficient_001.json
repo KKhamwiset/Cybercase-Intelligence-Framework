@@ -1,0 +1,25 @@
+{
+  "case_id": "m365_phishing_insufficient_001",
+  "language": "en",
+  "original_request": "Determine the exact initial-access mechanism and MITRE ATT&CK sub-technique used to obtain access to the Microsoft 365 account. Return one incident-specific supported conclusion, not a list of possibilities, and do not infer facts that are not in the case file.",
+  "initial_context": "Security monitoring detected an unauthorized sign-in to finance@example.com from 203.0.113.77 at 09:32 UTC. The case file does not state whether access resulted from credential phishing, password spraying, token theft, MFA fatigue, or another mechanism. No mailbox-rule activity, data access, or confirmed impact has been established. Containment is pending.",
+  "hidden_answers": {
+    "affected_account": "The affected account was finance@example.com.",
+    "initial_access": "An employee clicked a link in a phishing email and entered a username and password into a fake Microsoft 365 sign-in page."
+  },
+  "unknown_information": {
+    "data_exfiltration": "There is no evidence confirming that data was downloaded or copied out of the tenant."
+  },
+  "reference_fields": {
+    "incident_type": "Suspected Microsoft 365 account compromise following phishing.",
+    "affected_account": "finance@example.com",
+    "initial_access": "An employee clicked a link in a phishing email and entered a username and password into a fake Microsoft 365 sign-in page.",
+    "phishing_time": "Not provided in the case file.",
+    "unauthorized_login_time": "2026-08-04 09:32 UTC",
+    "source_ip": "203.0.113.77",
+    "attacker_action": "Not established; mailbox-rule activity is unconfirmed.",
+    "impact": "No confirmed impact has been established.",
+    "response_actions": "Containment is pending.",
+    "data_exfiltration": "unknown"
+  }
+}

@@ -25,6 +25,11 @@ from .schemas import (
 
 
 LABELS = ("System A", "System B")
+VALID_METHOD_PAIRS = (
+    frozenset({"no_followup", "adaptive_followup"}),
+    frozenset({"no_followup", "post_rag_adaptive"}),
+    frozenset({"post_rag_adaptive", "pre_rag_adaptive"}),
+)
 RATINGS: tuple[FieldRating, ...] = (
     "correct_supported",
     "missing",
@@ -117,8 +122,10 @@ def conduct_blind_evaluation(
 ) -> EvaluationResult:
     if len(results) != 2:
         raise ValueError("the blind evaluator requires exactly two result files")
-    if {result.method for result in results} != {"no_followup", "adaptive_followup"}:
-        raise ValueError("results must contain one run from each pilot method")
+    if frozenset(result.method for result in results) not in VALID_METHOD_PAIRS:
+        raise ValueError(
+            "results must contain one supported pair of pilot methods"
+        )
     if any(result.case_id != case.case_id for result in results):
         raise ValueError("both results must match the selected case")
 

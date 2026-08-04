@@ -87,7 +87,6 @@ class Settings(BaseSettings):
     chat_followup_policy_timeout_seconds: float = 15.0
     chat_followup_policy_max_output_tokens: int = 128
     chat_followup_policy_max_user_chars: int = 4_000
-    chat_followup_policy_max_answer_chars: int = 8_000
     chat_followup_question_max_chars: int = 300
     chat_followup_combined_query_max_chars: int = 12_000
     chat_followup_max_rounds: int = 3

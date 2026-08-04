@@ -1,0 +1,29 @@
+{
+  "experiment_id": "53f69d82-d151-4e00-a34b-3ab924ac645b",
+  "case_id": "m365_phishing_sufficient_001",
+  "method": "pre_rag_adaptive",
+  "original_request": "Determine the exact initial-access mechanism and MITRE ATT&CK sub-technique used to obtain access to the Microsoft 365 account. Return one incident-specific supported conclusion, not a list of possibilities, and do not infer facts that are not in the case file.",
+  "initial_context": "At 09:05 UTC, finance@example.com received a phishing email containing a link to a fake Microsoft 365 sign-in page. The employee clicked the link and entered the account username and password. At 09:32 UTC, security monitoring detected an unauthorized sign-in to finance@example.com from 203.0.113.77 using the captured credentials. Mailbox access was confirmed. The response team reset the password, revoked active sessions, and enforced MFA. No data download or copying has been confirmed.",
+  "questions": [],
+  "followup_rounds": 0,
+  "final_rag_query": "Determine the exact initial-access mechanism and MITRE ATT&CK sub-technique used to obtain access to the Microsoft 365 account. Return one incident-specific supported conclusion, not a list of possibilities, and do not infer facts that are not in the case file.\n\nข้อมูลเหตุการณ์ที่มีในสำนวน:\nAt 09:05 UTC, finance@example.com received a phishing email containing a link to a fake Microsoft 365 sign-in page. The employee clicked the link and entered the account username and password. At 09:32 UTC, security monitoring detected an unauthorized sign-in to finance@example.com from 203.0.113.77 using the captured credentials. Mailbox access was confirmed. The response team reset the password, revoked active sessions, and enforced MFA. No data download or copying has been confirmed.",
+  "final_analysis": "## สรุปเหตุการณ์\n\nเวลา 09:05 UTC พนักงานที่ใช้บัญชี finance@example.com ได้รับอีเมลหลอกลวงที่มีลิงก์ไปยังหน้าเข้าสู่ระบบ Microsoft 365 ปลอม พนักงานคลิกลิงก์และป้อนชื่อผู้ใช้และรหัสผ่านของบัญชี ข้อมูลประจำตัวนี้ถูกจับได้โดยผู้โจมตี เวลา 09:32 UTC ระบบตรวจสอบความปลอดภัยตรวจพบการเข้าสู่ระบบที่ไม่ได้รับอนุญาตไปยัง finance@example.com จากที่อยู่ IP 203.0.113.77 โดยใช้ข้อมูลประจำตัวที่ถูกจับได้ ผู้โจมตีได้เข้าถึงกล่องจดหมายสำเร็จ ทีมตอบสนองได้รีเซ็ตรหัสผ่าน ยกเลิกเซสชันที่ใช้งานอยู่ และบังคับใช้การยืนยันตัวตนแบบหลายชั้น ไม่มีการยืนยันการดาวน์โหลดหรือคัดลอกข้อมูล\n\n## ลำดับการโจมตี\n\n1. ผู้โจมตีส่งอีเมลหลอกลวงที่มีลิงก์ไปยังหน้าเข้าสู่ระบบปลอมไปยังพนักงาน (Spearphishing Link — T1566.002)\n\n2. พนักงานคลิกลิงก์และป้อนชื่อผู้ใช้และรหัสผ่านของตนลงในหน้าเข้าสู่ระบบปลอม ซึ่งจับข้อมูลประจำตัวของผู้ใช้ (Web Portal Capture — T1056.003)\n\n3. ผู้โจมตีใช้ข้อมูลประจำตัวที่ถูกจับได้เพื่อเข้าสู่ระบบ Microsoft 365 จากที่อยู่ IP 203.0.113.77 (Valid Accounts — T1078)\n\n4. ผู้โจมตีได้เข้าถึงกล่องจดหมายของ finance@example.com สำเร็จ\n\n## เทคนิคการโจมตีที่ตรวจพบ (MITRE ATT&CK)\n\n- **T1566.002 Spearphishing Link** — ผู้โจมตีส่งอีเมลหลอกลวงที่มีลิงก์ไปยังหน้าเข้าสู่ระบบปลอมเพื่อให้พนักงานป้อนข้อมูลประจำตัว\n\n- **T1056.003 Web Portal Capture** — หน้าเข้าสู่ระบบปลอมจับและบันทึกชื่อผู้ใช้และรหัสผ่านที่พนักงานป้อนเข้าไป\n\n- **T1078 Valid Accounts** — ผู้โจมตีใช้ข้อมูลประจำตัวที่ถูกจับได้เพื่อเข้าสู่ระบบบัญชี Microsoft 365 ที่ถูกต้อง\n\n## ผลกระทบที่เกิดขึ้น\n\n**ระบบและข้อมูลที่ได้รับผลกระทบ:**\n- บัญชี finance@example.com ใน Microsoft 365 ถูกเข้าถึงโดยไม่ได้รับอนุญาต\n- กล่องจดหมายของบัญชีนี้ได้รับการเข้าถึงสำเร็จ\n\n**ความเสียหายและการรบกวน:**\n- ผู้โจมตีได้เข้าถึงกล่องจดหมายและข้อมูลที่อยู่ในนั้น\n- ไม่มีการยืนยันการดาวน์โหลดหรือคัดลอกข้อมูลออกจากระบบ\n- การเข้าถึงไม่ได้รับการตรวจพบจนกว่าจะมีการเข้าสู่ระบบที่ผิดปกติ 27 นาทีหลังจากการโจมตีเริ่มต้น",
+  "stopped_by": "policy_answer",
+  "failure_reason": null,
+  "rag_model": "existing-rag-service",
+  "followup_model": "claude-haiku-4-5",
+  "started_at": "2026-08-04T07:39:16.271653Z",
+  "finished_at": "2026-08-04T07:41:06.094567Z",
+  "latency_ms": 109823,
+  "rag_calls": [
+    {
+      "round": 0,
+      "query": "Determine the exact initial-access mechanism and MITRE ATT&CK sub-technique used to obtain access to the Microsoft 365 account. Return one incident-specific supported conclusion, not a list of possibilities, and do not infer facts that are not in the case file.\n\nข้อมูลเหตุการณ์ที่มีในสำนวน:\nAt 09:05 UTC, finance@example.com received a phishing email containing a link to a fake Microsoft 365 sign-in page. The employee clicked the link and entered the account username and password. At 09:32 UTC, security monitoring detected an unauthorized sign-in to finance@example.com from 203.0.113.77 using the captured credentials. Mailbox access was confirmed. The response team reset the password, revoked active sessions, and enforced MFA. No data download or copying has been confirmed.",
+      "retrieval_context_id": "ffde93c6-f080-4776-b7aa-17fcf487f097",
+      "latency_ms": 108018
+    }
+  ],
+  "policy_position": "pre_rag",
+  "policy_calls": 1,
+  "rag_call_count": 1
+}
