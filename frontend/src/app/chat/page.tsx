@@ -111,7 +111,6 @@ export default function ChatPage() {
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
   const [messages, setMessages] = useState<PersistedChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [followUpAnswer, setFollowUpAnswer] = useState("");
   const [pendingFollowUp, setPendingFollowUp] = useState<{
     threadId: string;
     followUp: ActiveChatFollowUp;
@@ -203,7 +202,6 @@ export default function ChatPage() {
         pendingSubmissionRef.current = null;
         setPendingFollowUp(null);
         setInput("");
-        setFollowUpAnswer("");
       }
     },
     [upsertThread],
@@ -281,9 +279,8 @@ export default function ChatPage() {
       activeThreadIdRef.current = threadId;
 
       setActiveThreadId(threadId);
-      setInput("");
       const pending = pendingSubmissionRef.current;
-      setFollowUpAnswer(
+      setInput(
         pending?.threadId === threadId && pending.kind === "followup"
           ? pending.content
           : "",
@@ -548,7 +545,6 @@ export default function ChatPage() {
           pendingSubmissionRef.current = null;
           setPendingFollowUp(null);
           setInput("");
-          setFollowUpAnswer("");
         } else if (
           completedDetail &&
           isCurrentSelection(threadId, generation)
@@ -582,11 +578,6 @@ export default function ChatPage() {
         );
       }
     })();
-  };
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    submitContent(input, "message");
   };
 
   const handleCancelDelete = useCallback(() => {
@@ -634,7 +625,6 @@ export default function ChatPage() {
     setActiveThreadId(null);
     setMessages([]);
     setInput("");
-    setFollowUpAnswer("");
     setThreadStatus(null);
     setQueryError(null);
     setPhase("idle");
@@ -655,7 +645,15 @@ export default function ChatPage() {
     (pendingFollowUp?.threadId === activeThreadId
       ? pendingFollowUp.followUp
       : null);
-  const visibleMessages = chatTranscriptMessages(messages, displayFollowUp);
+  const visibleMessages = chatTranscriptMessages(messages);
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    submitContent(
+      input,
+      displayFollowUp ? "followup" : "message",
+      displayFollowUp ?? undefined,
+    );
+  };
   const latestExtraction = latestChatDemoExtractionForMessages(messages);
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
@@ -769,20 +767,10 @@ export default function ChatPage() {
                 <ChatPanel
                   messages={visibleMessages}
                   input={input}
-                  followUp={displayFollowUp}
-                  followUpAnswer={followUpAnswer}
                   threadStatus={threadStatus}
                   phase={phase}
                   error={queryError}
                   onInputChange={setInput}
-                  onFollowUpAnswerChange={setFollowUpAnswer}
-                  onFollowUpSubmit={() =>
-                    submitContent(
-                      followUpAnswer,
-                      "followup",
-                      displayFollowUp ?? undefined,
-                    )
-                  }
                   onSubmit={handleSubmit}
                 />
               </div>

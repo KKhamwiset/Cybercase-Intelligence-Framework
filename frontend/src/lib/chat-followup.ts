@@ -172,15 +172,8 @@ export function filterSupersededClarificationAnswers(
 
 export function chatTranscriptMessages(
   persistedMessages: PersistedChatMessage[],
-  activeFollowUp: ActiveChatFollowUp | null,
 ): PersistedChatMessage[] {
-  const ordered = orderedMessages(persistedMessages);
-  if (activeFollowUp) {
-    return ordered.filter(
-      (message) => message.ordinal <= activeFollowUp.rootOrdinal,
-    );
-  }
-  return filterSupersededClarificationAnswers(ordered);
+  return filterSupersededClarificationAnswers(persistedMessages);
 }
 
 export function persistedRequestOrdinal(

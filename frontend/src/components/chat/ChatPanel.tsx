@@ -6,36 +6,23 @@ import { ChatComposer } from "./ChatComposer";
 import { ChatTranscript } from "./ChatTranscript";
 import type { RunPhase } from "./types";
 
-interface ActiveFollowUp {
-  question: string;
-  entries: Array<{ question: string; answer: string }>;
-}
-
 interface ChatPanelProps {
   messages: PersistedChatMessage[];
   input: string;
-  followUp: ActiveFollowUp | null;
-  followUpAnswer: string;
   threadStatus: ThreadStatus | null;
   phase: RunPhase;
   error: string | null;
   onInputChange: (value: string) => void;
-  onFollowUpAnswerChange: (value: string) => void;
-  onFollowUpSubmit: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
 export function ChatPanel({
   messages,
   input,
-  followUp,
-  followUpAnswer,
   threadStatus,
   phase,
   error,
   onInputChange,
-  onFollowUpAnswerChange,
-  onFollowUpSubmit,
   onSubmit,
 }: ChatPanelProps) {
   const isBusy =
@@ -53,24 +40,18 @@ export function ChatPanel({
     >
       <ChatTranscript
         messages={messages}
-        followUp={followUp}
-        followUpAnswer={followUpAnswer}
         threadStatus={threadStatus}
         phase={phase}
         error={error}
-        onFollowUpAnswerChange={onFollowUpAnswerChange}
-        onFollowUpSubmit={onFollowUpSubmit}
       />
 
-      {!followUp && (
-        <ChatComposer
-          input={input}
-          isAwaitingFollowUp={isAwaitingFollowUp}
-          isBusy={isBusy}
-          onInputChange={onInputChange}
-          onSubmit={onSubmit}
-        />
-      )}
+      <ChatComposer
+        input={input}
+        isAwaitingFollowUp={isAwaitingFollowUp}
+        isBusy={isBusy}
+        onInputChange={onInputChange}
+        onSubmit={onSubmit}
+      />
     </section>
   );
 }

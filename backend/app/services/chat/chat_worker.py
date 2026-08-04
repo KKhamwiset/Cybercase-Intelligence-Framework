@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import unicodedata
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,7 @@ from app.services.chat.demo_extraction import add_demo_chat_extraction
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
+    FollowUpDecision,
     FollowUpPolicy,
 )
 from app.services.chat.rag_client import RagCallFailure, request_rag
@@ -360,13 +362,18 @@ async def resolve_followup_outcome(
         return answer_outcome
     if len(clarification_exchanges) >= settings.chat_followup_max_rounds:
         return answer_outcome
+    if clarification_exchanges and _answer_indicates_unavailable(
+        clarification_exchanges[-1].answer
+    ):
+        return answer_outcome
 
     try:
-        decision = await (policy or AnthropicFollowUpPolicy()).decide(
+        raw_decision = await (policy or AnthropicFollowUpPolicy()).decide(
             original_user_content=original_user_content,
             clarification_exchanges=clarification_exchanges,
             rag_answer=response.answer,
         )
+        decision = FollowUpDecision.model_validate(raw_decision)
     except Exception as exc:
         logger.warning(
             "Chat follow-up policy failed open source_run_id=%s exception_type=%s",
@@ -405,6 +412,47 @@ def _normalized_question(question: str) -> str:
     while normalized and unicodedata.category(normalized[-1]).startswith("P"):
         normalized = normalized[:-1].rstrip()
     return normalized
+
+
+_UNAVAILABLE_ANSWER_PHRASES = (
+    "unknown",
+    "unavailable",
+    "not available",
+    "not provided",
+    "not known",
+    "no information",
+    "cannot be obtained",
+    "can't be obtained",
+    "could not be obtained",
+    "couldn't be obtained",
+    "cannot be determined",
+    "can't be determined",
+    "could not be determined",
+    "couldn't be determined",
+    "i don't know",
+    "i do not know",
+    "we don't know",
+    "we do not know",
+    "absent",
+    "missing",
+    "n/a",
+)
+
+
+def _answer_indicates_unavailable(answer: str) -> bool:
+    normalized = unicodedata.normalize("NFKC", answer)
+    normalized = " ".join(normalized.split()).casefold()
+    if not normalized:
+        return False
+    normalized = normalized.strip(" .,!?:;()[]{}")
+    if normalized in {"none", "not known", "not available", "unavailable"}:
+        return True
+    if re.search(r"\bnot\s+unavailable\b", normalized):
+        return False
+    return any(
+        re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", normalized)
+        for phrase in _UNAVAILABLE_ANSWER_PHRASES
+    )
 
 
 async def process_chat_run(run_id: UUID) -> None:

@@ -9,7 +9,10 @@ from fastapi import HTTPException
 from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat import ChatMessageCreate
-from app.services.chat.chat_message import ChatMessageService
+from app.services.chat.chat_message import (
+    ChatMessageService,
+    reconstruct_clarification_chain,
+)
 from app.services.chat.chat_worker import ChatRunWorker
 
 
@@ -870,6 +873,64 @@ class ChatMessageFollowUpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(claimed.followup_root_ordinal, 7)
         self.assertEqual(claimed.clarification_exchanges, ())
         self.assertEqual(db.execute.await_count, 1)
+
+    def test_reconstruction_ignores_terminal_assistant_after_marked_question(self) -> None:
+        thread_id = uuid4()
+        original = ChatMessage(
+            id=uuid4(),
+            thread_id=thread_id,
+            ordinal=1,
+            role="user",
+            content="Investigate this event",
+            metadata_json={},
+        )
+        question = ChatMessage(
+            id=uuid4(),
+            thread_id=thread_id,
+            ordinal=2,
+            role="assistant",
+            content="Which host was affected?",
+            metadata_json={
+                "chat_followup": {
+                    "kind": "clarification",
+                    "root_ordinal": 1,
+                    "round": 1,
+                }
+            },
+        )
+        answer = ChatMessage(
+            id=uuid4(),
+            thread_id=thread_id,
+            ordinal=3,
+            role="user",
+            content="host-7",
+            metadata_json={},
+        )
+        terminal = ChatMessage(
+            id=uuid4(),
+            thread_id=thread_id,
+            ordinal=4,
+            role="assistant",
+            content="The analysis is complete.",
+            retrieval_context_id="retrieval-1",
+            metadata_json={"mitre_table": []},
+        )
+
+        chain = reconstruct_clarification_chain(
+            [terminal, answer, original, question],
+            root_ordinal=1,
+        )
+
+        self.assertIsNotNone(chain)
+        assert chain is not None
+        self.assertEqual(chain.original_user_content, original.content)
+        self.assertEqual(
+            [
+                (exchange.question, exchange.answer)
+                for exchange in chain.exchanges
+            ],
+            [(question.content, answer.content)],
+        )
 
 
 if __name__ == "__main__":

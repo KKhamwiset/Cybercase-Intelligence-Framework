@@ -39,6 +39,23 @@ def _followup_root_ordinal(message: ChatMessage) -> int | None:
     return root_ordinal
 
 
+def _is_clarification_message(message: ChatMessage) -> bool:
+    metadata = message.metadata_json
+    if not isinstance(metadata, dict):
+        return False
+    followup = metadata.get("chat_followup")
+    return isinstance(followup, dict) and followup.get("kind") == "clarification"
+
+
+def _is_terminal_assistant_message(message: ChatMessage) -> bool:
+    if message.role != "assistant":
+        return False
+    if message.retrieval_context_id is not None:
+        return True
+    metadata = message.metadata_json
+    return isinstance(metadata, dict) and "mitre_table" in metadata
+
+
 def reconstruct_clarification_chain(
     messages: Sequence[ChatMessage],
     *,
@@ -97,8 +114,23 @@ def reconstruct_clarification_chain(
     exchanges: list[ClarificationExchange] = []
     pending_question: str | None = None
     latest_answer: str | None = None
-    for message in ordered[root_index + 1 :]:
+    active_messages = ordered[root_index + 1 :]
+    marked_indices = [
+        index
+        for index, message in enumerate(active_messages)
+        if _is_clarification_message(message)
+    ]
+    first_marked_index = marked_indices[0] if marked_indices else None
+    for index, message in enumerate(active_messages):
         if message.role == "assistant":
+            if _is_terminal_assistant_message(message):
+                continue
+            if (
+                first_marked_index is not None
+                and index > first_marked_index
+                and not _is_clarification_message(message)
+            ):
+                continue
             if pending_question is not None and latest_answer is not None:
                 exchanges.append(
                     ClarificationExchange(

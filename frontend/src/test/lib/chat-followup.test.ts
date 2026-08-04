@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PersistedChatMessage } from "@/lib/api";
 import {
   activeChatFollowUpForThread,
+  chatTranscriptMessages,
   filterSupersededClarificationAnswers,
   latestUserAnswerBetween,
 } from "@/lib/chat-followup";
@@ -39,6 +40,17 @@ function clarification(
 }
 
 describe("chat follow-up projection", () => {
+  it("keeps a persisted clarification question in the ordinary transcript", () => {
+    const messages = [
+      message(1, "user", "Investigate this event."),
+      clarification(2, "Which host was affected?", 1),
+    ];
+
+    expect(chatTranscriptMessages(messages).map((item) => item.content)).toEqual(
+      ["Investigate this event.", "Which host was affected?"],
+    );
+  });
+
   it("selects the latest user answer before the next assistant message", () => {
     const question = clarification(2, "Which host was affected?", 1);
     const firstAnswer = message(3, "user", "old-host");
