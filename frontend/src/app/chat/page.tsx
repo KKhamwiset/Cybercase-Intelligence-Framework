@@ -40,7 +40,10 @@ import {
   persistedRequestOrdinal,
   type ActiveChatFollowUp,
 } from "@/lib/chat-followup";
-import { latestChatDemoExtractionForMessages } from "@/lib/chat-extraction";
+import {
+  latestChatDemoExtractionForMessages,
+  latestChatExtractionForMessages,
+} from "@/lib/chat-extraction";
 
 const POLL_INTERVAL_MS = 1000;
 
@@ -654,7 +657,8 @@ export default function ChatPage() {
       displayFollowUp ?? undefined,
     );
   };
-  const latestExtraction = latestChatDemoExtractionForMessages(messages);
+  const latestExtraction = latestChatExtractionForMessages(messages);
+  const latestDemoExtraction = latestChatDemoExtractionForMessages(messages);
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
@@ -786,7 +790,7 @@ export default function ChatPage() {
                   .join(",")}`}
                 threadTitle={activeThread?.title ?? "New chat"}
                 messages={messages}
-                latestExtraction={latestExtraction}
+                latestExtraction={latestDemoExtraction}
                 onOpenChat={() => setActiveView("chat")}
               />
             )}

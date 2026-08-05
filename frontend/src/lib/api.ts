@@ -102,6 +102,91 @@ export interface ChatDemoExtraction {
   timeline: ChatDemoTimelineEvent[];
 }
 
+export type ChatExtractionConfidence = "high" | "medium" | "low" | "unknown";
+export type ChatReportedStatus = "reported" | "unknown" | "not_confirmed";
+
+export interface ChatBaselineEntity {
+  entity_id: string;
+  name: string;
+  entity_type: string;
+  reported_role: string | null;
+  confidence: ChatExtractionConfidence;
+  source_message_ids: string[];
+}
+
+export interface ChatBaselineEvidence {
+  evidence_id: string;
+  title: string;
+  description: string;
+  artifact_type: string;
+  status: ChatReportedStatus;
+  confidence: ChatExtractionConfidence;
+  source_type: "user_reported";
+  source_message_ids: string[];
+}
+
+export interface ChatBaselineTimelineEvent {
+  event_id: string;
+  timestamp: string | null;
+  timestamp_text: string | null;
+  event: string;
+  actors: string[];
+  evidence_ids: string[];
+  status: ChatReportedStatus;
+  confidence: ChatExtractionConfidence;
+  source_message_ids: string[];
+}
+
+export interface ChatBaselineMissingInformation {
+  missing_id: string;
+  description: string;
+  importance: "material" | "important" | "useful" | "unknown";
+  source_message_ids: string[];
+}
+
+export interface ChatBaselineExtraction {
+  version: "baseline_extraction_v1";
+  mode: "single_pass_llm";
+  status: "candidate";
+  case_summary: string;
+  entities: ChatBaselineEntity[];
+  evidence: ChatBaselineEvidence[];
+  timeline: ChatBaselineTimelineEvent[];
+  missing_information: ChatBaselineMissingInformation[];
+  warnings: string[];
+  prompt_version: string;
+  provider: string;
+  model: string;
+  validation_status: "validated";
+  latency_ms: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  source_message_ids: string[];
+  raw_response: string | null;
+}
+
+export interface ChatBaselineExtractionFailure {
+  version: "baseline_extraction_v1";
+  mode: "single_pass_llm";
+  status: "failed";
+  prompt_version: string;
+  provider: string;
+  model: string;
+  validation_status: "failed";
+  latency_ms: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  source_message_ids: string[];
+  raw_response: string | null;
+  failure_code: string;
+  failure_message: string;
+}
+
+export type ChatExtraction =
+  | ChatDemoExtraction
+  | ChatBaselineExtraction
+  | ChatBaselineExtractionFailure;
+
 export const listChatThreads = async (
   signal?: AbortSignal,
 ): Promise<ChatThreadRead[]> => {

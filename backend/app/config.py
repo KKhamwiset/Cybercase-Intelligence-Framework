@@ -91,4 +91,19 @@ class Settings(BaseSettings):
     chat_followup_combined_query_max_chars: int = 12_000
     chat_followup_max_rounds: int = 3
 
+    # Terminal chat extraction baseline. A missing provider key produces an
+    # explicit failed extraction record rather than falling back to regex.
+    chat_extraction_enabled: bool = True
+    chat_extraction_provider: str = "anthropic"
+    chat_extraction_model: str = "claude-haiku-4-5-20251001"
+    chat_extraction_timeout_seconds: float = 30.0
+    chat_extraction_max_input_chars: int = 20_000
+    chat_extraction_max_output_tokens: int = 2_048
+    chat_extraction_max_entities: int = 24
+    chat_extraction_max_evidence: int = 24
+    chat_extraction_max_timeline: int = 32
+    chat_extraction_max_missing_information: int = 16
+    chat_extraction_max_text_chars: int = 4_000
+    chat_extraction_max_raw_response_chars: int = 12_000
+
 settings = Settings()

@@ -1,11 +1,11 @@
 "use client";
 
-import type { ChatDemoExtraction } from "@/lib/api";
+import type { ChatExtraction } from "@/lib/api";
 import { ChatExtractionSummary } from "./ChatExtractionSummary";
 import { Icon } from "./icons";
 
 interface ChatExtractionViewProps {
-  extraction: ChatDemoExtraction | null;
+  extraction: ChatExtraction | null;
   onOpenChat: () => void;
 }
 
@@ -30,8 +30,8 @@ export function ChatExtractionView({
           </h1>
           <p className="mt-4 text-sm leading-6 text-[#6B6A66] sm:text-base sm:leading-7">
             This view is scoped to the selected thread and shows only its latest
-            assistant extraction. These are unverified chat-text candidates, not
-            confirmed forensic evidence.
+            assistant extraction. These are user-reported, unverified candidates,
+            not confirmed forensic evidence.
           </p>
         </div>
 
@@ -48,8 +48,8 @@ export function ChatExtractionView({
               No extraction for this chat yet
             </h2>
             <p className="mt-3 text-sm leading-6 text-[#6B6A66]">
-              Send a message and wait for an assistant response with deterministic
-              demo metadata before reviewing chat-reported candidates here.
+              Send a message and wait for a terminal assistant response before
+              reviewing candidate extraction metadata here.
             </p>
             <button
               type="button"

@@ -1,7 +1,8 @@
 """Deterministic evidence and timeline candidates for the chat demo.
 
-This deliberately stays small and transparent. The metadata contract is kept
-separate so an LLM-backed extractor can replace this implementation later.
+This deliberately stays small and transparent. It is retained for explicit
+development fixtures and legacy metadata readability; the live chat worker
+does not invoke it automatically.
 """
 
 from __future__ import annotations

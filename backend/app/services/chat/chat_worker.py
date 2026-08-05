@@ -27,6 +27,17 @@ from app.services.chat.followup_policy import (
     FollowUpPolicy,
     build_clarified_query,
 )
+from app.services.chat.llm_extraction import (
+    BASELINE_EXTRACTION_MODE,
+    BASELINE_EXTRACTION_PROMPT_VERSION,
+    BASELINE_EXTRACTION_VERSION,
+    EXTRACTION_METADATA_KEY,
+    ExtractionInput,
+    ExtractionModelAdapter,
+    ExtractionSourceMessage,
+    build_extraction_input,
+    run_baseline_extraction,
+)
 from app.services.chat.rag_client import RagCallFailure, request_rag
 
 
@@ -46,6 +57,7 @@ class ClaimedChatRun:
     original_user_content: object
     clarification_exchanges: tuple[ClarificationExchange, ...]
     followup_root_ordinal: int
+    extraction_input: ExtractionInput | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +146,7 @@ class ChatRunWorker:
                 ClarificationExchange, ...
             ] = ()
             followup_root_ordinal = requested_root_ordinal
+            history: list[ChatMessage] | None = None
             if requested_root_ordinal is not None and requested_round == 0:
                 pass
             elif requested_root_ordinal is None and not legacy_followup:
@@ -186,6 +199,33 @@ class ChatRunWorker:
             if followup_root_ordinal is None:
                 followup_root_ordinal = 1
 
+            extraction_input: ExtractionInput | None = None
+            try:
+                if history is not None:
+                    extraction_input = build_extraction_input(
+                        thread_id=run.thread_id,
+                        messages=history,
+                        root_ordinal=followup_root_ordinal,
+                    )
+                elif isinstance(content, str):
+                    extraction_input = ExtractionInput(
+                        thread_id=run.thread_id,
+                        messages=[
+                            ExtractionSourceMessage(
+                                message_id=run.request_message_id,
+                                ordinal=followup_root_ordinal,
+                                source_type="user_case_statement",
+                                content=content,
+                            )
+                        ],
+                    )
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Chat extraction source packet could not be built "
+                    "run_id=%s",
+                    run.id,
+                )
+
             claimed_run = ClaimedChatRun(
                 id=run.id,
                 operation=run.operation,
@@ -195,6 +235,7 @@ class ChatRunWorker:
                 original_user_content=original_user_content,
                 clarification_exchanges=clarification_exchanges,
                 followup_root_ordinal=followup_root_ordinal,
+                extraction_input=extraction_input,
             )
             await self.db.flush()
 
@@ -459,6 +500,7 @@ async def process_chat_run(
     *,
     policy: FollowUpPolicy | None = None,
     rag_call: Callable[[str], Awaitable[QueryResponse]] | None = None,
+    extraction_adapter: ExtractionModelAdapter | None = None,
 ) -> None:
     '''Process one run in-process; queued work is lost if this process exits.'''
 
@@ -503,7 +545,11 @@ async def process_chat_run(
             )
         response = await (rag_call or request_rag)(rag_query)
         outcome = map_rag_response(response)
-        outcome = attach_demo_extraction(outcome, claimed_run)
+        outcome = await attach_llm_extraction(
+            outcome,
+            claimed_run,
+            adapter=extraction_adapter,
+        )
 
         async with async_session() as finalize_db:
             await ChatRunWorker(finalize_db).complete_run(
@@ -559,3 +605,55 @@ def attach_demo_extraction(
             source_text,
         ),
     )
+
+
+async def attach_llm_extraction(
+    outcome: AssistantOutcome,
+    claimed_run: ClaimedChatRun,
+    *,
+    adapter: ExtractionModelAdapter | None = None,
+) -> AssistantOutcome:
+    """Attach a success or explicit failure record after a terminal answer."""
+
+    if (
+        outcome.thread_status != "idle"
+        or claimed_run.extraction_input is None
+    ):
+        return outcome
+
+    extraction_input = claimed_run.extraction_input
+    try:
+        result = await run_baseline_extraction(
+            extraction_input,
+            adapter=adapter,
+        )
+        extraction_metadata = result.metadata(extraction_input)
+    except Exception:
+        # A valid RAG answer must never be lost because the optional baseline
+        # extractor failed outside its normal typed failure paths.
+        logger.exception(
+            "Chat extraction failed outside typed failure handling run_id=%s",
+            claimed_run.id,
+        )
+        extraction_metadata = {
+            "version": BASELINE_EXTRACTION_VERSION,
+            "mode": BASELINE_EXTRACTION_MODE,
+            "status": "failed",
+            "prompt_version": BASELINE_EXTRACTION_PROMPT_VERSION,
+            "provider": settings.chat_extraction_provider,
+            "model": settings.chat_extraction_model,
+            "validation_status": "failed",
+            "latency_ms": 0.0,
+            "input_tokens": None,
+            "output_tokens": None,
+            "source_message_ids": [
+                str(message.message_id) for message in extraction_input.messages
+            ],
+            "raw_response": None,
+            "failure_code": "extraction_internal_error",
+            "failure_message": "The extraction failed before validation",
+        }
+
+    metadata = dict(outcome.metadata_json)
+    metadata[EXTRACTION_METADATA_KEY] = extraction_metadata
+    return replace(outcome, metadata_json=metadata)
