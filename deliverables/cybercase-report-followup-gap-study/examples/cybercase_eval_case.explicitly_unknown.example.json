@@ -1,0 +1,122 @@
+{
+  "schema_version": "2.0.0",
+  "case_id": "fictitious-script-execution-unknown-001",
+  "case_kind": "explicitly_unknown",
+  "language": "en",
+  "split": "test",
+  "split_group": "fictitious-family-c",
+  "inference_group": "fictitious-family-c",
+  "source": {
+    "dataset_id": "fictitious_example",
+    "source_url": "https://example.invalid/cybercase/fictitious-script-execution-unknown-001",
+    "version": "1.0",
+    "license": "Illustrative example only",
+    "source_unit_id": "fictional-log-bundle-unknown-001"
+  },
+  "source_text": "At 11:20 UTC, LAB-18 opened archive update.zip. Investigators could not determine whether any script executed from the archive.",
+  "evidence_spans": [
+    {
+      "span_id": "S-001",
+      "source_ref": "fictional-investigation.txt",
+      "text": "At 11:20 UTC, LAB-18 opened archive update.zip.",
+      "char_start": 0,
+      "char_end": 47
+    },
+    {
+      "span_id": "S-002",
+      "source_ref": "fictional-investigation.txt",
+      "text": "Investigators could not determine whether any script executed from the archive.",
+      "char_start": 48,
+      "char_end": 127
+    }
+  ],
+  "variants": {
+    "explicitly_unknown": {
+      "input_text": "At 11:20 UTC, LAB-18 opened archive update.zip. Investigators could not determine whether any script executed from the archive.",
+      "visible_span_ids": [
+        "S-001",
+        "S-002"
+      ]
+    }
+  },
+  "decision_target": {
+    "target_slot_id": "attack_sequence.execution",
+    "resolution_status": "explicitly_unknown",
+    "criticality_rationale": "The source explicitly records that execution is unresolved, so asking again cannot recover an available fact and an exact mapping is unsupported.",
+    "affected_claim_ids": [
+      "C-002"
+    ],
+    "affected_attck_ids": [
+      "T1059.007"
+    ],
+    "withheld_span_ids": [],
+    "unknown_span_ids": [
+      "S-002"
+    ]
+  },
+  "expected_gate": {
+    "action": "proceed",
+    "target_slot_id": "attack_sequence.execution",
+    "question": null
+  },
+  "controlled_answer": null,
+  "timeline_gold": [
+    {
+      "event_id": "E-001",
+      "time": "11:20 UTC",
+      "time_uncertainty": "",
+      "description": "LAB-18 opened update.zip.",
+      "required": true,
+      "source_span_ids": [
+        "S-001"
+      ],
+      "answer_ids": []
+    }
+  ],
+  "attck_gold": [
+    {
+      "technique_id": "T1059.007",
+      "name": "JavaScript/JScript",
+      "tactic": "Execution",
+      "applicability": "excluded",
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": []
+    }
+  ],
+  "report_claims": [
+    {
+      "claim_id": "C-001",
+      "required": true,
+      "claim_text": "LAB-18 opened update.zip at 11:20 UTC.",
+      "source_span_ids": [
+        "S-001"
+      ],
+      "answer_ids": [],
+      "attck_technique_ids": [],
+      "expected_states": [
+        {
+          "variant": "explicitly_unknown",
+          "state": "retain_supported"
+        }
+      ]
+    },
+    {
+      "claim_id": "C-002",
+      "required": true,
+      "claim_text": "Investigators could not determine whether a script executed from the archive.",
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": [],
+      "attck_technique_ids": [],
+      "expected_states": [
+        {
+          "variant": "explicitly_unknown",
+          "state": "qualify"
+        }
+      ]
+    }
+  ]
+}

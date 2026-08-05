@@ -1,0 +1,55 @@
+{
+  "manifest_version": "1.0",
+  "access_date": "2026-08-05",
+  "sources": [
+    {
+      "source_id": "nist_cfreds_data_leakage",
+      "name": "NIST CFReDS Data Leakage Case",
+      "url": "https://cfreds-archive.nist.gov/data_leakage_case/data-leakage-case.html",
+      "reuse_guidance_url": "https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications",
+      "intended_role": "Primary case-file source for six preregistered missing-finding conditions",
+      "license_reuse_status": "NIST general guidance permits reuse of NIST-created public information unless marked otherwise; item-level review is still required.",
+      "redistribution_warning": "Link to raw forensic images. Do not redistribute the full bundle or embedded third-party material without verifying item-specific rights; do not label the entire bundle unconditionally public domain."
+    },
+    {
+      "source_id": "case_owl_trafficking",
+      "name": "CASE Owl Trafficking narrative and JSON-LD",
+      "url": "https://caseontology.org/examples/owl_trafficking/",
+      "intended_role": "Secondary two-gap transfer using narrative, mandate, provenance, exhibit, entity, and timeline material",
+      "license_reuse_status": "Exact CASE page and JSON-LD reuse status must be recorded before release; related Digital Corpora scenario and metadata terms are tracked separately.",
+      "redistribution_warning": "Do not redistribute derived CASE material until exact applicable terms are documented. The large original raw corpus is outside the planned study."
+    },
+    {
+      "source_id": "digital_corpora_2019_owl",
+      "name": "Digital Corpora 2019 Owl scenario and metadata",
+      "url": "https://digitalcorpora.org/corpora/scenarios/2019-owl/",
+      "intended_role": "Provenance and terms reference for the Owl transfer source",
+      "license_reuse_status": "Digital Corpora states that original site content, metadata, scenarios, and teacher guides are CC0 unless otherwise noted; explicitly copyrighted material is excluded.",
+      "redistribution_warning": "Verify each selected item. Copyrighted software or other material embedded in images and artifacts is not covered by the general CC0 statement."
+    },
+    {
+      "source_id": "cisco_talos_evidenceforge_1_14_0",
+      "name": "Cisco Talos EvidenceForge v1.14.0",
+      "url": "https://github.com/Cisco-Talos/EvidenceForge/releases/tag/v1.14.0",
+      "intended_role": "Optional robustness source only, not core experimental data",
+      "license_reuse_status": "MIT License.",
+      "redistribution_warning": "Preserve the MIT license and attribution; record generated scenario, tool version, configuration, and output hashes."
+    },
+    {
+      "source_id": "nfi_crystal_clear",
+      "name": "NFI Local LLM Chat Report Benchmark / Crystal Clear",
+      "url": "https://github.com/NetherlandsForensicInstitute/local-llm-chat-report-benchmark",
+      "intended_role": "Related work and Dehing method provenance only; explicitly excluded from experiments",
+      "license_reuse_status": "Repository license must be recorded if any source material is reused.",
+      "redistribution_warning": "Do not include Crystal Clear in the experimental packets; its chat-transcript modality does not represent the study's multi-artifact investigative dossier."
+    },
+    {
+      "source_id": "thai_police_open_data",
+      "name": "Police Online Open Data",
+      "url": "https://opendata.thaipoliceonline.go.th/",
+      "intended_role": "Thai cybercrime motivation only",
+      "license_reuse_status": "Dataset-level terms must be checked for any reused table or download.",
+      "redistribution_warning": "Aggregate statistics are not case-level evidence and must not be used as an experimental case file or as proof of Thai-language effectiveness."
+    }
+  ]
+}

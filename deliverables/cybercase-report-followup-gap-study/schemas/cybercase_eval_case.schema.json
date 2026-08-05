@@ -1,0 +1,810 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cybercase.example/schemas/cybercase_eval_case.schema.json",
+  "title": "CyberCase external evaluation case",
+  "description": "A discriminated contract for eligible masked, sufficient, and explicitly-unknown external cases. The exact NFI B0 reproduction retains its upstream schema and is not represented by this adapted contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "case_kind",
+    "language",
+    "split",
+    "split_group",
+    "inference_group",
+    "source",
+    "source_text",
+    "evidence_spans",
+    "variants",
+    "decision_target",
+    "expected_gate",
+    "controlled_answer",
+    "timeline_gold",
+    "attck_gold",
+    "report_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0.0"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "case_kind": {
+      "enum": [
+        "eligible_masked",
+        "sufficient",
+        "explicitly_unknown"
+      ]
+    },
+    "language": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 35
+    },
+    "split": {
+      "enum": [
+        "development",
+        "test"
+      ]
+    },
+    "split_group": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "inference_group": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "source_text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence_spans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidenceSpan"
+      }
+    },
+    "variants": {
+      "type": "object"
+    },
+    "decision_target": {
+      "$ref": "#/$defs/decisionTarget"
+    },
+    "expected_gate": {
+      "$ref": "#/$defs/expectedGate"
+    },
+    "controlled_answer": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/controlledAnswer"
+        }
+      ]
+    },
+    "timeline_gold": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timelineEvent"
+      }
+    },
+    "attck_gold": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attckMapping"
+      }
+    },
+    "report_claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/reportClaim"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/eligibleCase"
+        },
+        {
+          "$ref": "#/$defs/sufficientCase"
+        },
+        {
+          "$ref": "#/$defs/explicitlyUnknownCase"
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_id",
+        "source_url",
+        "version",
+        "license",
+        "source_unit_id"
+      ],
+      "properties": {
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_unit_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "evidenceSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "span_id",
+        "source_ref",
+        "text",
+        "char_start",
+        "char_end"
+      ],
+      "properties": {
+        "span_id": {
+          "type": "string",
+          "pattern": "^S-[0-9]{3,}$"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "char_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "char_end": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "inputVariant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_text",
+        "visible_span_ids"
+      ],
+      "properties": {
+        "input_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visible_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        }
+      }
+    },
+    "eligibleVariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "complete",
+        "masked"
+      ],
+      "properties": {
+        "complete": {
+          "$ref": "#/$defs/inputVariant"
+        },
+        "masked": {
+          "$ref": "#/$defs/inputVariant"
+        }
+      }
+    },
+    "sufficientVariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sufficient"
+      ],
+      "properties": {
+        "sufficient": {
+          "$ref": "#/$defs/inputVariant"
+        }
+      }
+    },
+    "unknownVariants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explicitly_unknown"
+      ],
+      "properties": {
+        "explicitly_unknown": {
+          "$ref": "#/$defs/inputVariant"
+        }
+      }
+    },
+    "decisionTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_slot_id",
+        "resolution_status",
+        "criticality_rationale",
+        "affected_claim_ids",
+        "affected_attck_ids",
+        "withheld_span_ids",
+        "unknown_span_ids"
+      ],
+      "properties": {
+        "target_slot_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolution_status": {
+          "enum": [
+            "resolvable_by_controlled_answer",
+            "already_sufficient",
+            "explicitly_unknown"
+          ]
+        },
+        "criticality_rationale": {
+          "type": "string"
+        },
+        "affected_claim_ids": {
+          "$ref": "#/$defs/claimIdList"
+        },
+        "affected_attck_ids": {
+          "$ref": "#/$defs/attckIdList"
+        },
+        "withheld_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        },
+        "unknown_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        }
+      }
+    },
+    "expectedGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "target_slot_id",
+        "question"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "ask",
+            "proceed"
+          ]
+        },
+        "target_slot_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "question": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/question"
+            }
+          ]
+        }
+      }
+    },
+    "question": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 300,
+      "pattern": "^[^\\r\\n?？؟]+[?？؟]$"
+    },
+    "controlledAnswer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "answer_id",
+        "target_slot_id",
+        "text",
+        "provenance_type",
+        "user_reported",
+        "source_span_ids"
+      ],
+      "properties": {
+        "answer_id": {
+          "type": "string",
+          "pattern": "^A-[0-9]{3,}$"
+        },
+        "target_slot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "provenance_type": {
+          "enum": [
+            "source_span",
+            "analyst_adjudicated",
+            "user_reported"
+          ]
+        },
+        "user_reported": {
+          "type": "boolean"
+        },
+        "source_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "provenance_type": {
+                "const": "user_reported"
+              }
+            },
+            "required": [
+              "provenance_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "user_reported": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "user_reported": {
+                "const": false
+              },
+              "source_span_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "timelineEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "time",
+        "time_uncertainty",
+        "description",
+        "required",
+        "source_span_ids",
+        "answer_ids"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "pattern": "^E-[0-9]{3,}$"
+        },
+        "time": {
+          "type": "string",
+          "minLength": 1
+        },
+        "time_uncertainty": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "source_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        },
+        "answer_ids": {
+          "$ref": "#/$defs/answerIdList"
+        }
+      }
+    },
+    "attckMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "technique_id",
+        "name",
+        "tactic",
+        "applicability",
+        "source_span_ids",
+        "answer_ids"
+      ],
+      "properties": {
+        "technique_id": {
+          "$ref": "#/$defs/attckId"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tactic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicability": {
+          "enum": [
+            "required",
+            "acceptable",
+            "excluded"
+          ]
+        },
+        "source_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        },
+        "answer_ids": {
+          "$ref": "#/$defs/answerIdList"
+        }
+      }
+    },
+    "reportClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "required",
+        "claim_text",
+        "source_span_ids",
+        "answer_ids",
+        "attck_technique_ids",
+        "expected_states"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^C-[0-9]{3,}$"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "claim_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_span_ids": {
+          "$ref": "#/$defs/spanIdList"
+        },
+        "answer_ids": {
+          "$ref": "#/$defs/answerIdList"
+        },
+        "attck_technique_ids": {
+          "$ref": "#/$defs/attckIdList"
+        },
+        "expected_states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/expectedState"
+          }
+        }
+      }
+    },
+    "expectedState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variant",
+        "state"
+      ],
+      "properties": {
+        "variant": {
+          "enum": [
+            "complete",
+            "masked",
+            "clarified",
+            "sufficient",
+            "explicitly_unknown"
+          ]
+        },
+        "state": {
+          "enum": [
+            "retain_supported",
+            "add_supported",
+            "omit",
+            "qualify",
+            "abstain"
+          ]
+        }
+      }
+    },
+    "eligibleCase": {
+      "type": "object",
+      "properties": {
+        "case_kind": {
+          "const": "eligible_masked"
+        },
+        "variants": {
+          "$ref": "#/$defs/eligibleVariants"
+        },
+        "decision_target": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/decisionTarget"
+            },
+            {
+              "properties": {
+                "target_slot_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "resolution_status": {
+                  "const": "resolvable_by_controlled_answer"
+                },
+                "criticality_rationale": {
+                  "type": "string",
+                  "minLength": 20
+                },
+                "affected_claim_ids": {
+                  "minItems": 1
+                },
+                "withheld_span_ids": {
+                  "minItems": 1
+                },
+                "unknown_span_ids": {
+                  "maxItems": 0
+                }
+              }
+            }
+          ]
+        },
+        "expected_gate": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/expectedGate"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "ask"
+                },
+                "target_slot_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "question": {
+                  "$ref": "#/$defs/question"
+                }
+              }
+            }
+          ]
+        },
+        "controlled_answer": {
+          "$ref": "#/$defs/controlledAnswer"
+        }
+      },
+      "required": [
+        "case_kind",
+        "variants",
+        "decision_target",
+        "expected_gate",
+        "controlled_answer"
+      ]
+    },
+    "sufficientCase": {
+      "type": "object",
+      "properties": {
+        "case_kind": {
+          "const": "sufficient"
+        },
+        "variants": {
+          "$ref": "#/$defs/sufficientVariants"
+        },
+        "decision_target": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/decisionTarget"
+            },
+            {
+              "properties": {
+                "target_slot_id": {
+                  "const": null
+                },
+                "resolution_status": {
+                  "const": "already_sufficient"
+                },
+                "criticality_rationale": {
+                  "maxLength": 0
+                },
+                "affected_claim_ids": {
+                  "maxItems": 0
+                },
+                "affected_attck_ids": {
+                  "maxItems": 0
+                },
+                "withheld_span_ids": {
+                  "maxItems": 0
+                },
+                "unknown_span_ids": {
+                  "maxItems": 0
+                }
+              }
+            }
+          ]
+        },
+        "expected_gate": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/expectedGate"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "proceed"
+                },
+                "target_slot_id": {
+                  "const": null
+                },
+                "question": {
+                  "const": null
+                }
+              }
+            }
+          ]
+        },
+        "controlled_answer": {
+          "const": null
+        }
+      },
+      "required": [
+        "case_kind",
+        "variants",
+        "decision_target",
+        "expected_gate",
+        "controlled_answer"
+      ]
+    },
+    "explicitlyUnknownCase": {
+      "type": "object",
+      "properties": {
+        "case_kind": {
+          "const": "explicitly_unknown"
+        },
+        "variants": {
+          "$ref": "#/$defs/unknownVariants"
+        },
+        "decision_target": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/decisionTarget"
+            },
+            {
+              "properties": {
+                "target_slot_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "resolution_status": {
+                  "const": "explicitly_unknown"
+                },
+                "criticality_rationale": {
+                  "type": "string",
+                  "minLength": 20
+                },
+                "affected_claim_ids": {
+                  "minItems": 1
+                },
+                "withheld_span_ids": {
+                  "maxItems": 0
+                },
+                "unknown_span_ids": {
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        },
+        "expected_gate": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/expectedGate"
+            },
+            {
+              "properties": {
+                "action": {
+                  "const": "proceed"
+                },
+                "target_slot_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "question": {
+                  "const": null
+                }
+              }
+            }
+          ]
+        },
+        "controlled_answer": {
+          "const": null
+        }
+      },
+      "required": [
+        "case_kind",
+        "variants",
+        "decision_target",
+        "expected_gate",
+        "controlled_answer"
+      ]
+    },
+    "spanIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^S-[0-9]{3,}$"
+      }
+    },
+    "claimIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^C-[0-9]{3,}$"
+      }
+    },
+    "answerIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^A-[0-9]{3,}$"
+      }
+    },
+    "attckIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/attckId"
+      }
+    },
+    "attckId": {
+      "type": "string",
+      "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+    }
+  }
+}

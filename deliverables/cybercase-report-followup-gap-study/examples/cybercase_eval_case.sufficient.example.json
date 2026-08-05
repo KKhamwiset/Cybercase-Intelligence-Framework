@@ -1,0 +1,115 @@
+{
+  "schema_version": "2.0.0",
+  "case_id": "fictitious-user-discovery-sufficient-001",
+  "case_kind": "sufficient",
+  "language": "en",
+  "split": "test",
+  "split_group": "fictitious-family-b",
+  "inference_group": "fictitious-family-b",
+  "source": {
+    "dataset_id": "fictitious_example",
+    "source_url": "https://example.invalid/cybercase/fictitious-user-discovery-sufficient-001",
+    "version": "1.0",
+    "license": "Illustrative example only",
+    "source_unit_id": "fictional-log-bundle-sufficient-001"
+  },
+  "source_text": "At 10:03 UTC, host LAB-12 ran whoami.exe. At 10:04 UTC, the command returned user lab-analyst.",
+  "evidence_spans": [
+    {
+      "span_id": "S-001",
+      "source_ref": "fictional-process.log",
+      "text": "At 10:03 UTC, host LAB-12 ran whoami.exe.",
+      "char_start": 0,
+      "char_end": 41
+    },
+    {
+      "span_id": "S-002",
+      "source_ref": "fictional-process.log",
+      "text": "At 10:04 UTC, the command returned user lab-analyst.",
+      "char_start": 42,
+      "char_end": 94
+    }
+  ],
+  "variants": {
+    "sufficient": {
+      "input_text": "At 10:03 UTC, host LAB-12 ran whoami.exe. At 10:04 UTC, the command returned user lab-analyst.",
+      "visible_span_ids": [
+        "S-001",
+        "S-002"
+      ]
+    }
+  },
+  "decision_target": {
+    "target_slot_id": null,
+    "resolution_status": "already_sufficient",
+    "criticality_rationale": "",
+    "affected_claim_ids": [],
+    "affected_attck_ids": [],
+    "withheld_span_ids": [],
+    "unknown_span_ids": []
+  },
+  "expected_gate": {
+    "action": "proceed",
+    "target_slot_id": null,
+    "question": null
+  },
+  "controlled_answer": null,
+  "timeline_gold": [
+    {
+      "event_id": "E-001",
+      "time": "10:03 UTC",
+      "time_uncertainty": "",
+      "description": "LAB-12 ran whoami.exe.",
+      "required": true,
+      "source_span_ids": [
+        "S-001"
+      ],
+      "answer_ids": []
+    },
+    {
+      "event_id": "E-002",
+      "time": "10:04 UTC",
+      "time_uncertainty": "",
+      "description": "The command returned lab-analyst.",
+      "required": true,
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": []
+    }
+  ],
+  "attck_gold": [
+    {
+      "technique_id": "T1033",
+      "name": "System Owner/User Discovery",
+      "tactic": "Discovery",
+      "applicability": "required",
+      "source_span_ids": [
+        "S-001",
+        "S-002"
+      ],
+      "answer_ids": []
+    }
+  ],
+  "report_claims": [
+    {
+      "claim_id": "C-001",
+      "required": true,
+      "claim_text": "LAB-12 ran whoami.exe and obtained the current user name.",
+      "source_span_ids": [
+        "S-001",
+        "S-002"
+      ],
+      "answer_ids": [],
+      "attck_technique_ids": [
+        "T1033"
+      ],
+      "expected_states": [
+        {
+          "variant": "sufficient",
+          "state": "retain_supported"
+        }
+      ]
+    }
+  ]
+}

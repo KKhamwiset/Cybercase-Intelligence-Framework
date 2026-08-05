@@ -1,0 +1,216 @@
+{
+  "schema_version": "2.0.0",
+  "case_id": "fictitious-script-execution-eligible-001",
+  "case_kind": "eligible_masked",
+  "language": "en",
+  "split": "test",
+  "split_group": "fictitious-family-a",
+  "inference_group": "fictitious-family-a",
+  "source": {
+    "dataset_id": "fictitious_example",
+    "source_url": "https://example.invalid/cybercase/fictitious-script-execution-eligible-001",
+    "version": "1.0",
+    "license": "Illustrative example only",
+    "source_unit_id": "fictional-log-bundle-eligible-001"
+  },
+  "source_text": "At 09:12 UTC, workstation LAB-07 received archive invoice-review.zip. At 09:14 UTC, wscript.exe launched invoice_update.js from the extracted archive. At 09:16 UTC, LAB-07 connected to 198.51.100.24.",
+  "evidence_spans": [
+    {
+      "span_id": "S-001",
+      "source_ref": "fictional-timeline.txt",
+      "text": "At 09:12 UTC, workstation LAB-07 received archive invoice-review.zip.",
+      "char_start": 0,
+      "char_end": 69
+    },
+    {
+      "span_id": "S-002",
+      "source_ref": "fictional-timeline.txt",
+      "text": "At 09:14 UTC, wscript.exe launched invoice_update.js from the extracted archive.",
+      "char_start": 70,
+      "char_end": 150
+    },
+    {
+      "span_id": "S-003",
+      "source_ref": "fictional-timeline.txt",
+      "text": "At 09:16 UTC, LAB-07 connected to 198.51.100.24.",
+      "char_start": 151,
+      "char_end": 199
+    }
+  ],
+  "variants": {
+    "complete": {
+      "input_text": "At 09:12 UTC, workstation LAB-07 received archive invoice-review.zip. At 09:14 UTC, wscript.exe launched invoice_update.js from the extracted archive. At 09:16 UTC, LAB-07 connected to 198.51.100.24.",
+      "visible_span_ids": [
+        "S-001",
+        "S-002",
+        "S-003"
+      ]
+    },
+    "masked": {
+      "input_text": "At 09:12 UTC, workstation LAB-07 received archive invoice-review.zip. At 09:16 UTC, LAB-07 connected to 198.51.100.24.",
+      "visible_span_ids": [
+        "S-001",
+        "S-003"
+      ]
+    }
+  },
+  "decision_target": {
+    "target_slot_id": "attack_sequence.execution",
+    "resolution_status": "resolvable_by_controlled_answer",
+    "criticality_rationale": "Without the process-to-script launch fact, the report cannot support the execution event or exact JavaScript execution mapping.",
+    "affected_claim_ids": [
+      "C-002"
+    ],
+    "affected_attck_ids": [
+      "T1059.007"
+    ],
+    "withheld_span_ids": [
+      "S-002"
+    ],
+    "unknown_span_ids": []
+  },
+  "expected_gate": {
+    "action": "ask",
+    "target_slot_id": "attack_sequence.execution",
+    "question": "What process or script, if any, executed after the archive was received?"
+  },
+  "controlled_answer": {
+    "answer_id": "A-001",
+    "target_slot_id": "attack_sequence.execution",
+    "text": "The workstation launched invoice_update.js with wscript.exe at 09:14 UTC.",
+    "provenance_type": "source_span",
+    "user_reported": false,
+    "source_span_ids": [
+      "S-002"
+    ]
+  },
+  "timeline_gold": [
+    {
+      "event_id": "E-001",
+      "time": "09:12 UTC",
+      "time_uncertainty": "",
+      "description": "LAB-07 received invoice-review.zip.",
+      "required": true,
+      "source_span_ids": [
+        "S-001"
+      ],
+      "answer_ids": []
+    },
+    {
+      "event_id": "E-002",
+      "time": "09:14 UTC",
+      "time_uncertainty": "",
+      "description": "wscript.exe launched invoice_update.js.",
+      "required": true,
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": [
+        "A-001"
+      ]
+    },
+    {
+      "event_id": "E-003",
+      "time": "09:16 UTC",
+      "time_uncertainty": "",
+      "description": "LAB-07 connected to 198.51.100.24.",
+      "required": true,
+      "source_span_ids": [
+        "S-003"
+      ],
+      "answer_ids": []
+    }
+  ],
+  "attck_gold": [
+    {
+      "technique_id": "T1059.007",
+      "name": "JavaScript/JScript",
+      "tactic": "Execution",
+      "applicability": "required",
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": [
+        "A-001"
+      ]
+    }
+  ],
+  "report_claims": [
+    {
+      "claim_id": "C-001",
+      "required": true,
+      "claim_text": "LAB-07 received invoice-review.zip at 09:12 UTC.",
+      "source_span_ids": [
+        "S-001"
+      ],
+      "answer_ids": [],
+      "attck_technique_ids": [],
+      "expected_states": [
+        {
+          "variant": "complete",
+          "state": "retain_supported"
+        },
+        {
+          "variant": "masked",
+          "state": "retain_supported"
+        },
+        {
+          "variant": "clarified",
+          "state": "retain_supported"
+        }
+      ]
+    },
+    {
+      "claim_id": "C-002",
+      "required": true,
+      "claim_text": "wscript.exe launched invoice_update.js at 09:14 UTC, supporting T1059.007.",
+      "source_span_ids": [
+        "S-002"
+      ],
+      "answer_ids": [
+        "A-001"
+      ],
+      "attck_technique_ids": [
+        "T1059.007"
+      ],
+      "expected_states": [
+        {
+          "variant": "complete",
+          "state": "retain_supported"
+        },
+        {
+          "variant": "masked",
+          "state": "abstain"
+        },
+        {
+          "variant": "clarified",
+          "state": "add_supported"
+        }
+      ]
+    },
+    {
+      "claim_id": "C-003",
+      "required": true,
+      "claim_text": "LAB-07 connected to 198.51.100.24 at 09:16 UTC.",
+      "source_span_ids": [
+        "S-003"
+      ],
+      "answer_ids": [],
+      "attck_technique_ids": [],
+      "expected_states": [
+        {
+          "variant": "complete",
+          "state": "retain_supported"
+        },
+        {
+          "variant": "masked",
+          "state": "retain_supported"
+        },
+        {
+          "variant": "clarified",
+          "state": "retain_supported"
+        }
+      ]
+    }
+  ]
+}
