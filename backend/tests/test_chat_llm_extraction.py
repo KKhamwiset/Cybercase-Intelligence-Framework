@@ -62,7 +62,11 @@ class FakeExtractionAdapter:
 
 class AnswerPolicy:
     async def decide(self, **_: object) -> FollowUpDecision:
-        return FollowUpDecision(action="answer", question="")
+        return FollowUpDecision(
+            action="proceed",
+            question="",
+            reason_code="sufficient_case_context",
+        )
 
 
 class SessionContext:

@@ -4,6 +4,7 @@ Application configuration — loaded from environment / .env file.
 
 import os
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -89,7 +90,7 @@ class Settings(BaseSettings):
     chat_followup_policy_max_user_chars: int = 4_000
     chat_followup_question_max_chars: int = 300
     chat_followup_combined_query_max_chars: int = 12_000
-    chat_followup_max_rounds: int = 3
+    chat_followup_max_rounds: int = Field(default=3, ge=1, le=8)
 
     # Terminal chat extraction baseline. A missing provider key produces an
     # explicit failed extraction record rather than falling back to regex.
