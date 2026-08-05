@@ -4,6 +4,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Embed Unicode fonts used by the formal export, including Thai glyphs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        fonts-noto-core \
+        fonts-tlwg-garuda-ttf \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements and install
 COPY requirements.txt ./requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \

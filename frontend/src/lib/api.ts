@@ -75,6 +75,64 @@ export interface ChatMessageAccepted {
   run: ChatRun;
 }
 
+export type ChatReportSupportType =
+  | "user_reported"
+  | "extraction_candidate"
+  | "general_technical_knowledge"
+  | "mitre_mapping_candidate"
+  | "unknown";
+
+export interface ChatReportClaim {
+  claim_id: string;
+  section_id: string;
+  text: string;
+  support_type: ChatReportSupportType;
+  evidence_ids: string[];
+  timeline_event_ids: string[];
+  mitre_technique_ids: string[];
+}
+
+export interface ChatReportSection {
+  section_id: string;
+  heading: string;
+  paragraphs: string[];
+  items: string[];
+}
+
+export interface ChatStructuredReport {
+  report_version: "baseline_report_v1";
+  status: "provisional_unverified";
+  title: string;
+  sections: ChatReportSection[];
+  claims: ChatReportClaim[];
+  limitations: string[];
+}
+
+export interface ChatReportRead {
+  report_id: string;
+  thread_id: string;
+  version_number: number;
+  idempotency_key: string;
+  source_snapshot_hash: string;
+  extraction_id: string;
+  extraction_version: string;
+  prompt_version: string;
+  provider: string;
+  model: string;
+  decoding_settings: Record<string, unknown>;
+  persistence_status: "completed" | "failed";
+  validation_status: "validated" | "failed";
+  report: ChatStructuredReport | null;
+  validation_errors: string[];
+  failure_code: string | null;
+  failure_message: string | null;
+  created_at: string;
+  finished_at: string | null;
+  latency_ms: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+}
+
 export interface ChatDemoEvidence {
   evidence_id: string;
   title: string;
@@ -267,12 +325,78 @@ export const getChatRun = async (
   return response.data;
 };
 
+export const listChatReports = async (
+  threadId: string,
+  signal?: AbortSignal,
+): Promise<ChatReportRead[]> => {
+  const response = await axios.get<ChatReportRead[]>(
+    `${getApiBaseUrl()}/chats/${encodeURIComponent(threadId)}/reports`,
+    { signal },
+  );
+  return response.data;
+};
+
+export const getChatReport = async (
+  threadId: string,
+  reportId: string,
+  signal?: AbortSignal,
+): Promise<ChatReportRead> => {
+  const response = await axios.get<ChatReportRead>(
+    `${getApiBaseUrl()}/chats/${encodeURIComponent(threadId)}/reports/${encodeURIComponent(reportId)}`,
+    { signal },
+  );
+  return response.data;
+};
+
+export const downloadChatReportPdf = async (
+  threadId: string,
+  reportId: string,
+  signal?: AbortSignal,
+): Promise<Blob> => {
+  const response = await axios.get<Blob>(
+    `${getApiBaseUrl()}/chats/${encodeURIComponent(threadId)}/reports/${encodeURIComponent(reportId)}/pdf`,
+    { signal, responseType: "blob", timeout: 120_000 },
+  );
+  return response.data;
+};
+
+export const generateChatReport = async (
+  threadId: string,
+  idempotencyKey?: string,
+  signal?: AbortSignal,
+): Promise<ChatReportRead> => {
+  const response = await axios.post<ChatReportRead>(
+    `${getApiBaseUrl()}/chats/${encodeURIComponent(threadId)}/reports`,
+    idempotencyKey ? { idempotency_key: idempotencyKey } : {},
+    { signal, timeout: 120_000 },
+  );
+  return response.data;
+};
+
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (!axios.isAxiosError(error)) {
     return error instanceof Error ? error.message : fallback;
   }
   if (error.code === "ECONNABORTED") return "The request timed out.";
   if (!error.response) return "The backend is unavailable.";
+
+  const responseData: unknown = error.response.data;
+  if (
+    typeof responseData === "object" &&
+    responseData !== null &&
+    "detail" in responseData
+  ) {
+    const detail = responseData.detail;
+    if (
+      typeof detail === "object" &&
+      detail !== null &&
+      "message" in detail &&
+      typeof detail.message === "string"
+    ) {
+      return detail.message;
+    }
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
 
   const statusMessages: Partial<Record<number, string>> = {
     400: "The backend rejected the request.",

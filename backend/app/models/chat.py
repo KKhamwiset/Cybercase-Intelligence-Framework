@@ -90,6 +90,11 @@ class ChatThread(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    reports: Mapped[list["ChatReport"]] = relationship(
+        back_populates="thread",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class ChatMessage(Base):

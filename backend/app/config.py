@@ -106,4 +106,18 @@ class Settings(BaseSettings):
     chat_extraction_max_text_chars: int = 4_000
     chat_extraction_max_raw_response_chars: int = 12_000
 
+    # Persisted report generation. The report service performs one provider
+    # call per valid generation attempt and never repairs model output.
+    chat_report_enabled: bool = True
+    chat_report_provider: str = "anthropic"
+    chat_report_model: str = "claude-haiku-4-5-20251001"
+    chat_report_timeout_seconds: float = 90.0
+    chat_report_max_input_chars: int = 80_000
+    chat_report_max_output_tokens: int = 8_192
+    chat_report_max_raw_response_chars: int = 48_000
+    chat_report_temperature: float = 0.0
+    chat_report_max_text_chars: int = 4_000
+    chat_report_max_claims: int = 96
+    chat_report_max_limitations: int = 32
+
 settings = Settings()

@@ -22,6 +22,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.config import settings
+from app.services.chat.structured_output import anthropic_json_schema
 
 
 EXTRACTION_METADATA_KEY = "chat_extraction"
@@ -287,7 +288,7 @@ class AnthropicExtractionAdapter:
             "output_config": {
                 "format": {
                     "type": "json_schema",
-                    "schema": BaselineExtraction.model_json_schema(),
+                    "schema": anthropic_json_schema(BaselineExtraction),
                 }
             },
         }

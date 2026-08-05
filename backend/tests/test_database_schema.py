@@ -7,11 +7,12 @@ def _constraint_names(table_name: str) -> set[str]:
     return {constraint.name for constraint in table.constraints}
 
 
-def test_only_chat_and_user_tables_are_registered_for_schema_creation() -> None:
+def test_chat_report_table_is_registered_for_schema_creation() -> None:
     assert set(Base.metadata.tables) == {
         "chat_threads",
         "chat_messages",
         "chat_runs",
+        "chat_reports",
         "users",
     }
 
@@ -56,5 +57,26 @@ def test_chat_run_foreign_keys_and_constraints_are_registered() -> None:
         for foreign_key in table.foreign_keys
     } == {
         ("request_message_id", "chat_messages.id", "CASCADE"),
+        ("thread_id", "chat_threads.id", "CASCADE"),
+    }
+
+
+def test_chat_report_foreign_keys_and_constraints_are_registered() -> None:
+    table = Base.metadata.tables["chat_reports"]
+    assert _constraint_names("chat_reports") == {
+        "pk_chat_reports",
+        "uq_chat_reports_thread_id_version_number",
+        "uq_chat_reports_thread_id_idempotency_key",
+        "ck_chat_reports_version_number_positive",
+        "ck_chat_reports_status",
+        "ck_chat_reports_validation_status",
+        "fk_chat_reports_extraction_message_id_chat_messages",
+        "fk_chat_reports_thread_id_chat_threads",
+    }
+    assert {
+        (foreign_key.parent.name, foreign_key.target_fullname, foreign_key.ondelete)
+        for foreign_key in table.foreign_keys
+    } == {
+        ("extraction_message_id", "chat_messages.id", "CASCADE"),
         ("thread_id", "chat_threads.id", "CASCADE"),
     }

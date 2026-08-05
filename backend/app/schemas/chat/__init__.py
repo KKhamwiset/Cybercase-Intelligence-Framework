@@ -10,6 +10,13 @@ from app.schemas.chat.rag import (
     QueryResponse,
     RagQueryRequest,
 )
+from app.schemas.chat.reports import (
+    ChatReportCreate,
+    ChatReportRead,
+    ReportClaim,
+    ReportSection,
+    StructuredReport,
+)
 from app.schemas.chat.responses import (
     ChatMessageAccepted,
     ChatMessageRead,
@@ -23,6 +30,8 @@ __all__ = [
     "ChatMessageCreate",
     "ChatMessageRead",
     "ChatRunRead",
+    "ChatReportCreate",
+    "ChatReportRead",
     "ChatThreadCreate",
     "ChatThreadDetail",
     "ChatThreadRead",
@@ -31,4 +40,7 @@ __all__ = [
     "QueryRequest",
     "QueryResponse",
     "RagQueryRequest",
+    "ReportClaim",
+    "ReportSection",
+    "StructuredReport",
 ]

@@ -13,13 +13,14 @@ def _fastapi_app() -> FastAPI:
     return application
 
 
-def test_only_health_and_chat_api_routes_are_registered() -> None:
+def test_health_chat_and_nested_report_api_routes_are_registered() -> None:
+    openapi_paths = _fastapi_app().openapi()["paths"]
     api_routes = {
-        (method, route.path)
-        for route in _fastapi_app().routes
-        if route.path.startswith("/api/")
-        for method in route.methods
-        if method not in {"HEAD", "OPTIONS"}
+        (method.upper(), path)
+        for path, operations in openapi_paths.items()
+        if path.startswith("/api/")
+        for method in operations
+        if method not in {"parameters"}
     }
 
     assert api_routes == {
@@ -31,6 +32,10 @@ def test_only_health_and_chat_api_routes_are_registered() -> None:
         ("DELETE", "/api/v1/chats/{thread_id}"),
         ("POST", "/api/v1/chats/{thread_id}/messages"),
         ("GET", "/api/v1/chats/{thread_id}/runs/{run_id}"),
+        ("POST", "/api/v1/chats/{thread_id}/reports"),
+        ("GET", "/api/v1/chats/{thread_id}/reports"),
+        ("GET", "/api/v1/chats/{thread_id}/reports/{report_id}"),
+        ("GET", "/api/v1/chats/{thread_id}/reports/{report_id}/pdf"),
     }
 
 

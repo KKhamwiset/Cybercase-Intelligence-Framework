@@ -34,7 +34,7 @@ def test_migration_graph_has_one_chat_only_head() -> None:
     )
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["0001_chat_user_baseline"]
+    assert heads == ["0002_chat_reports"]
 
 
 def test_chat_user_baseline_declares_the_retained_schema_explicitly(

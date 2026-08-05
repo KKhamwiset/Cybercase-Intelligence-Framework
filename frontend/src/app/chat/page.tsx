@@ -41,7 +41,6 @@ import {
   type ActiveChatFollowUp,
 } from "@/lib/chat-followup";
 import {
-  latestChatDemoExtractionForMessages,
   latestChatExtractionForMessages,
 } from "@/lib/chat-extraction";
 
@@ -658,7 +657,10 @@ export default function ChatPage() {
     );
   };
   const latestExtraction = latestChatExtractionForMessages(messages);
-  const latestDemoExtraction = latestChatDemoExtractionForMessages(messages);
+  const hasValidatedExtraction =
+    latestExtraction?.mode === "single_pass_llm" &&
+    latestExtraction.status === "candidate" &&
+    latestExtraction.validation_status === "validated";
   return (
     <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
       <WorkspaceSidebar
@@ -785,12 +787,12 @@ export default function ChatPage() {
               />
             ) : (
               <ChatReportView
-                key={`${activeThreadId ?? "new-chat"}:${messages
-                  .map((message) => `${message.id}:${message.ordinal}`)
-                  .join(",")}`}
+                key={`${activeThreadId ?? "new-chat"}:${messages.at(-1)?.id ?? "empty"}`}
+                threadId={activeThreadId}
                 threadTitle={activeThread?.title ?? "New chat"}
-                messages={messages}
-                latestExtraction={latestDemoExtraction}
+                threadStatus={threadStatus}
+                hasMessages={messages.length > 0}
+                hasValidatedExtraction={hasValidatedExtraction}
                 onOpenChat={() => setActiveView("chat")}
               />
             )}

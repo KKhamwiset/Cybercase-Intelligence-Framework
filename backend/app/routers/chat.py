@@ -1,10 +1,26 @@
 from app.schemas.chat import ChatMessageAccepted
-from fastapi import APIRouter, BackgroundTasks, Depends, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas.chat import (ChatThreadCreate, ChatThreadRead, ChatThreadUpdate,
-                              ChatThreadDetail, ChatMessageCreate, ChatMessageRead,ChatRunRead)
-from app.services.chat import ChatMessageService, ChatService, process_chat_run
+from app.schemas.chat import (
+    ChatMessageCreate,
+    ChatMessageRead,
+    ChatReportCreate,
+    ChatReportRead,
+    ChatRunRead,
+    ChatThreadCreate,
+    ChatThreadDetail,
+    ChatThreadRead,
+    ChatThreadUpdate,
+)
+from app.services.chat import (
+    ChatMessageService,
+    ChatReportService,
+    ChatService,
+    ReportGenerationConflict,
+    ReportNotFound,
+    process_chat_run,
+)
 from uuid import UUID
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -110,3 +126,90 @@ async def get_chat_run(
 ):
     service = ChatMessageService(db)
     return await service.get_run(thread_id, run_id)
+
+
+def _report_http_exception(error: ReportGenerationConflict | ReportNotFound) -> HTTPException:
+    status_code = (
+        status.HTTP_404_NOT_FOUND
+        if isinstance(error, ReportNotFound)
+        else status.HTTP_409_CONFLICT
+    )
+    return HTTPException(
+        status_code=status_code,
+        detail={"code": error.code, "message": error.message},
+    )
+
+
+@router.post(
+    "/{thread_id}/reports",
+    response_model=ChatReportRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_chat_report(
+    thread_id: UUID,
+    request: ChatReportCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatReportService(db)
+    try:
+        return await service.generate_report(thread_id, request)
+    except (ReportGenerationConflict, ReportNotFound) as error:
+        raise _report_http_exception(error) from error
+
+
+@router.get(
+    "/{thread_id}/reports",
+    response_model=list[ChatReportRead],
+    status_code=status.HTTP_200_OK,
+)
+async def list_chat_reports(
+    thread_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatReportService(db)
+    try:
+        return await service.list_reports(thread_id)
+    except ReportNotFound as error:
+        raise _report_http_exception(error) from error
+
+
+@router.get(
+    "/{thread_id}/reports/{report_id}",
+    response_model=ChatReportRead,
+    status_code=status.HTTP_200_OK,
+)
+async def get_chat_report(
+    thread_id: UUID,
+    report_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    service = ChatReportService(db)
+    try:
+        return await service.get_report(thread_id, report_id)
+    except ReportNotFound as error:
+        raise _report_http_exception(error) from error
+
+
+@router.get(
+    "/{thread_id}/reports/{report_id}/pdf",
+    response_class=Response,
+    status_code=status.HTTP_200_OK,
+)
+async def download_chat_report_pdf(
+    thread_id: UUID,
+    report_id: UUID,
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    service = ChatReportService(db)
+    try:
+        content, filename = await service.get_report_pdf(thread_id, report_id)
+    except (ReportGenerationConflict, ReportNotFound) as error:
+        raise _report_http_exception(error) from error
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )

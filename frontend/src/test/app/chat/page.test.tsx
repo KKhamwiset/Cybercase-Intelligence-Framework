@@ -18,10 +18,14 @@ import {
 import ChatPage from "@/app/chat/page";
 import {
   createChatMessage,
+  downloadChatReportPdf,
+  generateChatReport,
   getChatRun,
   getChatThread,
+  listChatReports,
   listChatThreads,
   type ChatMessageAccepted,
+  type ChatReportRead,
   type ChatThreadDetail,
   type PersistedChatMessage,
 } from "@/lib/api";
@@ -30,11 +34,14 @@ vi.mock("@/lib/api", () => ({
   createChatMessage: vi.fn(),
   createChatThread: vi.fn(),
   deleteChatThread: vi.fn(),
+  downloadChatReportPdf: vi.fn(),
+  generateChatReport: vi.fn(),
   getApiErrorMessage: vi.fn(
     (_error: unknown, fallback: string) => fallback,
   ),
   getChatRun: vi.fn(),
   getChatThread: vi.fn(),
+  listChatReports: vi.fn(),
   listChatThreads: vi.fn(),
   updateChatThread: vi.fn(),
 }));
@@ -136,6 +143,111 @@ function accepted(
   };
 }
 
+function makeReportReadyThread(): ChatThreadDetail {
+  const terminalAssistant: PersistedChatMessage = {
+    ...thread.messages[1],
+    content: "The persisted terminal answer.",
+    retrieval_context_id: "context-1",
+    metadata_json: {
+      mitre_table: [],
+      chat_extraction: {
+        version: "baseline_extraction_v1",
+        mode: "single_pass_llm",
+        status: "candidate",
+        case_summary: "A reported PowerShell event requires review.",
+        entities: [],
+        evidence: [],
+        timeline: [],
+        missing_information: [],
+        warnings: [],
+        prompt_version: "baseline_extraction_prompt_v1",
+        provider: "anthropic",
+        model: "claude-haiku-4-5-20251001",
+        validation_status: "validated",
+        latency_ms: 10,
+        input_tokens: 10,
+        output_tokens: 10,
+        source_message_ids: ["message-1"],
+        raw_response: null,
+      },
+    },
+  };
+  return {
+    ...thread,
+    status: "idle",
+    messages: [thread.messages[0], terminalAssistant],
+  };
+}
+
+function makeReport(version: number): ChatReportRead {
+  const sectionIds = [
+    "executive_summary",
+    "case_background_scope",
+    "evidence_findings",
+    "individuals_accounts_systems_roles",
+    "chronological_timeline",
+    "technical_analysis_mitre",
+    "conclusions_limitations_next_steps",
+  ];
+  const headings = [
+    "Executive Summary",
+    "Case Background and Scope",
+    "Evidence Findings",
+    "Individuals, Accounts, Systems, and Reported Roles",
+    "Chronological Timeline",
+    "Technical Analysis and MITRE ATT&CK Mapping",
+    "Conclusions, Limitations, and Recommended Next Investigative Steps",
+  ];
+  return {
+    report_id: `report-${version}`,
+    thread_id: "thread-1",
+    version_number: version,
+    idempotency_key: `request-${version}`,
+    source_snapshot_hash: `hash-${version}`,
+    extraction_id: "message-2",
+    extraction_version: "baseline_extraction_v1",
+    prompt_version: "chat_report_prompt_v1",
+    provider: "anthropic",
+    model: "claude-haiku-4-5-20251001",
+    decoding_settings: { temperature: 0, max_output_tokens: 4096 },
+    persistence_status: "completed",
+    validation_status: "validated",
+    report: {
+      report_version: "baseline_report_v1",
+      status: "provisional_unverified",
+      title: `Persisted report version ${version}`,
+      sections: sectionIds.map((section_id, index) => ({
+        section_id,
+        heading: headings[index],
+        paragraphs: [`Persisted report version ${version}.`],
+        items: [],
+      })),
+      claims: [],
+      limitations: ["Provisional and unverified."],
+    },
+    validation_errors: [],
+    failure_code: null,
+    failure_message: null,
+    created_at: "2026-07-29T12:03:00Z",
+    finished_at: "2026-07-29T12:03:01Z",
+    latency_ms: 100,
+    input_tokens: 100,
+    output_tokens: 100,
+  };
+}
+
+function makeFailedReport(code: string): ChatReportRead {
+  return {
+    ...makeReport(1),
+    persistence_status: "failed",
+    validation_status: "failed",
+    report: null,
+    validation_errors: ["model response was not valid JSON"],
+    failure_code: code,
+    failure_message: "The report model output failed validation.",
+  };
+}
+
 async function renderLoadedPage(): Promise<void> {
   render(<ChatPage />);
   await waitFor(() =>
@@ -158,6 +270,7 @@ describe("active chat route", () => {
     vi.clearAllMocks();
     vi.mocked(listChatThreads).mockResolvedValue([thread]);
     vi.mocked(getChatThread).mockResolvedValue(thread);
+    vi.mocked(listChatReports).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -283,26 +396,90 @@ describe("active chat route", () => {
     expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
   });
 
-  it("generates the selected thread's client-side demo report on demand", async () => {
+  it("shows backend report readiness and blocks generation during follow-up", async () => {
     await renderLoadedPage();
     fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
 
-    expect(screen.getByText("Demo report workspace")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Generate demo report" })).toBeEnabled();
+    expect(screen.getByText("Digital-forensics report")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate report" })).toBeDisabled();
     expect(
-      screen.queryByRole("heading", { name: /1\. Case Summary/ }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Generate demo report" }));
-
-    expect(
-      screen.getByRole("heading", { name: /1\. Case Summary/ }),
+      screen.getByText(
+        "Answer the pending clarification in Chat before generating a report.",
+      ),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Demo report workspace")).not.toBeInTheDocument();
+  });
+
+  it("loads persisted report history and generates a backend version", async () => {
+    const reportReadyThread = makeReportReadyThread();
+    const savedReport = makeReport(1);
+    const generatedReport = makeReport(2);
+    vi.mocked(getChatThread).mockResolvedValue(reportReadyThread);
+    vi.mocked(listChatReports).mockResolvedValue([savedReport]);
+    vi.mocked(generateChatReport).mockResolvedValue(generatedReport);
+
+    await renderLoadedPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+
+    expect(await screen.findByText("Persisted report version 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate report" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate report" }));
+
+    expect(await screen.findByText("Persisted report version 2")).toBeInTheDocument();
+    expect(generateChatReport).toHaveBeenCalledWith(
+      "thread-1",
+      expect.any(String),
+    );
+    expect(screen.getAllByText("Provisional / Unverified").length).toBeGreaterThan(0);
+    expect(listChatReports).toHaveBeenCalledWith("thread-1", expect.any(AbortSignal));
+  });
+
+  it("downloads the selected validated report as a PDF", async () => {
+    const reportReadyThread = makeReportReadyThread();
+    const savedReport = makeReport(1);
+    vi.mocked(getChatThread).mockResolvedValue(reportReadyThread);
+    vi.mocked(listChatReports).mockResolvedValue([savedReport]);
+    vi.mocked(downloadChatReportPdf).mockResolvedValue(
+      new Blob(["%PDF-test"], { type: "application/pdf" }),
+    );
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn().mockReturnValue("blob:report"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+
+    await renderLoadedPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+    expect(await screen.findByText("Persisted report version 1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+
+    await waitFor(() =>
+      expect(downloadChatReportPdf).toHaveBeenCalledWith("thread-1", "report-1"),
+    );
+  });
+
+  it("renders an actionable persisted backend failure", async () => {
+    const reportReadyThread = makeReportReadyThread();
+    vi.mocked(getChatThread).mockResolvedValue(reportReadyThread);
+    vi.mocked(listChatReports).mockResolvedValue([
+      makeFailedReport("report_validation_failed"),
+    ]);
+
+    await renderLoadedPage();
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+
     expect(
-      screen.getByRole("heading", { name: /7\. System Limitations/ }),
+      await screen.findByText("The report model output failed validation."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Incomplete / Unverified")).toBeInTheDocument();
-    expect(screen.getByText("No persisted extraction evidence candidates are available.")).toBeInTheDocument();
+    expect(screen.getByText("Failure code: report_validation_failed")).toBeInTheDocument();
+    expect(
+      screen.getByText(/failed attempt is preserved in report history/i),
+    ).toBeInTheDocument();
   });
 
   it("switches workspace views from the mobile selector", async () => {
@@ -311,7 +488,7 @@ describe("active chat route", () => {
 
     fireEvent.change(selector, { target: { value: "report" } });
 
-    expect(screen.getByText("Demo report workspace")).toBeInTheDocument();
+    expect(screen.getByText("Digital-forensics report")).toBeInTheDocument();
     expect(selector).toHaveValue("report");
   });
 
@@ -343,13 +520,9 @@ describe("active chat route", () => {
     expect(await screen.findByText("Other thread narrative.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
-    fireEvent.click(screen.getByRole("button", { name: "Generate demo report" }));
 
-    expect(
-      screen.getByRole("heading", { name: "Other investigation" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Other thread narrative.")).toBeInTheDocument();
-    expect(screen.queryByText("Investigate this PowerShell event.")).not.toBeInTheDocument();
+    expect(await screen.findByText("No saved report for this chat")).toBeInTheDocument();
+    expect(screen.queryByText("Demo report workspace")).not.toBeInTheDocument();
   });
 
   it("uses only the latest assistant message as the awaiting legacy fallback", async () => {
