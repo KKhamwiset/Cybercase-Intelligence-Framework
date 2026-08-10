@@ -1,23 +1,30 @@
 import type { ReactNode } from "react";
 import type {
   ChatBaselineExtraction,
-  ChatBaselineExtractionFailure,
   ChatDemoExtraction,
   ChatExtraction,
 } from "@/lib/api";
+import { FailedChatExtractionState } from "./ChatEvidenceState";
 
 interface ChatExtractionSummaryProps {
   extraction: ChatExtraction;
+  onOpenChat: () => void;
 }
 
 export function ChatExtractionSummary({
   extraction,
+  onOpenChat,
 }: ChatExtractionSummaryProps) {
   if (extraction.mode === "deterministic_demo") {
     return <LegacyExtractionSummary extraction={extraction} />;
   }
   if (extraction.status === "failed") {
-    return <FailedExtractionSummary extraction={extraction} />;
+    return (
+      <FailedChatExtractionState
+        extraction={extraction}
+        onOpenChat={onOpenChat}
+      />
+    );
   }
   return <BaselineExtractionSummary extraction={extraction} />;
 }
@@ -30,10 +37,10 @@ function LegacyExtractionSummary({
   return (
     <SummaryShell
       eyebrow="Chat-reported candidates"
-      title="Evidence and timeline"
+      title="Evidence overview"
       description={extraction.disclaimer}
     >
-      <div className="grid gap-4 md:grid-cols-2">
+      <div>
         <ExtractionList
           title="Evidence"
           count={extraction.evidence.length}
@@ -55,23 +62,6 @@ function LegacyExtractionSummary({
           ))}
         </ExtractionList>
 
-        <ExtractionList
-          title="Timeline"
-          count={extraction.timeline.length}
-          emptyMessage="No date, time, or sequence marker found in this chat text yet."
-        >
-          {extraction.timeline.map((item) => (
-            <li key={item.event_id} className="rounded-xl bg-white p-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]">
-                {item.timestamp ?? "Sequence marker"}
-              </p>
-              <p className="mt-1 text-sm leading-5 text-[#171717]">
-                {item.event}
-              </p>
-              <ItemBadges />
-            </li>
-          ))}
-        </ExtractionList>
       </div>
     </SummaryShell>
   );
@@ -151,32 +141,6 @@ function BaselineExtractionSummary({
         </ExtractionList>
 
         <ExtractionList
-          title="Timeline"
-          count={extraction.timeline.length}
-          emptyMessage="No explicitly reported timeline event was extracted."
-        >
-          {extraction.timeline.map((item) => (
-            <li key={item.event_id} className="rounded-xl bg-white p-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]">
-                {item.timestamp_text ?? item.timestamp ?? "Timestamp unknown"}
-              </p>
-              <p className="mt-1 text-sm leading-5 text-[#171717]">
-                {item.event}
-              </p>
-              {item.actors.length > 0 && (
-                <p className="mt-1 text-xs text-[#6B6A66]">
-                  Actors: {item.actors.join(", ")}
-                </p>
-              )}
-              <p className="mt-1 text-[11px] text-[#8A8984]">
-                {item.status} · {item.confidence}
-              </p>
-              <ItemBadges />
-            </li>
-          ))}
-        </ExtractionList>
-
-        <ExtractionList
           title="Missing information"
           count={extraction.missing_information.length}
           emptyMessage="No explicit missing-information item was extracted."
@@ -197,41 +161,26 @@ function BaselineExtractionSummary({
         </ExtractionList>
       </div>
 
-      {extraction.warnings.length > 0 && (
-        <div className="mt-4 rounded-xl border border-[#DEDCD5] bg-white p-4">
+      <div className="mt-4 rounded-xl border border-[#DEDCD5] bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
           <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
-            Warnings
+              Warnings
           </h4>
+          <span className="text-xs font-bold text-[#8A8984]">
+            {extraction.warnings.length}
+          </span>
+        </div>
+        {extraction.warnings.length > 0 ? (
           <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-[#6B6A66]">
             {extraction.warnings.map((warning, index) => (
               <li key={`${warning}-${index}`}>{warning}</li>
             ))}
           </ul>
-        </div>
-      )}
-    </SummaryShell>
-  );
-}
-
-function FailedExtractionSummary({
-  extraction,
-}: {
-  extraction: ChatBaselineExtractionFailure;
-}) {
-  return (
-    <SummaryShell
-      eyebrow="Baseline LLM extraction"
-      title="Extraction failed"
-      description="The terminal assistant answer was preserved, but the model output was not accepted as a candidate extraction. No regex fallback was used."
-    >
-      <div className="rounded-xl border border-[#E2B8B3] bg-[#FFF7F5] p-4">
-        <p className="text-sm font-bold text-[#8B1E17]">
-          Failure code: {extraction.failure_code}
-        </p>
-        <p className="mt-2 text-xs leading-5 text-[#6B6A66]">
-          {extraction.failure_message}
-        </p>
-        <ItemBadges />
+        ) : (
+          <p className="mt-2 text-xs leading-5 text-[#8A8984]">
+            No extraction warnings were returned.
+          </p>
+        )}
       </div>
     </SummaryShell>
   );

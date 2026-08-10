@@ -34,7 +34,9 @@ services:
     container_name: cybercase-backend
     restart: always
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      CORE_LLM_PROVIDER: ${CORE_LLM_PROVIDER:-openrouter}
+      OPENROUTER_CYBERCASE: ${OPENROUTER_CYBERCASE:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-cybercase_framework}
@@ -60,7 +62,9 @@ services:
     container_name: cybercase-rag-service
     restart: always
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      CORE_LLM_PROVIDER: ${CORE_LLM_PROVIDER:-openrouter}
+      OPENROUTER_CYBERCASE: ${OPENROUTER_CYBERCASE:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       NEO4J_URI: ${NEO4J_URI:?NEO4J_URI is required}
       NEO4J_USER: ${NEO4J_USER:?NEO4J_USER is required}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:?NEO4J_PASSWORD is required}

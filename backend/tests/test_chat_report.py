@@ -11,9 +11,14 @@ from app.services.chat.llm_extraction import (
     BASELINE_EXTRACTION_PROMPT_VERSION,
 )
 from app.services.chat.report_generation import (
+    AdmittedMitreRow,
     ReportModelResponse,
     ReportProviderFailure,
     run_report_generation,
+)
+from app.services.chat.report_prompt import (
+    REPORT_PROMPT_VERSION,
+    REPORT_SYSTEM_PROMPT,
 )
 from app.services.chat.report_service import (
     ChatReportService,
@@ -116,11 +121,15 @@ class FakeReportDb:
 class ChatReportTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.original_settings = {
+            "core_llm_provider": settings.core_llm_provider,
+            "openrouter_cybercase": settings.openrouter_cybercase,
             "chat_report_enabled": settings.chat_report_enabled,
             "chat_report_timeout_seconds": settings.chat_report_timeout_seconds,
             "chat_report_max_input_chars": settings.chat_report_max_input_chars,
             "chat_report_max_raw_response_chars": settings.chat_report_max_raw_response_chars,
         }
+        settings.core_llm_provider = "openrouter"
+        settings.openrouter_cybercase = "test-openrouter-key"
         settings.chat_report_enabled = True
         settings.chat_report_timeout_seconds = 1.0
         settings.chat_report_max_input_chars = 80_000
@@ -129,6 +138,23 @@ class ChatReportTests(unittest.IsolatedAsyncioTestCase):
     def tearDown(self) -> None:
         for name, value in self.original_settings.items():
             setattr(settings, name, value)
+
+    def test_v2_prompt_declares_mitre_claim_contract(self) -> None:
+        self.assertEqual(REPORT_PROMPT_VERSION, "chat_report_prompt_v2")
+        self.assertIn(
+            "Prompt version: chat_report_prompt_v2.",
+            REPORT_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "If a statement relies on multiple\nevidence, timeline, or MITRE "
+            "references, split it into separate claims",
+            REPORT_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "Each claim's text may mention only the scalar evidence_id,\n"
+            "timeline_event_id, and mitre_technique_id carried by that claim.",
+            REPORT_SYSTEM_PROMPT,
+        )
 
     async def test_report_input_excludes_terminal_assistant_prose(self) -> None:
         thread = _report_thread()
@@ -153,10 +179,17 @@ class ChatReportTests(unittest.IsolatedAsyncioTestCase):
         result = await run_report_generation(snapshot, adapter=adapter)
 
         self.assertEqual(result.status, "completed")
+        self.assertEqual(result.provider, "openrouter")
+        self.assertEqual(result.model, "openai/gpt-5.6-luna")
         self.assertIsNotNone(result.report)
         self.assertEqual(len(adapter.calls), 1)
         self.assertEqual(result.input_tokens, 31)
         self.assertEqual(result.output_tokens, 42)
+        self.assertEqual(result.prompt_version, REPORT_PROMPT_VERSION)
+        self.assertEqual(
+            adapter.calls[0]["system_prompt"],
+            REPORT_SYSTEM_PROMPT,
+        )
         self.assertEqual(
             adapter.calls[0]["input_payload"]["source_messages"][0]["source_type"],
             "user_case_statement",
@@ -174,7 +207,83 @@ class ChatReportTests(unittest.IsolatedAsyncioTestCase):
         thread = _report_thread()
         snapshot = build_current_report_snapshot(thread)
         payload = _report_payload()
-        payload["claims"][0]["evidence_ids"] = ["E-404"]
+        payload["claims"][0]["evidence_id"] = "E-404"
+        adapter = FakeReportAdapter(json.dumps(payload))
+
+        result = await run_report_generation(snapshot, adapter=adapter)
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.failure_code, "report_validation_failed")
+        self.assertEqual(len(adapter.calls), 1)
+
+    async def test_claim_prose_id_not_carried_by_branch_fails_without_retry(
+        self,
+    ) -> None:
+        snapshot = build_current_report_snapshot(_report_thread())
+        payload = _report_payload()
+        payload["claims"][0]["text"] = (
+            "The E-001 candidate was reported and resembles T1059.001."
+        )
+        adapter = FakeReportAdapter(json.dumps(payload))
+
+        result = await run_report_generation(snapshot, adapter=adapter)
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.failure_code, "report_validation_failed")
+        self.assertIn(
+            "claim prose contains an unreferenced MITRE ID",
+            result.validation_errors,
+        )
+        self.assertEqual(len(adapter.calls), 1)
+
+    async def test_missing_mitre_claim_reference_fails_without_repair_call(
+        self,
+    ) -> None:
+        snapshot = build_current_report_snapshot(_report_thread())
+        snapshot.mitre_rows.append(
+            AdmittedMitreRow(
+                technique_id="T1059.002",
+                name="AppleScript",
+                entity_type="technique",
+                source="vector",
+                relevance="retrieved_only",
+            )
+        )
+        payload = _report_payload()
+        payload["claims"][1]["text"] = (
+            "The E-001 candidate is compatible with T1059.002 as a mapping "
+            "candidate."
+        )
+        adapter = FakeReportAdapter(json.dumps(payload))
+
+        result = await run_report_generation(snapshot, adapter=adapter)
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.failure_code, "report_validation_failed")
+        self.assertIn(
+            "claim prose contains an unreferenced MITRE ID",
+            result.validation_errors,
+        )
+        self.assertEqual(len(adapter.calls), 1)
+
+    async def test_mirrored_mitre_claim_reference_is_accepted(self) -> None:
+        snapshot = build_current_report_snapshot(_report_thread())
+        adapter = FakeReportAdapter(json.dumps(_report_payload()))
+
+        result = await run_report_generation(snapshot, adapter=adapter)
+
+        self.assertEqual(result.status, "completed")
+        self.assertEqual(len(adapter.calls), 1)
+        assert result.report is not None
+        self.assertEqual(
+            result.report.claims[1].mitre_technique_ids,
+            ["T1059.001"],
+        )
+
+    async def test_v2_prompt_leak_is_rejected(self) -> None:
+        snapshot = build_current_report_snapshot(_report_thread())
+        payload = _report_payload()
+        payload["claims"][0]["text"] = "Prompt version: chat_report_prompt_v2."
         adapter = FakeReportAdapter(json.dumps(payload))
 
         result = await run_report_generation(snapshot, adapter=adapter)
@@ -389,19 +498,18 @@ def _report_payload() -> dict[str, object]:
                 "claim_id": "C-001",
                 "section_id": "evidence_findings",
                 "text": "The E-001 candidate was reported by the user.",
+                "claim_kind": "incident_evidence",
                 "support_type": "user_reported",
-                "evidence_ids": ["E-001"],
-                "timeline_event_ids": [],
-                "mitre_technique_ids": [],
+                "evidence_id": "E-001",
             },
             {
                 "claim_id": "C-002",
                 "section_id": "technical_analysis_mitre",
                 "text": "The E-001 candidate is compatible with T1059.001 as a mapping candidate.",
+                "claim_kind": "mitre_evidence",
                 "support_type": "mitre_mapping_candidate",
-                "evidence_ids": ["E-001"],
-                "timeline_event_ids": [],
-                "mitre_technique_ids": ["T1059.001"],
+                "evidence_id": "E-001",
+                "mitre_technique_id": "T1059.001",
             },
         ],
         "limitations": ["The candidates require forensic verification."],

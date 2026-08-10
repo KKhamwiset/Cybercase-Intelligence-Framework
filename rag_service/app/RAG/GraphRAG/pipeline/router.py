@@ -4,8 +4,9 @@ Query Router
 Classifies user queries to determine the appropriate processing pipeline.
 """
 
-from ..config import ANTHROPIC_API_KEY, LLM_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
-from langchain_anthropic import ChatAnthropic
+from ..config import LLM_MODEL, LOCAL_LLM_MODEL, OLLAMA_BASE_URL
+from ..llm_content import LlmContentError, require_message_text
+from ..llm_provider import CoreLlmConfigurationError, create_core_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 
 ROUTER_SYSTEM_PROMPT = """You are a routing agent in a cybersecurity RAG system. Your responsibility is ONLY to classify the query and route it to the correct predefined processing pipeline. You must NOT redesign pipelines, modify workflow logic, or generate answers yourself.
@@ -78,15 +79,16 @@ class QueryRouter:
                 num_predict=32,
             )
             print(f"[ROUTER] Local model: {LOCAL_LLM_MODEL}")
-        elif not ANTHROPIC_API_KEY:
-            self.llm = None
         else:
-            self.llm = ChatAnthropic(
-                model=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=0,
-                max_tokens=32,
-            )
+            try:
+                self.llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=0,
+                    max_tokens=32,
+                )
+            except CoreLlmConfigurationError as exc:
+                self.llm = None
+                print(f"[ROUTER] No cloud LLM configured: {exc}")
 
     def route_query(self, query: str) -> str:
         """Classify the user query as GENERAL_EXPLANATION or INCIDENT_ANALYSIS."""
@@ -98,7 +100,10 @@ class QueryRouter:
             [SystemMessage(content=ROUTER_SYSTEM_PROMPT), HumanMessage(content=query)]
         )
 
-        result = response.content.strip()
+        try:
+            result = require_message_text(response, operation="query routing")
+        except LlmContentError:
+            return "INCIDENT_ANALYSIS"
         # Clean up in case the model adds extra text
         if "GENERAL_EXPLANATION" in result:
             return "GENERAL_EXPLANATION"

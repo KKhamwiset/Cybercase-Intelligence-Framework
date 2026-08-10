@@ -34,12 +34,10 @@ from dataclasses import dataclass
 from typing import Any, Optional, TypedDict
 
 from FlagEmbedding import BGEM3FlagModel
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, StateGraph
 
 from ..config import (
-    ANTHROPIC_API_KEY,
     EMBED_MODEL,
     LLM_MAX_TOKENS,
     LLM_MODEL,
@@ -52,6 +50,12 @@ from ..config import (
     USE_FP16,
     VECTOR_TOP_K,
     sep,
+)
+from ..llm_content import require_message_text
+from ..llm_provider import (
+    CoreLlmConfigurationError,
+    create_core_chat_model,
+    resolve_core_llm_target,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
@@ -191,25 +195,29 @@ class GraphRAGAgent:
             )
             print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
             print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
-        elif ANTHROPIC_API_KEY:
-            self.reasoning_llm = ChatAnthropic(  # type: ignore[call-arg]
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=LLM_TEMPERATURE,
-                max_tokens_to_sample=LLM_MAX_TOKENS,
-            )
-            self.translation_llm = ChatAnthropic(  # type: ignore[call-arg]
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=LLM_TEMPERATURE,
-                max_tokens_to_sample=LLM_MAX_TOKENS,
-            )
-            print(f"[AGENT] Reasoning LLM : {LLM_MODEL}")
-            print(f"[AGENT] Translation LLM: {LLM_MODEL}")
         else:
-            self.reasoning_llm = None
-            self.translation_llm = None
-            print("[AGENT] No LLM configured (ANTHROPIC_API_KEY not set)")
+            try:
+                target = resolve_core_llm_target(LLM_MODEL)
+                self.reasoning_llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=LLM_TEMPERATURE,
+                    max_tokens=LLM_MAX_TOKENS,
+                )
+                self.translation_llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=LLM_TEMPERATURE,
+                    max_tokens=LLM_MAX_TOKENS,
+                )
+                print(
+                    f"[AGENT] Reasoning LLM : {target.model} ({target.provider})"
+                )
+                print(
+                    f"[AGENT] Translation LLM: {target.model} ({target.provider})"
+                )
+            except CoreLlmConfigurationError as exc:
+                self.reasoning_llm = None
+                self.translation_llm = None
+                print(f"[AGENT] No cloud LLM configured: {exc}")
 
         print(
             "[AGENT] Generation    : "
@@ -262,7 +270,7 @@ class GraphRAGAgent:
         if not self.reasoning_llm:
             return AgentResponse(
                 status="completed",
-                answer="Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set).",
+                answer="Cannot generate answer because the selected CORE_LLM_PROVIDER key is not configured.",
             )
 
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
@@ -294,7 +302,7 @@ class GraphRAGAgent:
                 HumanMessage(content=prompt),
             ]
         )
-        answer = str(response.content)
+        answer = require_message_text(response, operation="fast answer generation")
 
         if verbose:
             sep("ANSWER (FAST)")
@@ -323,13 +331,15 @@ class GraphRAGAgent:
                 num_predict=ULTRAFAST_MAX_TOKENS,
                 reasoning=False,
             )
-        elif ANTHROPIC_API_KEY:
-            self._ultrafast_llm = ChatAnthropic(  # type: ignore[call-arg]
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=LLM_TEMPERATURE,
-                max_tokens_to_sample=ULTRAFAST_MAX_TOKENS,
-            )
+        else:
+            try:
+                self._ultrafast_llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=LLM_TEMPERATURE,
+                    max_tokens=ULTRAFAST_MAX_TOKENS,
+                )
+            except CoreLlmConfigurationError as exc:
+                print(f"[AGENT] Ultrafast cloud LLM unavailable: {exc}")
         return self._ultrafast_llm
 
     def query_ultrafast(self, user_query: str, verbose: bool = True) -> AgentResponse:
@@ -345,7 +355,7 @@ class GraphRAGAgent:
         if not llm:
             return AgentResponse(
                 status="completed",
-                answer="Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set).",
+                answer="Cannot generate answer because the selected CORE_LLM_PROVIDER key is not configured.",
             )
 
         respond_in_thai = CrossLingualLayer.should_respond_in_thai(user_query)
@@ -370,7 +380,7 @@ class GraphRAGAgent:
                 HumanMessage(content=user_prompt),
             ]
         )
-        answer = str(response.content)
+        answer = require_message_text(response, operation="ultrafast answer generation")
 
         if verbose:
             sep("ANSWER (ULTRAFAST)")
@@ -527,7 +537,7 @@ class GraphRAGAgent:
             ]
         )
 
-        answer = str(response.content)
+        answer = require_message_text(response, operation="general explanation")
 
         if verbose:
             print(answer)
@@ -656,7 +666,7 @@ class GraphRAGAgent:
 
         if not self.reasoning_llm:
             return {
-                "answer": "Cannot generate answer without an LLM (ANTHROPIC_API_KEY not set)."
+                "answer": "Cannot generate answer because the selected CORE_LLM_PROVIDER key is not configured."
             }
 
         # ── Fast path for ACKNOWLEDGE_LIMIT ───────────────────────────────
@@ -706,7 +716,7 @@ class GraphRAGAgent:
                 HumanMessage(content=reasoning_prompt),
             ]
         )
-        answer = str(response.content)
+        answer = require_message_text(response, operation="grounded answer generation")
 
         if verbose:
             sep("ANSWER (Thai, single-call)" if single_call else "ENGLISH ANSWER")
@@ -733,7 +743,7 @@ class GraphRAGAgent:
                 HumanMessage(content=simplified),
             ]
         )
-        thai_answer = str(response.content)
+        thai_answer = require_message_text(response, operation="Thai answer translation")
 
         if verbose:
             sep("ANSWER (Thai)")

@@ -13,6 +13,7 @@ from app.services.chat.report_generation import (
     AnthropicReportAdapter,
     ReportProviderFailure,
 )
+from app.services.chat.report_provider_schema import ProviderStructuredReport
 from app.services.chat.structured_output import anthropic_json_schema
 
 
@@ -42,6 +43,8 @@ class _CaptureAsyncClient:
         **_: object,
     ) -> None:
         self.request_payload: dict[str, object] | None = None
+        self.request_url: str | None = None
+        self.request_headers: dict[str, str] | None = None
         self.response_json = response_json or {
             "content": [{"type": "text", "text": "{}"}],
             "usage": {},
@@ -60,6 +63,8 @@ class _CaptureAsyncClient:
         headers: dict[str, str],
         json: dict[str, object],
     ) -> httpx.Response:
+        self.request_url = url
+        self.request_headers = headers
         self.request_payload = json
         return httpx.Response(
             200,
@@ -69,11 +74,16 @@ class _CaptureAsyncClient:
 
 class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
+        self.original_provider = settings.core_llm_provider
         self.original_api_key = settings.anthropic_api_key
+        self.original_openrouter_key = settings.openrouter_cybercase
+        settings.core_llm_provider = "anthropic"
         settings.anthropic_api_key = "test-key"
 
     def tearDown(self) -> None:
+        settings.core_llm_provider = self.original_provider
         settings.anthropic_api_key = self.original_api_key
+        settings.openrouter_cybercase = self.original_openrouter_key
 
     def test_report_schema_removes_provider_unsupported_constraints(self) -> None:
         schema = anthropic_json_schema(StructuredReport)
@@ -113,6 +123,39 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
         self._assert_provider_schema(schema)
         self.assertNotIn("maxItems", str(schema))
 
+    async def test_extraction_adapter_uses_openrouter_messages_contract(self) -> None:
+        settings.core_llm_provider = "openrouter"
+        settings.openrouter_cybercase = "openrouter-test-key"
+        client = _CaptureAsyncClient()
+        with patch(
+            "app.services.chat.llm_extraction.httpx.AsyncClient",
+            return_value=client,
+        ):
+            await AnthropicExtractionAdapter().complete(
+                system_prompt="system",
+                input_payload={},
+                model="claude-feature-model",
+                max_output_tokens=32,
+            )
+
+        self.assertEqual(
+            client.request_url,
+            "https://openrouter.ai/api/v1/messages",
+        )
+        self.assertEqual(
+            client.request_headers,
+            {
+                "Authorization": "Bearer openrouter-test-key",
+                "anthropic-version": "2023-06-01",
+            },
+        )
+        assert client.request_payload is not None
+        self.assertEqual(
+            client.request_payload["model"],
+            "openai/gpt-5.6-luna",
+        )
+        self.assertIn("output_config", client.request_payload)
+
     async def test_report_adapter_sends_normalized_schema(self) -> None:
         client = _CaptureAsyncClient()
         with patch(
@@ -131,6 +174,10 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
         schema = client.request_payload["output_config"]["format"]["schema"]
         self._assert_provider_schema(schema)
         self.assertNotIn("maxItems", str(schema))
+        self.assertEqual(
+            schema["properties"],
+            anthropic_json_schema(ProviderStructuredReport)["properties"],
+        )
 
     async def test_report_adapter_preserves_usage_for_output_limit(self) -> None:
         client = _CaptureAsyncClient(

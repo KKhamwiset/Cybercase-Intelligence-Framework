@@ -36,6 +36,8 @@ COPY app/schemas ./app/schemas
 COPY app/RAG/__init__.py ./app/RAG/__init__.py
 COPY app/RAG/GraphRAG/__init__.py ./app/RAG/GraphRAG/__init__.py
 COPY app/RAG/GraphRAG/config.py ./app/RAG/GraphRAG/config.py
+COPY app/RAG/GraphRAG/llm_content.py ./app/RAG/GraphRAG/llm_content.py
+COPY app/RAG/GraphRAG/llm_provider.py ./app/RAG/GraphRAG/llm_provider.py
 COPY app/RAG/GraphRAG/models.py ./app/RAG/GraphRAG/models.py
 COPY app/RAG/GraphRAG/ingestion ./app/RAG/GraphRAG/ingestion
 COPY app/RAG/GraphRAG/pipeline ./app/RAG/GraphRAG/pipeline

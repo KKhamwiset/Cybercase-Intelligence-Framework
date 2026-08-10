@@ -281,6 +281,7 @@ class ChatMessageFollowUpTests(unittest.IsolatedAsyncioTestCase):
         )
         db.get = AsyncMock(return_value=answer)
         db.flush = AsyncMock()
+        db.refresh = AsyncMock()
 
         returned_message, returned_run = (
             await ChatMessageService(db).create_message_and_run(
@@ -308,6 +309,7 @@ class ChatMessageFollowUpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(run.request_payload["followup_round"], 1)
         db.add.assert_not_called()
         db.flush.assert_awaited_once()
+        db.refresh.assert_awaited_once_with(run)
         latest_run_statement = db.execute.await_args_list[3].args[0]
         latest_run_sql = str(latest_run_statement)
         self.assertIn("JOIN chat_messages", latest_run_sql)

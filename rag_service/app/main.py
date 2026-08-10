@@ -21,15 +21,27 @@ async def lifespan(app: FastAPI):
 
     try:
         from FlagEmbedding import BGEM3FlagModel
-        from RAG.GraphRAG.config import EMBED_MODEL, USE_FP16, USE_LOCAL
+        from RAG.GraphRAG.config import (
+            CORE_LLM_EFFECTIVE_MODEL,
+            CORE_LLM_EFFECTIVE_PROVIDER,
+            EMBED_MODEL,
+            USE_FP16,
+            USE_LOCAL,
+        )
 
         use_local = USE_LOCAL
         print(f"[RAG Service] Loading shared embedding model: {EMBED_MODEL}")
         embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
-        print(
-            f"[RAG Service] LLM mode: {'LOCAL (Ollama)' if use_local else 'CLOUD (Claude)'}"
+        llm_mode = (
+            "LOCAL (Ollama)"
+            if use_local
+            else (
+                f"CLOUD ({CORE_LLM_EFFECTIVE_PROVIDER}: "
+                f"{CORE_LLM_EFFECTIVE_MODEL})"
+            )
         )
+        print(f"[RAG Service] LLM mode: {llm_mode}")
         app.state.rag_chain = GraphRAGChain(embed_model=embed_model, use_local=use_local)
         app.state.rag_agent = GraphRAGAgent(embed_model=embed_model, use_local=use_local)
         print("[RAG Service] RAG modules initialized successfully.")

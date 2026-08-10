@@ -114,8 +114,53 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 # ──────────────────────────────────────────────────────────────────────────────
 # LLM (Claude & OpenRouter)
 # ──────────────────────────────────────────────────────────────────────────────
+def validate_core_llm_provider(value: str) -> str:
+    provider = value.strip().lower()
+    if provider not in {"anthropic", "openrouter"}:
+        raise ValueError(
+            "CORE_LLM_PROVIDER must be exactly 'anthropic' or 'openrouter'"
+        )
+    return provider
+
+
+CORE_LLM_PROVIDER = validate_core_llm_provider(
+    os.getenv("CORE_LLM_PROVIDER", "openrouter")
+)
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-LLM_MODEL = "claude-haiku-4-5"
+OPENROUTER_CYBERCASE = os.getenv("OPENROUTER_CYBERCASE", "")
+CORE_LLM_ANTHROPIC_MODEL = os.getenv(
+    "CORE_LLM_ANTHROPIC_MODEL", "claude-haiku-4-5"
+)
+CORE_LLM_OPENROUTER_MODEL = os.getenv(
+    "CORE_LLM_OPENROUTER_MODEL", "openai/gpt-5.6-luna"
+)
+CORE_LLM_ANTHROPIC_BASE_URL = os.getenv(
+    "CORE_LLM_ANTHROPIC_BASE_URL", "https://api.anthropic.com"
+).rstrip("/")
+CORE_LLM_OPENROUTER_BASE_URL = os.getenv(
+    # The Anthropic SDK appends /v1/messages to this base URL.
+    "CORE_LLM_OPENROUTER_BASE_URL", "https://openrouter.ai/api"
+).rstrip("/")
+CORE_LLM_EFFECTIVE_PROVIDER = CORE_LLM_PROVIDER
+CORE_LLM_EFFECTIVE_MODEL = (
+    CORE_LLM_OPENROUTER_MODEL
+    if CORE_LLM_PROVIDER == "openrouter"
+    else CORE_LLM_ANTHROPIC_MODEL
+)
+CORE_LLM_EFFECTIVE_API_KEY = (
+    OPENROUTER_CYBERCASE
+    if CORE_LLM_PROVIDER == "openrouter"
+    else ANTHROPIC_API_KEY
+)
+CORE_LLM_EFFECTIVE_BASE_URL = (
+    CORE_LLM_OPENROUTER_BASE_URL
+    if CORE_LLM_PROVIDER == "openrouter"
+    else CORE_LLM_ANTHROPIC_BASE_URL
+)
+
+# Legacy Anthropic aliases remain for offline tooling outside the production
+# provider factory.
+LLM_MODEL = CORE_LLM_ANTHROPIC_MODEL
 LLM_MAX_TOKENS = 4096
 LLM_TEMPERATURE = 0
 
@@ -136,7 +181,7 @@ SINGLE_CALL_GENERATION = (
 ULTRAFAST_MAX_TOKENS = int(os.getenv("ULTRAFAST_MAX_TOKENS", "1024"))
 ULTRAFAST_TOP_K = int(os.getenv("ULTRAFAST_TOP_K", "6"))
 
-EVALUATOR_LLM_MODEL = "claude-haiku-4-5"
+EVALUATOR_LLM_MODEL = CORE_LLM_ANTHROPIC_MODEL
 EVALUATOR_MAX_TOKENS = (
     1024  # Must fit: verdict + reason + covered/missing phases + rewritten_query
 )

@@ -15,9 +15,11 @@ import {
   vi,
 } from "vitest";
 
-import ChatPage from "@/app/chat/page";
+import { ChatWorkspace } from "@/components/chat/ChatWorkspace";
 import {
   createChatMessage,
+  createChatThread,
+  deleteChatThread,
   downloadChatReportPdf,
   generateChatReport,
   getChatRun,
@@ -29,6 +31,17 @@ import {
   type ChatThreadDetail,
   type PersistedChatMessage,
 } from "@/lib/api";
+
+const navigation = vi.hoisted(() => ({
+  pathname: "/chat",
+  push: vi.fn(),
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+  useRouter: () => navigation,
+}));
 
 vi.mock("@/lib/api", () => ({
   createChatMessage: vi.fn(),
@@ -179,6 +192,60 @@ function makeReportReadyThread(): ChatThreadDetail {
   };
 }
 
+function makeRelationshipReadyThread(): ChatThreadDetail {
+  const detail = makeReportReadyThread();
+  const assistant = detail.messages[1];
+  const extraction = assistant.metadata_json.chat_extraction as Record<
+    string,
+    unknown
+  >;
+  return {
+    ...detail,
+    messages: [
+      detail.messages[0],
+      {
+        ...assistant,
+        metadata_json: {
+          ...assistant.metadata_json,
+          chat_extraction: {
+            ...extraction,
+            entities: [
+              {
+                entity_id: "ENT-001",
+                name: "employee account",
+                entity_type: "account",
+                reported_role: null,
+                confidence: "high",
+                source_message_ids: ["message-1"],
+              },
+              {
+                entity_id: "ENT-002",
+                name: "host-7",
+                entity_type: "host",
+                reported_role: null,
+                confidence: "high",
+                source_message_ids: ["message-1"],
+              },
+            ],
+            relationships: [
+              {
+                relationship_id: "REL-001",
+                subject_entity_id: "ENT-001",
+                predicate: "signed_in_from",
+                object_entity_id: "ENT-002",
+                statement: "The employee account signed in from host-7.",
+                status: "reported",
+                confidence: "high",
+                source_message_ids: ["message-1"],
+              },
+            ],
+          },
+        },
+      },
+    ],
+  };
+}
+
 function makeReport(version: number): ChatReportRead {
   const sectionIds = [
     "executive_summary",
@@ -249,7 +316,7 @@ function makeFailedReport(code: string): ChatReportRead {
 }
 
 async function renderLoadedPage(): Promise<void> {
-  render(<ChatPage />);
+  render(<ChatWorkspace />);
   await waitFor(() =>
     expect(getChatThread).toHaveBeenCalledWith(
       thread.id,
@@ -264,10 +331,23 @@ describe("active chat route", () => {
       configurable: true,
       value: vi.fn(),
     });
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.setAttribute("open", "");
+      },
+    });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", {
+      configurable: true,
+      value(this: HTMLDialogElement) {
+        this.removeAttribute("open");
+      },
+    });
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
+    navigation.pathname = "/chat";
     vi.mocked(listChatThreads).mockResolvedValue([thread]);
     vi.mocked(getChatThread).mockResolvedValue(thread);
     vi.mocked(listChatReports).mockResolvedValue([]);
@@ -279,7 +359,7 @@ describe("active chat route", () => {
   });
 
   it("renders the persisted follow-up question as an ordinary assistant message", async () => {
-    render(<ChatPage />);
+    render(<ChatWorkspace />);
 
     expect(
       await screen.findByText("Which affected host produced this event?"),
@@ -375,7 +455,13 @@ describe("active chat route", () => {
     };
     vi.mocked(getChatThread).mockReset().mockResolvedValue(extractedThread);
 
-    await renderLoadedPage();
+    const view = render(<ChatWorkspace />);
+    await waitFor(() =>
+      expect(getChatThread).toHaveBeenCalledWith(
+        thread.id,
+        expect.any(AbortSignal),
+      ),
+    );
     expect(screen.getByText("Latest assistant extraction.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Evidence & timeline" }));
 
@@ -383,9 +469,33 @@ describe("active chat route", () => {
       screen.getByRole("heading", { name: "Chat-reported candidates" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Latest candidate")).toBeInTheDocument();
-    expect(screen.getByText("Latest event.")).toBeInTheDocument();
+    expect(screen.queryByText("Latest event.")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest assistant extraction.")).not.toBeInTheDocument();
     expect(screen.queryByText("Older candidate")).not.toBeInTheDocument();
+
+    const extractionLink = screen.getByRole("link", { name: "Extraction" });
+    expect(extractionLink).toHaveAttribute("aria-current", "page");
+    expect(extractionLink).toHaveAttribute(
+      "href",
+      "/chat/thread-1/extraction",
+    );
+    expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
+      "href",
+      "/chat/thread-1/timeline",
+    );
+    expect(
+      screen.getByRole("link", { name: "Relationships" }),
+    ).toHaveAttribute("href", "/chat/thread-1/relationships");
+
+    navigation.pathname = "/chat/thread-1/timeline";
+    view.rerender(<ChatWorkspace />);
+
+    expect(await screen.findByText("Latest event.")).toBeInTheDocument();
+    expect(screen.queryByText("Latest candidate")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("shows an empty extraction state for a thread without persisted extraction", async () => {
@@ -409,6 +519,299 @@ describe("active chat route", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Demo report workspace")).not.toBeInTheDocument();
   });
+
+  it("replaces the root chat URL with the first persisted thread", async () => {
+    await renderLoadedPage();
+
+    expect(navigation.replace).toHaveBeenCalledWith("/chat/thread-1");
+  });
+
+  it.each([
+    ["extraction", "No extraction for this chat yet"],
+    ["timeline", "No extraction for this chat yet"],
+    ["relationships", "No extraction for this chat yet"],
+    ["report", "Digital-forensics report"],
+  ] as const)(
+    "loads a direct %s deep link without root fallback",
+    async (view, expectedText) => {
+      navigation.pathname = `/chat/thread-1/${view}`;
+
+      await renderLoadedPage();
+
+      expect(await screen.findByText(expectedText)).toBeInTheDocument();
+      expect(getChatThread).toHaveBeenCalledTimes(1);
+      expect(navigation.replace).not.toHaveBeenCalled();
+    },
+  );
+
+  it("loads the dedicated relationship route with a large graph and keeps Evidence selected", async () => {
+    navigation.pathname = "/chat/thread-1/relationships";
+    vi.mocked(getChatThread).mockResolvedValue(makeRelationshipReadyThread());
+
+    await renderLoadedPage();
+
+    expect(
+      await screen.findByRole("heading", { name: "Entity relationship graph" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Relationship canvas")).toBeInTheDocument();
+    const evidenceTab = screen.getByRole("tab", {
+      name: "Evidence & timeline",
+    });
+    expect(evidenceTab).toHaveAttribute("aria-selected", "true");
+    expect(evidenceTab).toHaveAttribute(
+      "aria-controls",
+      "workspace-extraction-panel",
+    );
+    expect(document.getElementById("workspace-extraction-panel")).toHaveAttribute(
+      "role",
+      "tabpanel",
+    );
+    expect(screen.getByLabelText("Select workspace")).toHaveValue("extraction");
+    expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      document.querySelector("[data-relationship-graph='true']"),
+    ).toHaveClass("h-[420px]", "min-w-[960px]");
+  });
+
+  it("shows an explicit unavailable state for legacy relationship data", async () => {
+    const legacyThread: ChatThreadDetail = {
+      ...thread,
+      status: "idle",
+      messages: [
+        thread.messages[0],
+        {
+          ...thread.messages[1],
+          metadata_json: {
+            chat_extraction: {
+              version: 1,
+              mode: "deterministic_demo",
+              status: "candidate",
+              disclaimer: "Legacy candidate extraction.",
+              evidence: [],
+              timeline: [],
+            },
+          },
+        },
+      ],
+    };
+    navigation.pathname = "/chat/thread-1/relationships";
+    vi.mocked(getChatThread).mockResolvedValue(legacyThread);
+
+    await renderLoadedPage();
+
+    expect(
+      await screen.findByText("Relationship graph unavailable"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
+    expect(screen.queryByText("Relationship canvas")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["timeline", "No timeline events extracted"],
+    [
+      "relationships",
+      "No explicit entity-to-entity relationship was extracted.",
+    ],
+  ] as const)(
+    "preserves a valid-empty extraction on the %s route",
+    async (route, expectedText) => {
+      navigation.pathname = `/chat/thread-1/${route}`;
+      vi.mocked(getChatThread).mockResolvedValue(makeReportReadyThread());
+
+      await renderLoadedPage();
+
+      expect(await screen.findByText(expectedText)).toBeInTheDocument();
+      expect(screen.queryByText("No extraction for this chat yet")).not.toBeInTheDocument();
+    },
+  );
+
+  it("preserves a failed extraction and Return to Chat action on evidence subroutes", async () => {
+    const failedThread = makeReportReadyThread();
+    const assistant = failedThread.messages[1];
+    failedThread.messages[1] = {
+      ...assistant,
+      metadata_json: {
+        chat_extraction: {
+          version: "baseline_extraction_v1",
+          mode: "single_pass_llm",
+          status: "failed",
+          prompt_version: "baseline_extraction_prompt_v1",
+          provider: "openrouter",
+          model: "openai/gpt-5.6-luna",
+          validation_status: "failed",
+          latency_ms: 10,
+          input_tokens: 10,
+          output_tokens: 10,
+          source_message_ids: ["message-1"],
+          raw_response: null,
+          failure_code: "extraction_output_limit",
+          failure_message: "The extraction output reached its token limit.",
+        },
+      },
+    };
+    navigation.pathname = "/chat/thread-1/timeline";
+    vi.mocked(getChatThread).mockResolvedValue(failedThread);
+
+    await renderLoadedPage();
+
+    expect(await screen.findByText("Extraction failed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Failure code: extraction_output_limit"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
+  });
+
+  it("syncs a same-thread route view without reloading the thread", async () => {
+    navigation.pathname = "/chat/thread-1";
+    const view = render(<ChatWorkspace />);
+    await waitFor(() => expect(getChatThread).toHaveBeenCalledTimes(1));
+
+    navigation.pathname = "/chat/thread-1/report";
+    view.rerender(<ChatWorkspace />);
+
+    expect(await screen.findByText("Digital-forensics report")).toBeInTheDocument();
+    expect(getChatThread).toHaveBeenCalledTimes(1);
+  });
+
+  it("pushes view changes without reloading the selected thread", async () => {
+    await renderLoadedPage();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Report generation" }));
+
+    expect(navigation.push).toHaveBeenCalledWith("/chat/thread-1/report");
+    expect(getChatThread).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the report view when selecting another thread", async () => {
+    const otherThread: ChatThreadDetail = {
+      ...thread,
+      id: "thread-2",
+      title: "Other investigation",
+      status: "idle",
+      messages: [],
+    };
+    navigation.pathname = "/chat/thread-1/report";
+    vi.mocked(listChatThreads).mockResolvedValue([thread, otherThread]);
+    vi.mocked(getChatThread).mockImplementation(async (threadId) =>
+      threadId === otherThread.id ? otherThread : thread,
+    );
+    await renderLoadedPage();
+
+    fireEvent.change(screen.getByLabelText("Select saved chat"), {
+      target: { value: otherThread.id },
+    });
+
+    await waitFor(() =>
+      expect(getChatThread).toHaveBeenCalledWith(
+        otherThread.id,
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(navigation.push).toHaveBeenCalledWith("/chat/thread-2/report");
+    expect(getChatThread).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves the relationship route when selecting another thread", async () => {
+    const otherThread: ChatThreadDetail = {
+      ...thread,
+      id: "thread-2",
+      title: "Other investigation",
+      status: "idle",
+      messages: [],
+    };
+    navigation.pathname = "/chat/thread-1/relationships";
+    vi.mocked(listChatThreads).mockResolvedValue([thread, otherThread]);
+    vi.mocked(getChatThread).mockImplementation(async (threadId) =>
+      threadId === otherThread.id ? otherThread : thread,
+    );
+    await renderLoadedPage();
+
+    fireEvent.change(screen.getByLabelText("Select saved chat"), {
+      target: { value: otherThread.id },
+    });
+
+    await waitFor(() =>
+      expect(getChatThread).toHaveBeenCalledWith(
+        otherThread.id,
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(navigation.push).toHaveBeenCalledWith(
+      "/chat/thread-2/relationships",
+    );
+  });
+
+  it("keeps an invalid direct thread URL instead of falling back", async () => {
+    navigation.pathname = "/chat/missing-thread/report";
+    vi.mocked(getChatThread).mockRejectedValue(new Error("not found"));
+
+    render(<ChatWorkspace />);
+
+    await waitFor(() =>
+      expect(getChatThread).toHaveBeenCalledWith(
+        "missing-thread",
+        expect.any(AbortSignal),
+      ),
+    );
+    expect(getChatThread).not.toHaveBeenCalledWith(
+      thread.id,
+      expect.any(AbortSignal),
+    );
+    expect(
+      await screen.findByText("The chat could not be loaded."),
+    ).toBeInTheDocument();
+    expect(navigation.replace).not.toHaveBeenCalled();
+  });
+
+  it("pushes the canonical chat URL after creating a new chat", async () => {
+    const createdThread: ChatThreadDetail = {
+      ...thread,
+      id: "thread / new",
+      title: "New chat",
+      status: "idle",
+      messages: [],
+    };
+    vi.mocked(createChatThread).mockResolvedValue(createdThread);
+    navigation.pathname = "/chat/thread-1/relationships";
+    vi.mocked(getChatThread).mockImplementation(async (threadId) =>
+      threadId === createdThread.id ? createdThread : thread,
+    );
+    await renderLoadedPage();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "New chat" })[0]);
+
+    await waitFor(() => expect(createChatThread).toHaveBeenCalledTimes(1));
+    expect(navigation.push).toHaveBeenCalledWith("/chat/thread%20%2F%20new");
+  });
+
+  it.each(["report", "relationships"] as const)(
+    "replaces the active deleted thread with the next thread at the same %s view",
+    async (view) => {
+      const otherThread: ChatThreadDetail = {
+        ...thread,
+        id: "thread-2",
+        title: "Other investigation",
+        status: "idle",
+        messages: [],
+      };
+      navigation.pathname = `/chat/thread-1/${view}`;
+      vi.mocked(listChatThreads).mockResolvedValue([thread, otherThread]);
+      vi.mocked(deleteChatThread).mockResolvedValue(undefined);
+      vi.mocked(getChatThread).mockImplementation(async (threadId) =>
+        threadId === otherThread.id ? otherThread : thread,
+      );
+      await renderLoadedPage();
+
+      fireEvent.click(screen.getAllByRole("button", { name: "Delete Saved investigation" })[0]);
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(deleteChatThread).toHaveBeenCalledWith(thread.id));
+      expect(navigation.replace).toHaveBeenCalledWith(`/chat/thread-2/${view}`);
+    },
+  );
 
   it("loads persisted report history and generates a backend version", async () => {
     const reportReadyThread = makeReportReadyThread();

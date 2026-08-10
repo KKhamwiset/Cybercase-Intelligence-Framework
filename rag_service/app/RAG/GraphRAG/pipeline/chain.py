@@ -18,11 +18,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from FlagEmbedding import BGEM3FlagModel
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..config import (
-    ANTHROPIC_API_KEY,
     EMBED_MODEL,
     LLM_MAX_TOKENS,
     LLM_MODEL,
@@ -32,6 +30,12 @@ from ..config import (
     USE_FP16,
     VECTOR_TOP_K,
     sep,
+)
+from ..llm_content import require_message_text
+from ..llm_provider import (
+    CoreLlmConfigurationError,
+    create_core_chat_model,
+    resolve_core_llm_target,
 )
 from ..retrieval.hybrid_retriever import GraphRAGResult, HybridRetriever
 from .context_builder import build_context, build_generation_prompt
@@ -104,25 +108,29 @@ class GraphRAGChain:
             )
             print(f"[CHAIN] Reasoning LLM : {LOCAL_LLM_MODEL} (local)")
             print(f"[CHAIN] Translation LLM: {LOCAL_LLM_MODEL} (local)")
-        elif ANTHROPIC_API_KEY:
-            self.reasoning_llm = ChatAnthropic(  # type: ignore
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=LLM_TEMPERATURE,
-                max_tokens_to_sample=LLM_MAX_TOKENS,
-            )
-            self.translation_llm = ChatAnthropic(  # type: ignore
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=LLM_TEMPERATURE,
-                max_tokens_to_sample=LLM_MAX_TOKENS,
-            )
-            print(f"[CHAIN] Reasoning LLM : {LLM_MODEL}")
-            print(f"[CHAIN] Translation LLM: {LLM_MODEL}")
         else:
-            self.reasoning_llm = None
-            self.translation_llm = None
-            print("[CHAIN] No LLM configured (ANTHROPIC_API_KEY not set)")
+            try:
+                target = resolve_core_llm_target(LLM_MODEL)
+                self.reasoning_llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=LLM_TEMPERATURE,
+                    max_tokens=LLM_MAX_TOKENS,
+                )
+                self.translation_llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=LLM_TEMPERATURE,
+                    max_tokens=LLM_MAX_TOKENS,
+                )
+                print(
+                    f"[CHAIN] Reasoning LLM : {target.model} ({target.provider})"
+                )
+                print(
+                    f"[CHAIN] Translation LLM: {target.model} ({target.provider})"
+                )
+            except CoreLlmConfigurationError as exc:
+                self.reasoning_llm = None
+                self.translation_llm = None
+                print(f"[CHAIN] No cloud LLM configured: {exc}")
 
         print("[CHAIN] GraphRAG chain ready")
 
@@ -190,7 +198,7 @@ class GraphRAGChain:
                 ]
             )
 
-            answer = str(response.content)
+            answer = require_message_text(response, operation="general explanation")
             if verbose:
                 print(answer)
                 sep()
@@ -241,7 +249,10 @@ class GraphRAGChain:
                 HumanMessage(content=reasoning_user_prompt),
             ]
         )
-        simplified_english = str(reasoning_response.content)
+        simplified_english = require_message_text(
+            reasoning_response,
+            operation="English answer generation",
+        )
 
         if verbose:
             sep("SIMPLIFIED ENGLISH NARRATIVE")
@@ -279,7 +290,10 @@ class GraphRAGChain:
                 HumanMessage(content=simplified_english),
             ]
         )
-        thai_answer = str(translation_response.content)
+        thai_answer = require_message_text(
+            translation_response,
+            operation="Thai answer translation",
+        )
 
         if verbose:
             sep("ANSWER (Thai)")

@@ -151,6 +151,13 @@ class _MetricsProceedPolicy(_CaptureProceedPolicy):
         )
 
 class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.original_provider = settings.core_llm_provider
+        settings.core_llm_provider = "anthropic"
+
+    def tearDown(self) -> None:
+        settings.core_llm_provider = self.original_provider
+
     async def test_structured_policy_uses_only_bounded_case_context(self) -> None:
         original_key = settings.anthropic_api_key
         settings.anthropic_api_key = "test-key"

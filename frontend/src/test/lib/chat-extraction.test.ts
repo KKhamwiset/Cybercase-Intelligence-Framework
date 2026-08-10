@@ -22,6 +22,63 @@ function message(
   };
 }
 
+function baselineRelationshipMetadata(
+  relationshipOverrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    chat_extraction: {
+      version: "baseline_extraction_v1",
+      mode: "single_pass_llm",
+      status: "candidate",
+      prompt_version: "baseline_extraction_prompt_v2",
+      provider: "anthropic",
+      model: "claude-haiku-4-5-20251001",
+      validation_status: "validated",
+      latency_ms: 12,
+      input_tokens: 10,
+      output_tokens: 20,
+      source_message_ids: ["message-1"],
+      raw_response: null,
+      case_summary: "An account sign-in from host-7 was reported.",
+      entities: [
+        {
+          entity_id: "ENT-001",
+          name: "Employee account",
+          entity_type: "account",
+          reported_role: null,
+          confidence: "high",
+          source_message_ids: ["message-1"],
+        },
+        {
+          entity_id: "ENT-002",
+          name: "host-7",
+          entity_type: "host",
+          reported_role: null,
+          confidence: "high",
+          source_message_ids: ["message-1"],
+        },
+      ],
+      relationships: [
+        {
+          relationship_id: "REL-001",
+          subject_entity_id: "ENT-001",
+          predicate: "signed_in_from",
+          object_entity_id: "ENT-002",
+          statement: "The employee account signed in from host-7.",
+          status: "reported",
+          confidence: "high",
+          source_message_ids: ["message-1"],
+          ...relationshipOverrides,
+        },
+      ],
+      evidence: [],
+      timeline: [],
+      missing_information: [],
+      warnings: [],
+    },
+  };
+}
+
 describe("chat demo extraction metadata", () => {
   it("accepts persisted evidence and timeline candidates", () => {
     const extraction = chatDemoExtractionForMessage(
@@ -168,7 +225,63 @@ describe("chat demo extraction metadata", () => {
       case_summary: "A phishing email was reported.",
       evidence: [{ source_type: "user_reported" }],
       timeline: [{ timestamp: null, status: "unknown" }],
+      relationships: [],
     });
+  });
+
+  it("parses source-explicit entity relationships", () => {
+    const extraction = chatBaselineExtractionForMessage(
+      message(baselineRelationshipMetadata()),
+    );
+
+    expect(extraction).toMatchObject({
+      status: "candidate",
+      relationships: [
+        {
+          relationship_id: "REL-001",
+          subject_entity_id: "ENT-001",
+          predicate: "signed_in_from",
+          object_entity_id: "ENT-002",
+          status: "reported",
+          source_message_ids: ["message-1"],
+        },
+      ],
+    });
+  });
+
+  it("rejects a malformed present relationship collection or item", () => {
+    const malformedCollection = baselineRelationshipMetadata();
+    const extractionMetadata = malformedCollection.chat_extraction as Record<
+      string,
+      unknown
+    >;
+    extractionMetadata.relationships = { relationship_id: "REL-001" };
+
+    expect(
+      chatBaselineExtractionForMessage(message(malformedCollection)),
+    ).toBeNull();
+    expect(
+      chatBaselineExtractionForMessage(
+        message(baselineRelationshipMetadata({ predicate: "owns Host 7" })),
+      ),
+    ).toBeNull();
+  });
+
+  it("rejects unresolved relationship endpoints and self-edges", () => {
+    expect(
+      chatBaselineExtractionForMessage(
+        message(
+          baselineRelationshipMetadata({ object_entity_id: "ENT-404" }),
+        ),
+      ),
+    ).toBeNull();
+    expect(
+      chatBaselineExtractionForMessage(
+        message(
+          baselineRelationshipMetadata({ object_entity_id: "ENT-001" }),
+        ),
+      ),
+    ).toBeNull();
   });
 
   it("parses an explicit baseline extraction failure without inventing items", () => {

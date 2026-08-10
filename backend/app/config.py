@@ -3,6 +3,7 @@ Application configuration — loaded from environment / .env file.
 """
 
 import os
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -80,8 +81,13 @@ class Settings(BaseSettings):
 
     # ── Chat application ─────────────────────────────────────────────────
     debug: bool = True
+    core_llm_provider: Literal["anthropic", "openrouter"] = "openrouter"
     anthropic_api_key: str = ""
     anthropic_messages_url: str = "https://api.anthropic.com/v1/messages"
+    openrouter_cybercase: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_messages_url: str = "https://openrouter.ai/api/v1/messages"
+    core_llm_openrouter_model: str = "openai/gpt-5.6-luna"
     rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://rag-service:8001")
     chat_followup_policy_enabled: bool = True
     chat_followup_policy_model: str = "claude-haiku-4-5"
@@ -95,12 +101,12 @@ class Settings(BaseSettings):
     # Terminal chat extraction baseline. A missing provider key produces an
     # explicit failed extraction record rather than falling back to regex.
     chat_extraction_enabled: bool = True
-    chat_extraction_provider: str = "anthropic"
     chat_extraction_model: str = "claude-haiku-4-5-20251001"
     chat_extraction_timeout_seconds: float = 30.0
     chat_extraction_max_input_chars: int = 20_000
     chat_extraction_max_output_tokens: int = 2_048
     chat_extraction_max_entities: int = 24
+    chat_extraction_max_relationships: int = 48
     chat_extraction_max_evidence: int = 24
     chat_extraction_max_timeline: int = 32
     chat_extraction_max_missing_information: int = 16
@@ -110,7 +116,6 @@ class Settings(BaseSettings):
     # Persisted report generation. The report service performs one provider
     # call per valid generation attempt and never repairs model output.
     chat_report_enabled: bool = True
-    chat_report_provider: str = "anthropic"
     chat_report_model: str = "claude-haiku-4-5-20251001"
     chat_report_timeout_seconds: float = 90.0
     chat_report_max_input_chars: int = 80_000

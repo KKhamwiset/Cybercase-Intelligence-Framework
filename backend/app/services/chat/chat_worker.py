@@ -24,10 +24,10 @@ from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat.rag import QueryResponse
 from app.services.chat.chat_message import reconstruct_clarification_chain
 from app.services.chat.demo_extraction import add_demo_chat_extraction
+from app.services.chat.core_llm import resolve_core_llm_target
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
-    FOLLOWUP_POLICY_PROVIDER,
     FOLLOWUP_POLICY_VERSION,
     FOLLOWUP_PROMPT_VERSION,
     FollowUpDecision,
@@ -551,6 +551,8 @@ async def evaluate_followup_outcome(
                 latency_ms=result.latency_ms,
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
+                provider=result.provider,
+                model=result.model,
             ),
         )
 
@@ -573,6 +575,8 @@ async def evaluate_followup_outcome(
                 latency_ms=result.latency_ms,
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
+                provider=result.provider,
+                model=result.model,
             ),
         )
     return FollowUpResolution(
@@ -591,6 +595,8 @@ async def evaluate_followup_outcome(
                 latency_ms=result.latency_ms,
                 input_tokens=result.input_tokens,
                 output_tokens=result.output_tokens,
+                provider=result.provider,
+                model=result.model,
                 rag_skipped=True,
             ),
             thread_status="awaiting_followup",
@@ -635,6 +641,8 @@ def _coerce_policy_result(
             ),
             input_tokens=_safe_token_count(raw_result.input_tokens),
             output_tokens=_safe_token_count(raw_result.output_tokens),
+            provider=raw_result.provider,
+            model=raw_result.model,
         )
     return FollowUpPolicyResult(
         decision=FollowUpDecision.model_validate(raw_result),
@@ -669,17 +677,23 @@ def _followup_metadata(
     latency_ms: float | None = None,
     input_tokens: int | None = None,
     output_tokens: int | None = None,
+    provider: str | None = None,
+    model: str | None = None,
     failure_code: str | None = None,
     rag_skipped: bool = True,
     rag_invoked: bool = False,
 ) -> dict[str, Any]:
+    target = resolve_core_llm_target(
+        settings.chat_followup_policy_model,
+        require_key=False,
+    )
     return {
         "chat_followup": {
             "kind": "clarification" if action == "ask_followup" else "decision",
             "policy_version": FOLLOWUP_POLICY_VERSION,
             "prompt_version": FOLLOWUP_PROMPT_VERSION,
-            "provider": FOLLOWUP_POLICY_PROVIDER,
-            "model": settings.chat_followup_policy_model,
+            "provider": provider or target.provider,
+            "model": model or target.model,
             "action": action,
             "question": question,
             "reason_code": reason_code,
@@ -942,13 +956,17 @@ async def attach_llm_extraction(
             "Chat extraction failed outside typed failure handling run_id=%s",
             claimed_run.id,
         )
+        target = resolve_core_llm_target(
+            settings.chat_extraction_model,
+            require_key=False,
+        )
         extraction_metadata = {
             "version": BASELINE_EXTRACTION_VERSION,
             "mode": BASELINE_EXTRACTION_MODE,
             "status": "failed",
             "prompt_version": BASELINE_EXTRACTION_PROMPT_VERSION,
-            "provider": settings.chat_extraction_provider,
-            "model": settings.chat_extraction_model,
+            "provider": target.provider,
+            "model": target.model,
             "validation_status": "failed",
             "latency_ms": 0.0,
             "input_tokens": None,

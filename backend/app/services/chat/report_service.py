@@ -17,7 +17,7 @@ from app.models.report import ChatReport
 from app.schemas.chat import ChatReportCreate, ChatReportRead, MitreTableRow
 from app.schemas.chat.reports import StructuredReport
 from app.services.chat.llm_extraction import (
-    BASELINE_EXTRACTION_PROMPT_VERSION,
+    ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
     BASELINE_EXTRACTION_VERSION,
     EXTRACTION_METADATA_KEY,
     BaselineExtraction,
@@ -45,6 +45,7 @@ _EXTRACTION_FIELDS = (
     "status",
     "case_summary",
     "entities",
+    "relationships",
     "evidence",
     "timeline",
     "missing_information",
@@ -124,7 +125,7 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
         extraction_metadata.get("version") != BASELINE_EXTRACTION_VERSION
         or extraction_metadata.get("mode") != "single_pass_llm"
         or extraction_metadata.get("prompt_version")
-        != BASELINE_EXTRACTION_PROMPT_VERSION
+        not in ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS
         or extraction_metadata.get("status") != "candidate"
         or extraction_metadata.get("validation_status") != "validated"
     ):
@@ -166,8 +167,9 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
     try:
         extraction = BaselineExtraction.model_validate(
             {
-                field_name: extraction_metadata.get(field_name)
+                field_name: extraction_metadata[field_name]
                 for field_name in _EXTRACTION_FIELDS
+                if field_name in extraction_metadata
             }
         )
         validate_baseline_extraction(extraction, extraction_input)

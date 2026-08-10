@@ -256,6 +256,7 @@ class ChatMessageService:
                     thread.status = "processing"
                     thread.active_rag_session_id = None
                     await self.db.flush()
+                    await self.db.refresh(existing_run)
                 return existing_message, existing_run
 
             active_run_statement = select(ChatRun).where(

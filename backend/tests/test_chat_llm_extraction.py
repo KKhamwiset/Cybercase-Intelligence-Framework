@@ -14,6 +14,9 @@ from app.services.chat.chat_worker import (
 )
 from app.services.chat.followup_policy import FollowUpDecision
 from app.services.chat.llm_extraction import (
+    ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
+    BASELINE_EXTRACTION_PROMPT_VERSION,
+    BASELINE_EXTRACTION_SYSTEM_PROMPT,
     BaselineExtraction,
     ExtractionInput,
     ExtractionModelResponse,
@@ -24,6 +27,7 @@ from app.services.chat.llm_extraction import (
     validate_baseline_extraction,
 )
 from app.models.chat import ChatMessage
+from app.services.chat.structured_output import anthropic_json_schema
 
 
 class FakeExtractionAdapter:
@@ -80,13 +84,19 @@ class SessionContext:
 class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.original_settings = {
+            "core_llm_provider": settings.core_llm_provider,
+            "openrouter_cybercase": settings.openrouter_cybercase,
             "chat_extraction_enabled": settings.chat_extraction_enabled,
             "chat_extraction_timeout_seconds": settings.chat_extraction_timeout_seconds,
             "chat_extraction_max_input_chars": settings.chat_extraction_max_input_chars,
+            "chat_extraction_max_relationships": settings.chat_extraction_max_relationships,
         }
+        settings.core_llm_provider = "openrouter"
+        settings.openrouter_cybercase = "test-openrouter-key"
         settings.chat_extraction_enabled = True
         settings.chat_extraction_timeout_seconds = 1.0
         settings.chat_extraction_max_input_chars = 20_000
+        settings.chat_extraction_max_relationships = 48
 
     def tearDown(self) -> None:
         for name, value in self.original_settings.items():
@@ -129,6 +139,26 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
                     "reported_role": "compromised account",
                     "confidence": "high",
                     "source_message_ids": [root_id],
+                },
+                {
+                    "entity_id": "ENT-002",
+                    "name": "Suspicious sign-in",
+                    "entity_type": "authentication_event",
+                    "reported_role": None,
+                    "confidence": "medium",
+                    "source_message_ids": [answer_id],
+                },
+            ],
+            "relationships": [
+                {
+                    "relationship_id": "REL-001",
+                    "subject_entity_id": "ENT-001",
+                    "predicate": "had_suspicious_sign_in",
+                    "object_entity_id": "ENT-002",
+                    "statement": "The account had a suspicious sign-in.",
+                    "status": "reported",
+                    "confidence": "medium",
+                    "source_message_ids": [root_id, answer_id],
                 }
             ],
             "evidence": [
@@ -175,9 +205,15 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
         result = await run_baseline_extraction(extraction_input, adapter=adapter)
 
         self.assertEqual(result.status, "candidate")
+        self.assertEqual(result.provider, "openrouter")
+        self.assertEqual(result.model, "openai/gpt-5.6-luna")
         self.assertIsInstance(result.extraction, BaselineExtraction)
         assert result.extraction is not None
         self.assertEqual(result.extraction.evidence[0].evidence_id, "E-001")
+        self.assertEqual(
+            result.extraction.relationships[0].object_entity_id,
+            "ENT-002",
+        )
         self.assertEqual(result.input_tokens, 31)
         self.assertEqual(result.output_tokens, 42)
         json.dumps(result.metadata(extraction_input))
@@ -292,6 +328,103 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ExtractionValidationError):
             validate_baseline_extraction(payload, extraction_input)
+
+    def test_legacy_payload_without_relationships_remains_valid(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        payload.pop("relationships")
+
+        extraction = validate_baseline_extraction(payload, extraction_input)
+
+        self.assertEqual(extraction.relationships, [])
+
+    def test_relationship_with_invalid_endpoint_is_rejected(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        payload["relationships"][0]["object_entity_id"] = "ENT-404"
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_relationship_self_edge_is_rejected(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        payload["relationships"][0]["object_entity_id"] = "ENT-001"
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_relationship_invalid_and_duplicate_source_references_are_rejected(
+        self,
+    ) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        payload["relationships"][0]["source_message_ids"] = [str(uuid4())]
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+        payload = self._success_payload(extraction_input)
+        source_id = str(extraction_input.messages[0].message_id)
+        payload["relationships"][0]["source_message_ids"] = [
+            source_id,
+            source_id,
+        ]
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_relationship_id_is_globally_unique(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        payload["relationships"][0]["relationship_id"] = "ENT-001"
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_duplicate_relationship_semantic_edge_is_rejected(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        duplicate = dict(payload["relationships"][0])
+        duplicate["relationship_id"] = "REL-002"
+        duplicate["statement"] = "The same edge was stated again."
+        payload["relationships"].append(duplicate)
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_relationship_count_limit_is_enforced(self) -> None:
+        extraction_input = self._input()
+        payload = self._success_payload(extraction_input)
+        second = dict(payload["relationships"][0])
+        second["relationship_id"] = "REL-002"
+        second["predicate"] = "was_linked_to"
+        payload["relationships"].append(second)
+        settings.chat_extraction_max_relationships = 1
+
+        with self.assertRaises(ExtractionValidationError):
+            validate_baseline_extraction(payload, extraction_input)
+
+    def test_relationship_prompt_and_schema_are_versioned(self) -> None:
+        schema = anthropic_json_schema(BaselineExtraction)
+
+        self.assertEqual(
+            BASELINE_EXTRACTION_PROMPT_VERSION,
+            "baseline_extraction_prompt_v2",
+        )
+        self.assertEqual(
+            ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
+            frozenset(
+                {
+                    "baseline_extraction_prompt_v1",
+                    "baseline_extraction_prompt_v2",
+                }
+            ),
+        )
+        self.assertIn("relationships", schema["properties"])
+        self.assertIn("ExtractedRelationship", schema["$defs"])
+        self.assertIn("Co-occurrence", BASELINE_EXTRACTION_SYSTEM_PROMPT)
+        self.assertIn("Do not infer ownership", BASELINE_EXTRACTION_SYSTEM_PROMPT)
 
     async def test_malformed_model_json_is_an_explicit_failure(self) -> None:
         result = await run_baseline_extraction(

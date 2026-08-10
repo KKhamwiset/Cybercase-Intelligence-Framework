@@ -36,12 +36,13 @@ import re
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..config import (
-    ANTHROPIC_API_KEY,
     LLM_MODEL,
     LOCAL_LLM_MODEL,
     LOCAL_NUM_CTX,
     OLLAMA_BASE_URL,
 )
+from ..llm_content import require_message_text
+from ..llm_provider import CoreLlmConfigurationError, create_core_chat_model
 
 _SYSTEM = (
     "You are a retrieval query planner for a MITRE ATT&CK RAG system. Given a "
@@ -161,17 +162,15 @@ class QueryDecomposer:
                 reasoning=False,  # Qwen3.5: keep <think> out of the query list
             )
             print(f"[DECOMPOSE] Local model: {LOCAL_LLM_MODEL}")
-        elif ANTHROPIC_API_KEY:
-            from langchain_anthropic import ChatAnthropic
-
-            self.llm = ChatAnthropic(  # type: ignore[call-arg]
-                model_name=LLM_MODEL,
-                api_key=ANTHROPIC_API_KEY,
-                temperature=0,
-                max_tokens_to_sample=512,
-            )
         else:
-            print("[DECOMPOSE] No LLM — falling back to the whole query")
+            try:
+                self.llm = create_core_chat_model(
+                    anthropic_model=LLM_MODEL,
+                    temperature=0,
+                    max_tokens=512,
+                )
+            except CoreLlmConfigurationError as exc:
+                print(f"[DECOMPOSE] No cloud LLM configured: {exc}")
 
     def decompose(
         self,
@@ -190,7 +189,10 @@ class QueryDecomposer:
                     HumanMessage(content=f"Incident:\n{incident}"),
                 ]
             )
-            subs = _parse(str(resp.content), max_subqueries)
+            subs = _parse(
+                require_message_text(resp, operation="query decomposition"),
+                max_subqueries,
+            )
         except Exception as e:  # network / model error → don't sink retrieval
             print(f"[DECOMPOSE] failed ({e}); using the whole query")
             return [incident]

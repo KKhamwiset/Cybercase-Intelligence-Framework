@@ -4,6 +4,7 @@ import type {
   ChatBaselineExtraction,
   ChatBaselineExtractionFailure,
   ChatBaselineMissingInformation,
+  ChatBaselineRelationship,
   ChatBaselineTimelineEvent,
   ChatDemoEvidence,
   ChatDemoExtraction,
@@ -97,15 +98,42 @@ export function chatBaselineExtractionForMessage(
     ? raw.missing_information.flatMap(parseBaselineMissingInformation)
     : [];
   const warnings = parseStringArray(raw.warnings);
+  const relationships =
+    raw.relationships === undefined
+      ? []
+      : Array.isArray(raw.relationships)
+        ? raw.relationships.flatMap(parseBaselineRelationship)
+        : null;
   if (
     (Array.isArray(raw.entities) && entities.length !== raw.entities.length) ||
     (Array.isArray(raw.evidence) && evidence.length !== raw.evidence.length) ||
     (Array.isArray(raw.timeline) && timeline.length !== raw.timeline.length) ||
     (Array.isArray(raw.missing_information) &&
       missingInformation.length !== raw.missing_information.length) ||
+    relationships === null ||
+    (Array.isArray(raw.relationships) &&
+      relationships.length !== raw.relationships.length) ||
     (raw.warnings !== undefined && warnings === null)
   ) {
     return null;
+  }
+
+  const entityIds = new Set(entities.map((entity) => entity.entity_id));
+  const relationshipIds = new Set<string>();
+  const semanticEdges = new Set<string>();
+  for (const relationship of relationships) {
+    if (
+      !entityIds.has(relationship.subject_entity_id) ||
+      !entityIds.has(relationship.object_entity_id) ||
+      relationship.subject_entity_id === relationship.object_entity_id ||
+      relationshipIds.has(relationship.relationship_id)
+    ) {
+      return null;
+    }
+    const semanticEdge = `${relationship.subject_entity_id}\u0000${relationship.predicate}\u0000${relationship.object_entity_id}`;
+    if (semanticEdges.has(semanticEdge)) return null;
+    relationshipIds.add(relationship.relationship_id);
+    semanticEdges.add(semanticEdge);
   }
 
   return {
@@ -114,6 +142,7 @@ export function chatBaselineExtractionForMessage(
     validation_status: "validated",
     case_summary: raw.case_summary,
     entities,
+    relationships,
     evidence,
     timeline,
     missing_information: missingInformation,
@@ -236,6 +265,36 @@ function parseBaselineEvidence(value: unknown): ChatBaselineEvidence[] {
   ];
 }
 
+function parseBaselineRelationship(value: unknown): ChatBaselineRelationship[] {
+  if (!isRecord(value)) return [];
+  if (
+    !isNonEmptyString(value.relationship_id) ||
+    !isNonEmptyString(value.subject_entity_id) ||
+    !isRelationshipPredicate(value.predicate) ||
+    !isNonEmptyString(value.object_entity_id) ||
+    !isNonEmptyString(value.statement) ||
+    !isRelationshipStatus(value.status) ||
+    !isConfidence(value.confidence) ||
+    !isStringArray(value.source_message_ids) ||
+    value.source_message_ids.length === 0 ||
+    new Set(value.source_message_ids).size !== value.source_message_ids.length
+  ) {
+    return [];
+  }
+  return [
+    {
+      relationship_id: value.relationship_id,
+      subject_entity_id: value.subject_entity_id,
+      predicate: value.predicate,
+      object_entity_id: value.object_entity_id,
+      statement: value.statement,
+      status: value.status,
+      confidence: value.confidence,
+      source_message_ids: value.source_message_ids,
+    },
+  ];
+}
+
 function parseBaselineTimeline(value: unknown): ChatBaselineTimelineEvent[] {
   if (!isRecord(value)) return [];
   if (
@@ -333,6 +392,25 @@ function isConfidence(value: unknown): value is ChatBaselineEntity["confidence"]
 function isReportedStatus(value: unknown): value is ChatBaselineEvidence["status"] {
   return (
     value === "reported" || value === "unknown" || value === "not_confirmed"
+  );
+}
+
+function isRelationshipStatus(
+  value: unknown,
+): value is ChatBaselineRelationship["status"] {
+  return (
+    value === "reported" ||
+    value === "suspected" ||
+    value === "contradicted" ||
+    value === "not_established"
+  );
+}
+
+function isRelationshipPredicate(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 80 &&
+    /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/.test(value)
   );
 }
 

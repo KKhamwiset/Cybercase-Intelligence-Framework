@@ -162,12 +162,28 @@ export interface ChatDemoExtraction {
 
 export type ChatExtractionConfidence = "high" | "medium" | "low" | "unknown";
 export type ChatReportedStatus = "reported" | "unknown" | "not_confirmed";
+export type ChatRelationshipStatus =
+  | "reported"
+  | "suspected"
+  | "contradicted"
+  | "not_established";
 
 export interface ChatBaselineEntity {
   entity_id: string;
   name: string;
   entity_type: string;
   reported_role: string | null;
+  confidence: ChatExtractionConfidence;
+  source_message_ids: string[];
+}
+
+export interface ChatBaselineRelationship {
+  relationship_id: string;
+  subject_entity_id: string;
+  predicate: string;
+  object_entity_id: string;
+  statement: string;
+  status: ChatRelationshipStatus;
   confidence: ChatExtractionConfidence;
   source_message_ids: string[];
 }
@@ -208,6 +224,7 @@ export interface ChatBaselineExtraction {
   status: "candidate";
   case_summary: string;
   entities: ChatBaselineEntity[];
+  relationships: ChatBaselineRelationship[];
   evidence: ChatBaselineEvidence[];
   timeline: ChatBaselineTimelineEvent[];
   missing_information: ChatBaselineMissingInformation[];

@@ -12,11 +12,15 @@ import httpx
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import settings
+from app.services.chat.core_llm import resolve_core_llm_target
+from app.services.chat.structured_output_request_router import (
+    structured_output_request_options,
+)
 
 
 FOLLOWUP_POLICY_VERSION = "baseline_pre_rag_followup_v1"
 FOLLOWUP_PROMPT_VERSION = "baseline_pre_rag_followup_prompt_v1"
-FOLLOWUP_POLICY_PROVIDER = "anthropic"
+FOLLOWUP_POLICY_PROVIDER = "core_llm"
 
 FollowUpReasonCode = Literal[
     "sufficient_case_context",
@@ -141,6 +145,8 @@ class FollowUpPolicyResult:
     latency_ms: float | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    provider: str | None = None
+    model: str | None = None
 
 
 class FollowUpPolicy(Protocol):
@@ -333,16 +339,21 @@ class AnthropicFollowUpPolicy:
         clarification_exchanges: Sequence[ClarificationExchange],
         client: httpx.AsyncClient | None = None,
     ) -> FollowUpPolicyResult:
-        if not settings.anthropic_api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not configured")
+        target = resolve_core_llm_target(settings.chat_followup_policy_model)
 
         bounded_payload = _bounded_policy_context(
             original_user_content=original_user_content,
             clarification_exchanges=clarification_exchanges,
         )
         request_payload = {
-            "model": settings.chat_followup_policy_model,
-            "max_tokens": settings.chat_followup_policy_max_output_tokens,
+            "model": target.model,
+            **structured_output_request_options(
+                provider=target.provider,
+                feature="followup",
+                configured_max_tokens=(
+                    settings.chat_followup_policy_max_output_tokens
+                ),
+            ),
             "system": _POLICY_SYSTEM,
             "messages": [
                 {
@@ -363,50 +374,59 @@ class AnthropicFollowUpPolicy:
                 }
             },
         }
-        headers = {
-            "x-api-key": settings.anthropic_api_key,
-            "anthropic-version": "2023-06-01",
-        }
         started = time.perf_counter()
         if client is not None:
-            result = await self._post(client, request_payload, headers)
+            result = await self._post(
+                client,
+                target.messages_url,
+                request_payload,
+                target.headers,
+            )
         else:
             async with httpx.AsyncClient(
                 timeout=settings.chat_followup_policy_timeout_seconds
             ) as owned_client:
-                result = await self._post(owned_client, request_payload, headers)
+                result = await self._post(
+                    owned_client,
+                    target.messages_url,
+                    request_payload,
+                    target.headers,
+                )
         return FollowUpPolicyResult(
             decision=result.decision,
             latency_ms=round((time.perf_counter() - started) * 1000, 3),
             input_tokens=result.input_tokens,
             output_tokens=result.output_tokens,
+            provider=target.provider,
+            model=target.model,
         )
 
     @staticmethod
     async def _post(
         client: httpx.AsyncClient,
+        messages_url: str,
         request_payload: dict[str, object],
         headers: dict[str, str],
     ) -> FollowUpPolicyResult:
         response = await client.post(
-            settings.anthropic_messages_url,
+            messages_url,
             headers=headers,
             json=request_payload,
         )
         response.raise_for_status()
         response_payload = response.json()
         if not isinstance(response_payload, dict):
-            raise ValueError("Anthropic follow-up policy response is malformed")
+            raise ValueError("Core LLM follow-up policy response is malformed")
         if response_payload.get("stop_reason") in {
             "refusal",
             "max_tokens",
             "length",
             "pause_turn",
         }:
-            raise ValueError("Anthropic follow-up policy did not complete")
+            raise ValueError("Core LLM follow-up policy did not complete")
         content = response_payload.get("content")
         if not isinstance(content, list):
-            raise ValueError("Anthropic follow-up policy content is malformed")
+            raise ValueError("Core LLM follow-up policy content is malformed")
         text = "".join(
             block.get("text", "")
             for block in content
@@ -414,7 +434,7 @@ class AnthropicFollowUpPolicy:
         )
         parsed = json.loads(text)
         if not isinstance(parsed, dict):
-            raise ValueError("Anthropic follow-up policy output must be an object")
+            raise ValueError("Core LLM follow-up policy output must be an object")
         usage = response_payload.get("usage")
         usage_dict = usage if isinstance(usage, dict) else {}
         return FollowUpPolicyResult(
