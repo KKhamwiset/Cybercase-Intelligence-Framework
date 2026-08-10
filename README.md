@@ -1,42 +1,86 @@
 # CyberCase Intelligence Framework
 
-CyberCase is a single-user chat application for MITRE ATT&CK-assisted cybersecurity incident analysis. A Next.js frontend stores chat activity through a FastAPI backend, and the backend sends each analysis request to the standalone GraphRAG service.
+CyberCase is an interactive, trust-bounded cyber incident analysis system. It converts unstructured investigator narratives and clarification answers into provenance-aware relational case representations (entities, relationships, evidence candidates, timeline events, missing facts, and explicit uncertainty) while strictly preventing external background knowledge or RAG outputs from contaminating user-reported evidence.
 
-The current product boundary is intentionally narrow:
+> [!NOTE]
+> **Research Scope Division**:
+> - **Primary System Scope (This Project / Core Architecture)**: Pre-RAG material-fact clarification, source-bounded trust-boundary fact extraction, relational case representation & visualization, provenance validation, backend service architecture, and empirical representation trade-off evaluation (B0 vs. D1 vs. B2).
+> - **External Knowledge Scope (Collaborator/RAG Module)**: External MITRE ATT&CK GraphRAG retrieval (`rag_service/`), hybrid Qdrant vector + Neo4j graph search, and LangGraph self-reflection.
 
-- PostgreSQL persists chat threads, messages, and background runs.
-- The backend exposes health and chat APIs only.
-- The RAG service owns retrieval and answer generation.
-- Interactive clarification is owned by the backend. Each clarification round sends a new RAG `/query` containing the accumulated incident context.
-- The frontend can assemble an extraction view and a seven-section report for the selected chat. That report is a demo-only, client-side, non-persistent, unverified artifact; it is not a backend case report.
+---
 
-The application is not ready for multi-user deployment because the chat routes do not yet enforce authentication or per-user ownership.
+## 🌟 Key Architecture & Principles
 
-## Services
+### 1. Trust-Boundary Principle: "Analytical Knowledge ≠ Case Evidence"
+General LLM model knowledge, RAG answers, and MITRE ATT&CK descriptions are **analytical context**, not factual incident evidence. The extraction pipeline ([backend/app/services/extraction/llm_extraction.py](file:///f:/Cybercase%20Framework/backend/app/services/extraction/llm_extraction.py)) strictly restricts its input packet (`ExtractionInput`) to user-authored case messages (`user_case_statement` and `clarification_answer`), excluding RAG outputs to eliminate hallucination contamination.
 
-| Service | Path | Port | Responsibility |
-| --- | --- | --- | --- |
-| Frontend | `frontend/` | 3000 | Chat UI plus client-side demo extraction/report views |
-| Backend | `backend/` | 8000 | Chat persistence, background runs, clarification policy, and RAG orchestration |
-| RAG service | `rag_service/` | 8001 | GraphRAG retrieval and answer generation through `/query` |
-| PostgreSQL | Compose service `db` | 5433 on the host | Persistent chat data |
+### 2. Pre-RAG Material-Fact Clarification Gate
+Before invoking external knowledge retrieval, the backend clarification policy ([backend/app/services/chat/followup_policy.py](file:///f:/Cybercase%20Framework/backend/app/services/chat/followup_policy.py)) evaluates whether material case facts are missing or ambiguous. It asks up to 3 bounded, concise clarification questions in the user's language or proceeds when context is sufficient or unavailable.
 
-Neo4j and Qdrant are external services used by `rag_service`.
+### 3. Provenance-Aware Relational Case Representation
+Unstructured text is transformed into an explicit Pydantic JSON schema (`BaselineExtraction`) containing:
+- **Entities & Entity-to-Entity Relationships**: Explicitly stated connections with status (`reported`, `suspected`, `contradicted`, `not_established`).
+- **Evidence Candidates & Timeline Events**: Incident indicators and chronological actions.
+- **Missing Information**: Identified gaps requiring further investigation.
+- **Source Message Provenance**: Every extracted item maintains direct binding to user message IDs (`source_message_ids`).
 
-## Quick Start
+### 4. Empirical Representation Study (B0 vs. D1 vs. B2)
+Evaluates intermediate case representations for incident analysis:
+- **B0**: Direct report generation (`raw case → report`)
+- **D1**: Dehing-adapted summary-first (`raw case → source-preserving text summary → report`)
+- **B2**: CyberCase relationship-first (`raw case → structured relational representation → report`)
+
+---
+
+## 🛠️ Tech Stack & Model Routing
+
+- **Frontend**: Next.js 16 (App Router) + React 19 + Tailwind CSS 4 + TypeScript + D3/SVG Graph Rendering
+- **Backend**: FastAPI + SQLAlchemy (Async) + PostgreSQL + Alembic
+- **Default LLM Routing**: OpenRouter / Anthropic via `openai/gpt-5.6-luna` (configured in `backend/app/config.py`)
+- **External RAG**: FastAPI `rag_service` on port 8001 (Qdrant Dense BGE-M3 + Neo4j 2-hop Graph Expansion)
+
+---
+
+## 📂 Services Architecture
+
+```
+backend/app/services/
+├── __init__.py               # Re-exports domain modules
+├── chat/                     # Chat Session Lifecycle, Thread/Message CRUD & Background Worker
+│   ├── chat_management.py
+│   ├── chat_message.py
+│   ├── chat_worker.py
+│   ├── followup_policy.py
+│   └── rag_client.py
+├── llm/                      # Core LLM Provider & Structured Output Infrastructure
+│   ├── core_llm.py
+│   ├── structured_output.py
+│   ├── structured_output_router.py
+│   └── structured_output_request_router.py
+├── extraction/               # Source-Bounded Fact & Entity/Relationship Extraction
+│   ├── llm_extraction.py
+│   └── demo_extraction.py
+└── reports/                  # Incident Report Generation & PDF Export
+    ├── report_service.py
+    ├── report_generation.py
+    ├── report_prompt.py
+    ├── report_provider_schema.py
+    └── report_pdf.py
+```
+
+---
+
+## 🚀 Quick Start
 
 ### Docker Compose
-
-Doppler supplies the API keys and external database settings consumed by the services:
 
 ```powershell
 doppler run -- docker compose up --build
 ```
 
-This starts PostgreSQL, the backend, the RAG service, and the frontend. The named PostgreSQL volume is persistent; do not use `docker compose down -v` unless deleting local database data is intentional.
+Starts PostgreSQL, backend (port 8000), external RAG service (port 8001), and frontend (port 3000).
 
-Apply the database migrations after the database is available. The migration graph has a single current head:
-
+Apply PostgreSQL database migrations:
 ```powershell
 cd backend
 doppler run -- python -m alembic upgrade head
@@ -44,85 +88,41 @@ doppler run -- python -m alembic upgrade head
 
 ### Local Development
 
-Create and activate a Python environment, then install the backend and RAG dependencies:
+1. **Activate Virtual Environment & Install Dependencies**:
+   ```powershell
+   .\env_mitre\Scripts\Activate.ps1
+   python install_deps.py
+   ```
+
+2. **Run Backend API**:
+   ```powershell
+   cd backend
+   doppler run -- python -m alembic upgrade head
+   doppler run -- uvicorn app.main:app --port 8000 --reload
+   ```
+
+3. **Run Frontend**:
+   ```powershell
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+4. Open `http://localhost:3000/chat`. OpenAPI documentation is available at `http://localhost:8000/docs`.
+
+---
+
+## 🧪 Validation & Testing
 
 ```powershell
-python -m venv env_mitre
-.\env_mitre\Scripts\Activate.ps1
-python install_deps.py
-```
-
-Run each service in its own terminal:
-
-```powershell
-cd rag_service
-doppler run -- uvicorn app.main:app --port 8001 --reload
-```
-
-```powershell
-cd backend
-doppler run -- python -m alembic upgrade head
-doppler run -- uvicorn app.main:app --port 8000 --reload
-```
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000/chat`. Backend OpenAPI documentation is available at `http://localhost:8000/docs`.
-
-## Backend API
-
-All application endpoints use the `/api/v1` prefix.
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/v1/health` | Check backend and database health |
-| `GET` | `/api/v1/chats` | List chat threads |
-| `POST` | `/api/v1/chats` | Create a chat thread |
-| `GET` | `/api/v1/chats/{thread_id}` | Read a thread and its ordered messages |
-| `PATCH` | `/api/v1/chats/{thread_id}` | Rename a thread |
-| `DELETE` | `/api/v1/chats/{thread_id}` | Permanently delete a thread and its dependent rows |
-| `POST` | `/api/v1/chats/{thread_id}/messages` | Persist a user message and enqueue a background run |
-| `GET` | `/api/v1/chats/{thread_id}/runs/{run_id}` | Read a known background run's status or error |
-
-There are no backend case, report, user, upload/OCR, or standalone RAG-proxy routes in the chat-only application.
-
-## Chat and Clarification Flow
-
-1. The frontend creates or selects a persisted chat thread.
-2. Posting a message returns `202 Accepted` with the stored message and queued run.
-3. The backend worker calls `rag_service` at `POST /query`.
-4. The backend evaluates whether the accumulated incident context needs a focused clarification.
-5. If clarification is needed, the assistant question is persisted and the thread enters `awaiting_followup`.
-6. A clarification answer is stored as a normal user message. The backend reconstructs the active clarification chain and starts another `/query` with the original incident text plus accumulated questions and answers.
-7. The frontend polls the authoritative thread state until the run is complete or failed.
-
-The frontend never calls `rag_service` directly, and the chat flow does not call a RAG `/resume` endpoint.
-
-## Demo Report Boundary
-
-The Report tab reads the currently selected chat and builds its output in the browser. It does not create a report record, invoke a backend report workflow, or verify the underlying evidence. Refreshing or switching away does not create a separately persisted report artifact. Treat the output as a demonstration draft requiring human review, not an investigation finding or legal conclusion.
-
-## Validation
-
-```powershell
+# Backend Pytest Suite (129 tests)
 cd backend
 ..\env_mitre\Scripts\python.exe -m pytest tests -q -p no:cacheprovider
 python -m alembic heads
-```
 
-```powershell
+# Frontend Type-check & Production Build
 cd frontend
 npm run lint
 npm run test
 npm run build
 ```
-
-```powershell
-docker compose config --quiet
-```
-
-See `docs/chat-frontend-backend-integration.md` for the detailed frontend/backend chat contract.
