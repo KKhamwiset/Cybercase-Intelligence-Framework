@@ -495,10 +495,9 @@ async def evaluate_followup_outcome(
 
     started = time.perf_counter()
     try:
-        active_policy = policy or AnthropicFollowUpPolicy()
-        decide_with_metadata = getattr(active_policy, "decide_with_metadata", None)
-        if callable(decide_with_metadata):
-            raw_result = await decide_with_metadata(
+        active_policy = policy() if isinstance(policy, type) else (policy or AnthropicFollowUpPolicy())
+        if hasattr(active_policy, "decide_with_metadata") and callable(getattr(active_policy, "decide_with_metadata")):
+            raw_result = await active_policy.decide_with_metadata(
                 original_user_content=original_user_content,
                 clarification_exchanges=clarification_exchanges,
             )
