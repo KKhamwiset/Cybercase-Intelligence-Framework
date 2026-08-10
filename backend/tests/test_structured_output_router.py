@@ -5,10 +5,10 @@ from unittest.mock import patch
 import httpx
 from pydantic import BaseModel
 
-from app.services.chat.core_llm import CoreLlmProvider, CoreLlmTarget
-from app.services.chat.llm_extraction import AnthropicExtractionAdapter
-from app.services.chat.report_generation import AnthropicReportAdapter
-from app.services.chat.structured_output_router import structured_output_schema
+from app.services.llm.core_llm import CoreLlmProvider, CoreLlmTarget
+from app.services.extraction.llm_extraction import AnthropicExtractionAdapter
+from app.services.reports.report_generation import AnthropicReportAdapter
+from app.services.llm.structured_output_router import structured_output_schema
 
 
 class _NestedSchema(BaseModel):
@@ -87,11 +87,11 @@ class StructuredOutputRouterTests(unittest.IsolatedAsyncioTestCase):
         client = _CaptureAsyncClient()
         with (
             patch(
-                "app.services.chat.llm_extraction.resolve_core_llm_target",
+                "app.services.extraction.llm_extraction.resolve_core_llm_target",
                 return_value=_target("openrouter"),
             ),
             patch(
-                "app.services.chat.llm_extraction.httpx.AsyncClient",
+                "app.services.extraction.llm_extraction.httpx.AsyncClient",
                 return_value=client,
             ),
         ):
@@ -109,11 +109,11 @@ class StructuredOutputRouterTests(unittest.IsolatedAsyncioTestCase):
         client = _CaptureAsyncClient()
         with (
             patch(
-                "app.services.chat.report_generation.resolve_core_llm_target",
+                "app.services.reports.report_generation.resolve_core_llm_target",
                 return_value=_target("anthropic"),
             ),
             patch(
-                "app.services.chat.report_generation.httpx.AsyncClient",
+                "app.services.reports.report_generation.httpx.AsyncClient",
                 return_value=client,
             ),
         ):
@@ -139,11 +139,11 @@ class StructuredOutputRouterTests(unittest.IsolatedAsyncioTestCase):
         client = _CaptureAsyncClient()
         with (
             patch(
-                "app.services.chat.report_generation.resolve_core_llm_target",
+                "app.services.reports.report_generation.resolve_core_llm_target",
                 return_value=_target("openrouter"),
             ),
             patch(
-                "app.services.chat.report_generation.httpx.AsyncClient",
+                "app.services.reports.report_generation.httpx.AsyncClient",
                 return_value=client,
             ),
         ):

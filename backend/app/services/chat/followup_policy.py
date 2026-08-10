@@ -12,8 +12,9 @@ import httpx
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.config import settings
-from app.services.chat.core_llm import resolve_core_llm_target
-from app.services.chat.structured_output_request_router import (
+from app.services.extraction.llm_extraction import BaselineExtraction
+from app.services.llm.core_llm import resolve_core_llm_target
+from app.services.llm.structured_output_request_router import (
     structured_output_request_options,
 )
 

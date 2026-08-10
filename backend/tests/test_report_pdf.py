@@ -10,7 +10,7 @@ from app.schemas.chat.reports import (
     ReportSection,
     StructuredReport,
 )
-from app.services.chat.report_pdf import render_chat_report_pdf
+from app.services.reports.report_pdf import render_chat_report_pdf
 
 
 def test_render_chat_report_pdf_contains_formal_metadata_and_sections() -> None:

@@ -6,7 +6,7 @@ from app.services.chat.chat_worker import (
     ClaimedChatRun,
     attach_demo_extraction,
 )
-from app.services.chat.demo_extraction import (
+from app.services.extraction.demo_extraction import (
     add_demo_chat_extraction,
     build_demo_chat_extraction,
 )

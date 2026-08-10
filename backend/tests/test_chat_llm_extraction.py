@@ -13,7 +13,7 @@ from app.services.chat.chat_worker import (
     process_chat_run,
 )
 from app.services.chat.followup_policy import FollowUpDecision
-from app.services.chat.llm_extraction import (
+from app.services.extraction.llm_extraction import (
     ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
     BASELINE_EXTRACTION_PROMPT_VERSION,
     BASELINE_EXTRACTION_SYSTEM_PROMPT,
@@ -27,7 +27,7 @@ from app.services.chat.llm_extraction import (
     validate_baseline_extraction,
 )
 from app.models.chat import ChatMessage
-from app.services.chat.structured_output import anthropic_json_schema
+from app.services.llm.structured_output import anthropic_json_schema
 
 
 class FakeExtractionAdapter:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from app.services.chat.core_llm import CoreLlmProvider
+from app.services.llm.core_llm import CoreLlmProvider
 
 
 StructuredOutputFeature = Literal["followup", "extraction", "report"]

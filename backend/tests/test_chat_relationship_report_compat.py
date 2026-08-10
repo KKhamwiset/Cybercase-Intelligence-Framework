@@ -2,7 +2,7 @@ import unittest
 from uuid import uuid4
 
 from app.models.chat import ChatMessage, ChatThread
-from app.services.chat.report_service import build_current_report_snapshot
+from app.services.reports.report_service import build_current_report_snapshot
 
 
 class ChatRelationshipReportCompatibilityTests(unittest.TestCase):

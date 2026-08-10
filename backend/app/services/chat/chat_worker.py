@@ -23,8 +23,8 @@ from app.config import settings
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat.rag import QueryResponse
 from app.services.chat.chat_message import reconstruct_clarification_chain
-from app.services.chat.demo_extraction import add_demo_chat_extraction
-from app.services.chat.core_llm import resolve_core_llm_target
+from app.services.extraction.demo_extraction import add_demo_chat_extraction
+from app.services.llm.core_llm import resolve_core_llm_target
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
@@ -35,7 +35,7 @@ from app.services.chat.followup_policy import (
     FollowUpPolicyResult,
     build_clarified_query,
 )
-from app.services.chat.llm_extraction import (
+from app.services.extraction.llm_extraction import (
     BASELINE_EXTRACTION_MODE,
     BASELINE_EXTRACTION_PROMPT_VERSION,
     BASELINE_EXTRACTION_VERSION,
@@ -48,14 +48,13 @@ from app.services.chat.llm_extraction import (
 )
 from app.services.chat.rag_client import RagCallFailure, request_rag
 
-
 logger = logging.getLogger("app.chat")
 RUN_LEASE_DURATION = timedelta(minutes=6)
 
 
 @dataclass(frozen=True)
 class ClaimedChatRun:
-    '''Detached input needed after the claim transaction has closed.'''
+    """Detached input needed after the claim transaction has closed."""
 
     id: UUID
     operation: str
@@ -66,7 +65,6 @@ class ClaimedChatRun:
     clarification_exchanges: tuple[ClarificationExchange, ...]
     followup_root_ordinal: int
     extraction_input: ExtractionInput | None = None
-
 
 @dataclass(frozen=True)
 class AssistantOutcome:

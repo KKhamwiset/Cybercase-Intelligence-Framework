@@ -16,7 +16,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.config import settings
-from app.services.chat.core_llm import (
+from app.services.llm.core_llm import (
     CoreLlmConfigurationError,
     resolve_core_llm_target,
 )
@@ -25,17 +25,17 @@ from app.schemas.chat.reports import (
     REPORT_SECTION_IDS,
     StructuredReport,
 )
-from app.services.chat.llm_extraction import BaselineExtraction
-from app.services.chat.report_prompt import (
+from app.services.extraction.llm_extraction import BaselineExtraction
+from app.services.reports.report_prompt import (
     REPORT_PROMPT_VERSION,
     REPORT_SYSTEM_PROMPT,
 )
-from app.services.chat.report_provider_schema import (
+from app.services.reports.report_provider_schema import (
     ProviderStructuredReport,
     provider_report_to_structured_report,
 )
-from app.services.chat.structured_output_router import structured_output_schema
-from app.services.chat.structured_output_request_router import (
+from app.services.llm.structured_output_router import structured_output_schema
+from app.services.llm.structured_output_request_router import (
     structured_output_request_options,
 )
 
@@ -140,6 +140,9 @@ class ReportProviderFailure(Exception):
         self.message = message
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+
+
+ReportGenerationError = ReportProviderFailure
 
 
 @dataclass(frozen=True)
@@ -660,6 +663,9 @@ def _optional_int(value: object) -> int | None:
 
 def _latency_ms(started: float) -> float:
     return round((time.perf_counter() - started) * 1000, 3)
+
+
+generate_report_payload = run_report_generation
 
 
 __all__ = [

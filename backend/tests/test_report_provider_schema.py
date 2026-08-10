@@ -3,11 +3,11 @@ import unittest
 from pydantic import ValidationError
 
 from app.schemas.chat.reports import REPORT_SECTION_HEADINGS, REPORT_SECTION_IDS
-from app.services.chat.report_provider_schema import (
+from app.services.reports.report_provider_schema import (
     ProviderStructuredReport,
     provider_report_to_structured_report,
 )
-from app.services.chat.structured_output_router import structured_output_schema
+from app.services.llm.structured_output_router import structured_output_schema
 
 
 class ReportProviderSchemaTests(unittest.TestCase):

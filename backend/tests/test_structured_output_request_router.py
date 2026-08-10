@@ -6,19 +6,19 @@ from unittest.mock import patch
 import httpx
 
 from app.config import settings
-from app.services.chat.core_llm import CoreLlmProvider
+from app.services.llm.core_llm import CoreLlmProvider
+from app.services.llm.structured_output_request_router import (
+    StructuredOutputFeature,
+    structured_output_request_options,
+)
 from app.services.chat.followup_policy import AnthropicFollowUpPolicy
-from app.services.chat.llm_extraction import (
+from app.services.extraction.llm_extraction import (
     AnthropicExtractionAdapter,
     ExtractionFailure,
 )
-from app.services.chat.report_generation import (
+from app.services.reports.report_generation import (
     AnthropicReportAdapter,
     ReportProviderFailure,
-)
-from app.services.chat.structured_output_request_router import (
-    StructuredOutputFeature,
-    structured_output_request_options,
 )
 
 
@@ -180,7 +180,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
 
         extraction_client = _RecordingAsyncClient(_text_response())
         with patch(
-            "app.services.chat.llm_extraction.httpx.AsyncClient",
+            "app.services.extraction.llm_extraction.httpx.AsyncClient",
             return_value=extraction_client,
         ):
             await AnthropicExtractionAdapter().complete(
@@ -196,7 +196,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
 
         report_client = _RecordingAsyncClient(_text_response())
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=report_client,
         ):
             await AnthropicReportAdapter().complete(
@@ -229,7 +229,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
 
         extraction_client = _RecordingAsyncClient(_text_response())
         with patch(
-            "app.services.chat.llm_extraction.httpx.AsyncClient",
+            "app.services.extraction.llm_extraction.httpx.AsyncClient",
             return_value=extraction_client,
         ):
             await AnthropicExtractionAdapter().complete(
@@ -245,7 +245,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
 
         report_client = _RecordingAsyncClient(_text_response())
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=report_client,
         ):
             await AnthropicReportAdapter().complete(
@@ -278,7 +278,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
                     }
                 )
                 with patch(
-                    "app.services.chat.llm_extraction.httpx.AsyncClient",
+                    "app.services.extraction.llm_extraction.httpx.AsyncClient",
                     return_value=client,
                 ):
                     with self.assertRaises(ExtractionFailure) as context:
@@ -306,7 +306,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=client,
         ):
             with self.assertRaises(ReportProviderFailure) as context:

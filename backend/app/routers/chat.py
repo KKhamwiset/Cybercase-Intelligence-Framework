@@ -15,12 +15,17 @@ from app.schemas.chat import (
 )
 from app.services.chat import (
     ChatMessageService,
-    ChatReportService,
     ChatService,
-    ReportGenerationConflict,
-    ReportNotFound,
     process_chat_run,
 )
+from app.services.reports import (
+    ReportGenerationError,
+    ReportService,
+)
+
+ChatReportService = ReportService
+ReportGenerationConflict = ReportGenerationError
+ReportNotFound = ReportGenerationError
 from uuid import UUID
 
 router = APIRouter(prefix="/chats", tags=["chats"])

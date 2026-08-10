@@ -22,12 +22,12 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from app.config import settings
-from app.services.chat.core_llm import (
+from app.services.llm.core_llm import (
     CoreLlmConfigurationError,
     resolve_core_llm_target,
 )
-from app.services.chat.structured_output_router import structured_output_schema
-from app.services.chat.structured_output_request_router import (
+from app.services.llm.structured_output_router import structured_output_schema
+from app.services.llm.structured_output_request_router import (
     structured_output_request_options,
 )
 

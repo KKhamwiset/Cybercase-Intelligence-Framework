@@ -3,7 +3,7 @@ import unittest
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.services.chat.core_llm import (
+from app.services.llm.core_llm import (
     CoreLlmConfigurationError,
     resolve_core_llm_target,
 )

@@ -5,16 +5,16 @@ import httpx
 
 from app.config import settings
 from app.schemas.chat.reports import StructuredReport
-from app.services.chat.llm_extraction import (
+from app.services.extraction.llm_extraction import (
     AnthropicExtractionAdapter,
     BaselineExtraction,
 )
-from app.services.chat.report_generation import (
+from app.services.reports.report_generation import (
     AnthropicReportAdapter,
     ReportProviderFailure,
 )
-from app.services.chat.report_provider_schema import ProviderStructuredReport
-from app.services.chat.structured_output import anthropic_json_schema
+from app.services.reports.report_provider_schema import ProviderStructuredReport
+from app.services.llm.structured_output import anthropic_json_schema
 
 
 _UNSUPPORTED_KEYS = {
@@ -108,7 +108,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
     async def test_extraction_adapter_sends_normalized_schema(self) -> None:
         client = _CaptureAsyncClient()
         with patch(
-            "app.services.chat.llm_extraction.httpx.AsyncClient",
+            "app.services.extraction.llm_extraction.httpx.AsyncClient",
             return_value=client,
         ):
             await AnthropicExtractionAdapter().complete(
@@ -128,7 +128,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
         settings.openrouter_cybercase = "openrouter-test-key"
         client = _CaptureAsyncClient()
         with patch(
-            "app.services.chat.llm_extraction.httpx.AsyncClient",
+            "app.services.extraction.llm_extraction.httpx.AsyncClient",
             return_value=client,
         ):
             await AnthropicExtractionAdapter().complete(
@@ -159,7 +159,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
     async def test_report_adapter_sends_normalized_schema(self) -> None:
         client = _CaptureAsyncClient()
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=client,
         ):
             await AnthropicReportAdapter().complete(
@@ -188,7 +188,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=client,
         ):
             with self.assertRaises(ReportProviderFailure) as context:
@@ -213,7 +213,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
             }
         )
         with patch(
-            "app.services.chat.report_generation.httpx.AsyncClient",
+            "app.services.reports.report_generation.httpx.AsyncClient",
             return_value=client,
         ):
             with self.assertRaises(ReportProviderFailure) as context:

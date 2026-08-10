@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.services.chat.core_llm import CoreLlmProvider
-from app.services.chat.structured_output import anthropic_json_schema
+from app.services.llm.core_llm import CoreLlmProvider
+from app.services.llm.structured_output import anthropic_json_schema
 
 
 def structured_output_schema(

@@ -1,3 +1,4 @@
+
 import json
 import unittest
 from datetime import datetime, timezone
@@ -7,20 +8,20 @@ from app.config import settings
 from app.models.chat import ChatMessage, ChatThread
 from app.models.report import ChatReport
 from app.schemas.chat import ChatReportCreate
-from app.services.chat.llm_extraction import (
+from app.services.extraction.llm_extraction import (
     BASELINE_EXTRACTION_PROMPT_VERSION,
 )
-from app.services.chat.report_generation import (
+from app.services.reports.report_generation import (
     AdmittedMitreRow,
     ReportModelResponse,
     ReportProviderFailure,
     run_report_generation,
 )
-from app.services.chat.report_prompt import (
+from app.services.reports.report_prompt import (
     REPORT_PROMPT_VERSION,
     REPORT_SYSTEM_PROMPT,
 )
-from app.services.chat.report_service import (
+from app.services.reports.report_service import (
     ChatReportService,
     ReportGenerationConflict,
     build_current_report_snapshot,
