@@ -17,7 +17,12 @@ class ChatRagClientTests(unittest.IsolatedAsyncioTestCase):
             captured_payload.update(json.loads(request.content))
             return httpx.Response(
                 200,
-                json={"status": "completed", "answer": "done"},
+                json={
+                    "status": "completed",
+                    "retrieval_context_id": "retrieval-1",
+                    "context": "bounded MITRE context",
+                    "mitre_table": [],
+                },
             )
 
         async with httpx.AsyncClient(
@@ -29,7 +34,37 @@ class ChatRagClientTests(unittest.IsolatedAsyncioTestCase):
             captured_payload,
             {"query": "inspect this", "use_agent": True},
         )
-        self.assertEqual(map_rag_response(response).content, "done")
+        self.assertEqual(
+            map_rag_response(response),
+            {
+                "retrieved_context": "bounded MITRE context",
+                "retrieval_context_id": "retrieval-1",
+                "mitre_table": [],
+                "previous_analysis": None,
+            },
+        )
+
+    async def test_answer_fields_are_rejected(self) -> None:
+        for forbidden_field in ("answer", "rag_answer"):
+            with self.subTest(forbidden_field=forbidden_field):
+                def handler(request: httpx.Request) -> httpx.Response:
+                    return httpx.Response(
+                        200,
+                        json={
+                            "status": "completed",
+                            "retrieval_context_id": None,
+                            "context": "",
+                            "mitre_table": [],
+                            forbidden_field: "must not cross this boundary",
+                        },
+                    )
+
+                async with httpx.AsyncClient(
+                    transport=httpx.MockTransport(handler)
+                ) as client:
+                    with self.assertRaises(RagCallFailure) as raised:
+                        await request_rag("inspect this", client=client)
+                self.assertEqual(raised.exception.code, "rag_invalid_response")
 
     async def test_non_completed_response_is_rejected(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
@@ -73,21 +108,29 @@ class ChatRagResponseMappingTests(unittest.TestCase):
         outcome = map_rag_response(
             QueryResponse(
                 status="completed",
-                answer="PowerShell was observed.",
+                retrieval_context_id="retrieval-1",
+                context="PowerShell retrieval context",
                 mitre_table=[mitre_row],
             )
         )
 
-        self.assertEqual(outcome.metadata_json, {"mitre_table": [mitre_row]})
+        self.assertEqual(outcome["mitre_table"], [mitre_row])
         self.assertEqual(
-            json.loads(json.dumps(outcome.metadata_json)),
-            outcome.metadata_json,
+            json.loads(json.dumps(outcome)),
+            outcome,
         )
 
-    def test_blank_completed_response_is_invalid(self) -> None:
-        with self.assertRaises(RagCallFailure) as raised:
-            map_rag_response(QueryResponse(status="completed", answer=" "))
-        self.assertEqual(raised.exception.code, "rag_invalid_response")
+    def test_empty_no_hit_context_and_empty_id_sentinel_are_valid(self) -> None:
+        response = QueryResponse.model_validate(
+            {
+                "status": "completed",
+                "retrieval_context_id": "",
+                "context": "",
+                "mitre_table": [],
+            }
+        )
+        self.assertIsNone(response.retrieval_context_id)
+        self.assertEqual(map_rag_response(response)["retrieved_context"], "")
 
 
 if __name__ == "__main__":

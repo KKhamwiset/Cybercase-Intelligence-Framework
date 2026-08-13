@@ -1,0 +1,63 @@
+{
+  "case_id": "case-a",
+  "intermediate_version": "d1_summary_records_v1",
+  "ordered_parts": [
+    {
+      "case_id": "case-a",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0001",
+      "part_ordinal": 1,
+      "part_sha256": "0a753495f195239ee821c2b55fb036f9029d72c48bee5dbe579dd6465bebd6b1",
+      "records": [
+        {
+          "participants": [
+            "Alice Chen",
+            "ACC-100"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            }
+          ],
+          "summary": "The intake statement reports that Alice Chen is the registered holder of account ACC-100.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Alice Chen",
+            "ACC-100",
+            "ACC-200",
+            "TX-1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "summary": "Transaction record TX-1 reports a transfer of USD 500 from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC and names Alice Chen as the initiating user.",
+          "timestamp_text": "2026-01-10 09:00 UTC"
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 89,
+          "char_start": 0,
+          "content_sha256": "6aa3a90e0cd64c5c9d83a378ae9610440e61c6a6b8c78bc6d67447112cf27d44",
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1",
+          "source_type": "investigator_statement"
+        },
+        {
+          "char_end": 154,
+          "char_start": 0,
+          "content_sha256": "e8f9b30527a8eea82ca5a4f99d70b82ec9b5c5add4ead00644c6d01307054871",
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1",
+          "source_type": "transaction_log_excerpt"
+        }
+      ]
+    }
+  ]
+}

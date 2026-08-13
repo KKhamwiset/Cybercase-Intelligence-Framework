@@ -1,0 +1,5 @@
+
+         
+
+         
+{"id":"gen-1786275384-HsXUU3PcB10qyTvQzYmM","object":"chat.completion","created":1786275384,"model":"openai/gpt-5.6-luna","provider":"OpenAI","system_fingerprint":null,"service_tier":"default","choices":[{"index":0,"logprobs":null,"finish_reason":"stop","native_finish_reason":"completed","message":{"role":"assistant","content":"{\"records\":[]}","refusal":null}}],"usage":{"prompt_tokens":1220,"completion_tokens":15,"total_tokens":1235,"cost":0.000161425,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":1217,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.000161425,"upstream_inference_prompt_cost":0.000152425,"upstream_inference_completions_cost":0.000009},"completion_tokens_details":{"reasoning_tokens":0,"image_tokens":0,"audio_tokens":0}},"openrouter_metadata":{"requested":"openai/gpt-5.6-luna-20260709","strategy":"direct","region":"TPE","summary":"available=1, selected=OpenAI","attempt":1,"is_byok":false,"endpoints":{"total":4,"available":[{"provider":"OpenAI","model":"openai/gpt-5.6-luna-20260709","selected":true}]}}}

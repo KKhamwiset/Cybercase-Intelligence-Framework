@@ -1,0 +1,16 @@
+{
+  "calls": [],
+  "case_id": "case-test",
+  "condition": "B2",
+  "failure_code": null,
+  "input_tokens": null,
+  "model_calls": 0,
+  "output_tokens": null,
+  "parse_validation_status": "not_run",
+  "raw_report_response_available": false,
+  "relationship_ir_available": false,
+  "repeat": 1,
+  "status": "dry_run",
+  "total_latency_ms": 0.0,
+  "validated_report_available": false
+}

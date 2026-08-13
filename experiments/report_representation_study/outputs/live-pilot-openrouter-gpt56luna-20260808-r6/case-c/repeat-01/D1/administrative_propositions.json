@@ -1,0 +1,560 @@
+{
+  "export_version": "human_proposition_export_v1",
+  "gold_status": "not_available",
+  "propositions": [
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-001",
+      "statement_text": "The first report states that the RedFox handle belongs to Carol V.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "contradicted",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-002",
+      "statement_text": "A witness states that RedFox may refer to Carla V.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "conflicting_sources",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-003",
+      "statement_text": "The identity of the RedFox handle remains unresolved between the conflicting claims concerning Carol V. and Carla V.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-004",
+      "statement_text": "The supplied records concern an alleged message associated with the RedFox handle.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-005",
+      "statement_text": "The supplied representation contains two source summaries and no raw case content.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-006",
+      "statement_text": "The first report states that RedFox sent a message at 2026-03-01 10:00 UTC.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-007",
+      "statement_text": "The witness recalls the message at approximately 2026-03-01 11:00 UTC.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-008",
+      "statement_text": "The witness states that the recalled time is uncertain.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_established",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-009",
+      "statement_text": "The supplied records do not establish whether the two reported times refer to the same message.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-010",
+      "statement_text": "The first report associates the RedFox handle with Carol V.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "suspected",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-011",
+      "statement_text": "The witness associates the RedFox handle as possibly referring to Carla V.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "unknown_counterpart",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-012",
+      "statement_text": "The supplied records do not establish whether Carol V. and Carla V. are distinct people or aliases for one person.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "missing_information",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-013",
+      "statement_text": "No system, device, or account identifier is supplied for the RedFox handle.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-014",
+      "statement_text": "One source places the reported message at 2026-03-01 10:00 UTC.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-015",
+      "statement_text": "Another source places the recalled message at approximately 2026-03-01 11:00 UTC.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "conflicting_sources",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-016",
+      "statement_text": "The chronology of the reported message is ambiguous because the supplied sources provide differing times and the witness identifies the recalled time as uncertain.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "technical_analysis_mitre",
+      "statement_id": "stmt-017",
+      "statement_text": "The supplied records do not provide sufficient technical detail to support a specific MITRE ATT&CK mapping.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "missing_information",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "technical_analysis_mitre",
+      "statement_id": "stmt-018",
+      "statement_text": "No technical artifacts, procedure details, or validated account data are supplied for analysis.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_established",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-019",
+      "statement_text": "The supplied records do not establish who controlled the RedFox handle.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-020",
+      "statement_text": "Investigators should preserve the original report and witness materials with their source metadata for comparison.",
+      "statement_type": "next_step",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-021",
+      "statement_text": "Investigators should verify whether Carol V. and Carla V. are distinct individuals or aliases by obtaining corroborating identity and account records through authorized procedures.",
+      "statement_type": "next_step",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0003",
+      "case_id": "case-c",
+      "condition": "D1",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260808-r6",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-022",
+      "statement_text": "Investigators should collect message metadata or other contemporaneous records to reconcile the reported 10:00 UTC and approximately 11:00 UTC times.",
+      "statement_type": "next_step",
+      "verdict": null
+    }
+  ],
+  "scoring_status": "not_scored"
+}

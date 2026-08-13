@@ -1,0 +1,261 @@
+{
+  "export_version": "human_proposition_export_v1",
+  "gold_status": "not_available",
+  "propositions": [
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "unknown_counterpart",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-001",
+      "statement_text": "The owner or controller of account ACC-B1 is unknown.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_established",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-002",
+      "statement_text": "The available information does not establish that Bob Niran controls account ACC-B1.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        },
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-003",
+      "statement_text": "The case representation identifies ACC-B1 as an account.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-004",
+      "statement_text": "The available case representation contains no incident events.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "missing_evidence",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-005",
+      "statement_text": "No login audit records were provided with the case packet.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-006",
+      "statement_text": "Bob Niran is identified in the case representation as a person.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "unknown_counterpart",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-007",
+      "statement_text": "The case representation does not establish an owner or controller for account ACC-B1.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-008",
+      "statement_text": "No incident event time is available in the case representation.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "technical_analysis_mitre",
+      "statement_id": "stmt-009",
+      "statement_text": "The available evidence is insufficient to support a MITRE ATT&CK technique mapping.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-010",
+      "statement_text": "The identity of the owner or controller of account ACC-B1 requires further verification.",
+      "statement_type": "next_step",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0002",
+      "case_id": "case-b",
+      "condition": "B2",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-011",
+      "statement_text": "Investigators should obtain and preserve the missing login audit records for account ACC-B1 through appropriate human-led investigative procedures.",
+      "statement_type": "next_step",
+      "verdict": null
+    }
+  ],
+  "scoring_status": "not_scored"
+}

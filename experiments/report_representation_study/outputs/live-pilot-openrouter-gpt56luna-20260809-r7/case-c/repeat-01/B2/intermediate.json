@@ -1,0 +1,236 @@
+{
+  "artifact_entity_links": [],
+  "artifact_records": [],
+  "case_id": "case-c",
+  "conflicts": [
+    {
+      "conflict_id": "conflict-redfox-identity",
+      "description": "The first report identifies RedFox as belonging to Carol V., whereas the witness says RedFox may refer to Carla V.; the identity claim remains unresolved.",
+      "event_ids": [],
+      "relationship_assertion_ids": [
+        "rel-redfox-belongs-carol",
+        "rel-redfox-may-refer-carla"
+      ],
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ]
+    },
+    {
+      "conflict_id": "conflict-message-chronology",
+      "description": "The first report places the RedFox message at 2026-03-01 10:00 UTC, while the witness recalls it at approximately 2026-03-01 11:00 UTC and states that the time is uncertain.",
+      "event_ids": [
+        "event-redfox-message-report",
+        "event-redfox-message-witness"
+      ],
+      "relationship_assertion_ids": [],
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ]
+    }
+  ],
+  "coreference_candidates": [
+    {
+      "basis": "The first report identifies RedFox as Carol V., while the witness says RedFox may refer to Carla V.; the sources do not establish whether Carol V. and Carla V. are the same person.",
+      "candidate_id": "coref-redfox-carol-carla",
+      "entity_ids": [
+        "entity-carol-v",
+        "entity-carla-v"
+      ],
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "status": "conflicting_sources"
+    }
+  ],
+  "entities": [
+    {
+      "aliases": [],
+      "canonical_label": "RedFox",
+      "entity_id": "entity-redfox-handle",
+      "entity_type": "handle",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        },
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "stability_basis": "The handle RedFox is explicitly named in both source accounts."
+    },
+    {
+      "aliases": [],
+      "canonical_label": "Carol V.",
+      "entity_id": "entity-carol-v",
+      "entity_type": "person",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "stability_basis": "Explicitly named person in the first report."
+    },
+    {
+      "aliases": [],
+      "canonical_label": "Carla V.",
+      "entity_id": "entity-carla-v",
+      "entity_type": "person",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "stability_basis": "Explicitly named person in the witness statement."
+    }
+  ],
+  "events": [
+    {
+      "description": "The first report states that RedFox sent a message.",
+      "event_id": "event-redfox-message-report",
+      "participants": [
+        {
+          "entity_id": "entity-redfox-handle",
+          "role": "actor",
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": [
+        {
+          "normalized_end": "2026-03-01T10:00:00Z",
+          "normalized_start": "2026-03-01T10:00:00Z",
+          "precision": "minute",
+          "raw_text": "2026-03-01 10:00 UTC",
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "status": "reported",
+          "time_kind": "incident",
+          "timezone": "UTC"
+        }
+      ]
+    },
+    {
+      "description": "The witness recalls that RedFox sent a message, with the recalled time stated as approximate and uncertain.",
+      "event_id": "event-redfox-message-witness",
+      "participants": [
+        {
+          "entity_id": "entity-redfox-handle",
+          "role": "actor",
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "status": "suspected"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "status": "suspected",
+      "temporal_assertions": [
+        {
+          "normalized_end": "2026-03-01T11:00:00Z",
+          "normalized_start": "2026-03-01T11:00:00Z",
+          "precision": "minute",
+          "raw_text": "approximately 2026-03-01 11:00 UTC; the witness says the time is uncertain",
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "status": "suspected",
+          "time_kind": "incident",
+          "timezone": "UTC"
+        }
+      ]
+    }
+  ],
+  "ir_version": "relationship_ir_v2",
+  "missing_evidence": [],
+  "missing_information": [],
+  "relationship_assertions": [
+    {
+      "object_entity_id": "entity-carol-v",
+      "predicate": "belongs_to",
+      "relationship_id": "rel-redfox-belongs-carol",
+      "source_refs": [
+        {
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3"
+        }
+      ],
+      "statement": "The first report states that the handle RedFox belongs to Carol V.",
+      "status": "reported",
+      "subject_entity_id": "entity-redfox-handle"
+    },
+    {
+      "object_entity_id": "entity-carla-v",
+      "predicate": "may_refer_to",
+      "relationship_id": "rel-redfox-may-refer-carla",
+      "source_refs": [
+        {
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1"
+        }
+      ],
+      "statement": "The witness says that RedFox may refer to Carla V.",
+      "status": "suspected",
+      "subject_entity_id": "entity-redfox-handle"
+    }
+  ],
+  "unknown_counterpart_gaps": [],
+  "warnings": [
+    "The identity of the person represented by the RedFox handle is unresolved between Carol V. and Carla V.",
+    "The message chronology is ambiguous: the sources report 10:00 UTC and approximately 11:00 UTC, with the latter explicitly uncertain."
+  ]
+}

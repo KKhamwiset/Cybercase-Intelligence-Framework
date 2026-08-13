@@ -26,6 +26,7 @@ const threadStatusLabels: Record<ChatThreadRead["status"], string> = {
   idle: "Ready",
   processing: "Processing",
   awaiting_followup: "Follow-up",
+  answered: "Answered",
   failed: "Failed",
 };
 

@@ -1,0 +1,99 @@
+{
+  "cases": [
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "chunk_count": 2,
+      "estimated_b0_report_context_tokens": 1263,
+      "estimated_full_case_tokens": 261,
+      "estimated_full_extraction_context_tokens": 2259,
+      "reference_context_ids": [
+        "REF-001"
+      ],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-003"
+      ]
+    }
+  ],
+  "chunk_configuration": {
+    "context_window_tokens": 8192,
+    "max_chunk_tokens": 220
+  },
+  "conditions": [
+    "B0",
+    "B1",
+    "B2"
+  ],
+  "decoding_settings": {
+    "extraction_max_output_tokens": 256,
+    "report_max_output_tokens": 512,
+    "temperature": 0.0
+  },
+  "dry_run": true,
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "finished_at": "2026-08-07T07:55:54.917649+00:00",
+  "model": "claude-haiku-4-5-20251001",
+  "output_enforcement_modes": {
+    "relationship_extraction": "plain_json_local_validation",
+    "report": "provider_json_schema_local_validation"
+  },
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v2",
+    "relationship_ir": "relationship_ir_v1",
+    "report": "report_architecture_report_prompt_v1",
+    "report_schema": "baseline_report_v1"
+  },
+  "provider": "anthropic",
+  "provider_schema_sha256": {
+    "relationship_ir": "adcfc775d5935d78e5a67fa2d69be96728356c9d3943ef494742e88a4ad9a927",
+    "report": "334469d1fd9d7f470309826f2ef9919f654d6259b816b84bc503c8b68beb837f"
+  },
+  "repeats": 1,
+  "repository": {
+    "dirty": true,
+    "experiment_code_sha": "2bb922d885f0d3fa78b37e9e2b65cfd1425ba659",
+    "head_sha": "2bb922d885f0d3fa78b37e9e2b65cfd1425ba659"
+  },
+  "results": [
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "condition": "B0",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    },
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "condition": "B1",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    },
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "condition": "B2",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    }
+  ],
+  "run_id": "20260807T075554Z_f16bd1dc",
+  "started_at": "2026-08-07T07:55:54.869484+00:00"
+}

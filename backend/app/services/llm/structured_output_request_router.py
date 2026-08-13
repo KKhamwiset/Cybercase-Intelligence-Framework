@@ -9,6 +9,7 @@ from app.services.llm.core_llm import CoreLlmProvider
 
 StructuredOutputFeature = Literal["followup", "extraction", "report"]
 
+_STRUCTURED_OUTPUT_FEATURES = frozenset({"followup", "extraction", "report"})
 _OPENROUTER_OUTPUT_TOKEN_FLOORS: dict[StructuredOutputFeature, int] = {
     "followup": 2_048,
     "extraction": 8_192,
@@ -25,7 +26,7 @@ def structured_output_request_options(
 ) -> dict[str, object]:
     """Return only the provider-specific structured-output request options."""
 
-    if feature not in _OPENROUTER_OUTPUT_TOKEN_FLOORS:
+    if feature not in _STRUCTURED_OUTPUT_FEATURES:
         raise ValueError(f"Unsupported structured-output feature: {feature!r}")
 
     if provider == "anthropic":

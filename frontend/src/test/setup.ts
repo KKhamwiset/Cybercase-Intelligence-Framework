@@ -35,8 +35,13 @@ if (typeof window !== "undefined") {
     },
   });
 
-  if (typeof SVGElement !== "undefined" && !(SVGElement.prototype as any).getBBox) {
-    (SVGElement.prototype as any).getBBox = () =>
+  if (
+    typeof SVGElement !== "undefined" &&
+    !(SVGElement.prototype as unknown as { getBBox?: () => DOMRect }).getBBox
+  ) {
+    (
+      SVGElement.prototype as unknown as { getBBox: () => DOMRect }
+    ).getBBox = () =>
       ({
         x: 0,
         y: 0,

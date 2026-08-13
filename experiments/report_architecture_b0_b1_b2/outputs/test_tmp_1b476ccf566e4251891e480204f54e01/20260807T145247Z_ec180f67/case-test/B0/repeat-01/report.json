@@ -1,0 +1,80 @@
+{
+  "claims": [
+    {
+      "claim_id": "CLM-001",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "executive_summary",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "support_type": "user_reported",
+      "text": "The case packet reports a suspicious message.",
+      "timeline_event_ids": []
+    }
+  ],
+  "limitations": [
+    "Human review is required."
+  ],
+  "report_version": "baseline_report_v1",
+  "sections": [
+    {
+      "heading": "Executive Summary",
+      "items": [],
+      "paragraphs": [
+        "Content for executive_summary."
+      ],
+      "section_id": "executive_summary"
+    },
+    {
+      "heading": "Case Background and Scope",
+      "items": [],
+      "paragraphs": [
+        "Content for case_background_scope."
+      ],
+      "section_id": "case_background_scope"
+    },
+    {
+      "heading": "Evidence Findings",
+      "items": [],
+      "paragraphs": [
+        "Content for evidence_findings."
+      ],
+      "section_id": "evidence_findings"
+    },
+    {
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "items": [],
+      "paragraphs": [
+        "Content for individuals_accounts_systems_roles."
+      ],
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "heading": "Chronological Timeline",
+      "items": [],
+      "paragraphs": [
+        "Content for chronological_timeline."
+      ],
+      "section_id": "chronological_timeline"
+    },
+    {
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "items": [],
+      "paragraphs": [
+        "Content for technical_analysis_mitre."
+      ],
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "items": [],
+      "paragraphs": [
+        "Content for conclusions_limitations_next_steps."
+      ],
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Preliminary report"
+}

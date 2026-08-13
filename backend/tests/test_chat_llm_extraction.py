@@ -410,7 +410,7 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             BASELINE_EXTRACTION_PROMPT_VERSION,
-            "baseline_extraction_prompt_v2",
+            "baseline_extraction_prompt_v3",
         )
         self.assertEqual(
             ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
@@ -418,13 +418,25 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "baseline_extraction_prompt_v1",
                     "baseline_extraction_prompt_v2",
+                    "baseline_extraction_prompt_v3",
                 }
             ),
         )
         self.assertIn("relationships", schema["properties"])
         self.assertIn("ExtractedRelationship", schema["$defs"])
+        self.assertIn(
+            "English lowercase ASCII snake_case",
+            schema["$defs"]["ExtractedRelationship"]["properties"]["predicate"][
+                "description"
+            ],
+        )
         self.assertIn("Co-occurrence", BASELINE_EXTRACTION_SYSTEM_PROMPT)
         self.assertIn("Do not infer ownership", BASELINE_EXTRACTION_SYSTEM_PROMPT)
+        self.assertIn("Never use Thai text", BASELINE_EXTRACTION_SYSTEM_PROMPT)
+
+    def test_extraction_budget_and_raw_response_cap_are_aligned(self) -> None:
+        self.assertEqual(settings.chat_extraction_max_output_tokens, 8_192)
+        self.assertEqual(settings.chat_extraction_max_raw_response_chars, 48_000)
 
     async def test_malformed_model_json_is_an_explicit_failure(self) -> None:
         result = await run_baseline_extraction(
@@ -487,6 +499,13 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
             enriched.metadata_json["chat_extraction"]["status"],
             "candidate",
         )
+        expected_case_state = BaselineExtraction.model_validate(
+            self._success_payload(extraction_input)
+        ).model_dump(mode="json")
+        self.assertEqual(enriched.validated_case_state_json, expected_case_state)
+        assert enriched.validated_case_state_json is not None
+        self.assertNotIn("provider", enriched.validated_case_state_json)
+        self.assertNotIn("raw_response", enriched.validated_case_state_json)
         self.assertEqual(unchanged, awaiting)
 
     async def test_extraction_failure_metadata_does_not_replace_terminal_answer(
@@ -527,8 +546,9 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
             enriched.metadata_json["chat_extraction"]["failure_code"],
             "extraction_invalid_json",
         )
+        self.assertIsNone(enriched.validated_case_state_json)
 
-    async def test_process_chat_run_persists_extraction_on_terminal_rag_answer(self) -> None:
+    async def test_process_chat_run_extracts_before_rag_and_persists_main_analysis(self) -> None:
         extraction_input = self._input()
         claimed = ClaimedChatRun(
             id=uuid4(),
@@ -549,7 +569,13 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
         )
 
         async def rag_call(_: str) -> QueryResponse:
-            return QueryResponse(status="completed", answer="terminal answer")
+            return QueryResponse(
+                status="completed",
+                retrieval_context_id="retrieval-1",
+                context="bounded retrieval context",
+            )
+
+        analysis_call = AsyncMock(return_value="main analysis")
 
         with (
             patch(
@@ -565,13 +591,20 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
                 claimed.id,
                 policy=AnswerPolicy(),
                 rag_call=rag_call,
+                ask_call=analysis_call,
                 extraction_adapter=adapter,
             )
 
         persisted_outcome = worker.complete_run.await_args.args[2]
-        self.assertEqual(persisted_outcome.content, "terminal answer")
+        self.assertEqual(persisted_outcome.content, "main analysis")
+        self.assertEqual(persisted_outcome.thread_status, "answered")
         self.assertEqual(
             persisted_outcome.metadata_json["chat_extraction"]["status"],
             "candidate",
         )
         self.assertEqual(len(adapter.calls), 1)
+        analysis_call.assert_awaited_once()
+        self.assertEqual(
+            persisted_outcome.metadata_json["retrieved_context"],
+            "bounded retrieval context",
+        )

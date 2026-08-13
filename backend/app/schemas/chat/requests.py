@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -22,3 +24,4 @@ class ChatMessageCreate(BaseModel):
         min_length=1,
         max_length=255,
     )
+    action: Literal["ask", "add_case_info"] | None = None

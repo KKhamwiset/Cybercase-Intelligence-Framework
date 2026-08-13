@@ -1,0 +1,310 @@
+{
+  "case_id": "case-a-scale",
+  "intermediate_version": "d1_summary_records_v1",
+  "ordered_parts": [
+    {
+      "case_id": "case-a-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0001",
+      "part_ordinal": 1,
+      "part_sha256": "c58004f430c24effb28e7b3be87c74f5f87a529a62df9eb0d36dd02d5073535b",
+      "records": [
+        {
+          "participants": [
+            "Alice Chen",
+            "ACC-100"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1"
+            },
+            {
+              "source_id": "a-account-001",
+              "source_locator": "case-a-scale/account-registry/record-100"
+            }
+          ],
+          "summary": "The intake statement reports that Alice Chen is the registered holder of account ACC-100. The account-registry excerpt lists ACC-100 as active and repeats the display name Alice Chen, but does not show the underlying identity-verification result, the date of the last verification, or a provider signature; it is therefore a source assertion rather than independent proof of ownership. The intake statement likewise lacks independent account-provider confirmation and a timestamp for when it was made.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Alice Chen",
+            "ACC-100",
+            "ACC-200",
+            "TX-1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            }
+          ],
+          "summary": "Transaction record TX-1 reports a transfer of USD 500 from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC and names Alice Chen as the initiating user. It identifies the source and destination accounts but contains no field establishing the owner or controller of ACC-200.",
+          "timestamp_text": "2026-01-10 09:00 UTC"
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 274,
+          "char_start": 0,
+          "content_sha256": "412bad014dda9f87c499bd5d370122901b147cf320a22817ca465cfb976c3652",
+          "source_id": "a-statement-001",
+          "source_locator": "case-a-scale/statement/line-1",
+          "source_type": "investigator_statement"
+        },
+        {
+          "char_end": 275,
+          "char_start": 0,
+          "content_sha256": "93a55f089fdca4bf89a69b781713990ab7c9c51b7ef14cb77ccf9d4f9e4aea39",
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a-scale/ledger/transaction-TX-1",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "char_end": 321,
+          "char_start": 0,
+          "content_sha256": "6bb1f8df278e23444eca6bb585fd921c6ec73e6bc93cefd33dc4b6304a2270b5",
+          "source_id": "a-account-001",
+          "source_locator": "case-a-scale/account-registry/record-100",
+          "source_type": "account_registry_excerpt"
+        }
+      ]
+    },
+    {
+      "case_id": "case-a-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0002",
+      "part_ordinal": 2,
+      "part_sha256": "35682e91b51ebc0d706ce0b9cb7b26c3159c4d671cee6863e24fd0d6251e91be",
+      "records": [
+        {
+          "participants": [
+            "TX-1",
+            "ACC-100",
+            "ACC-200"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "summary": "A detailed transaction export records TX-1 as settled for USD 500 from ACC-100 to ACC-200, repeating the transaction time as 2026-01-10 09:00 UTC and including an internal processing reference. It does not identify a beneficiary person, beneficiary organization, or controller for ACC-200.",
+          "timestamp_text": "2026-01-10 09:00 UTC"
+        },
+        {
+          "participants": [
+            "service provider"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-auth-001",
+              "source_locator": "case-a-scale/evidence-request/login-audit"
+            }
+          ],
+          "summary": "An evidence-request note states that login and authentication audit records for the transaction window were not included in the case packet. It requests those records from the service provider, but no provider response is attached.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "D-17",
+            "ACC-100",
+            "Alice Chen"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17"
+            }
+          ],
+          "summary": "The device inventory lists device D-17 as observed in the same administrative account context as ACC-100. It does not establish that Alice Chen operated D-17 during TX-1 and contains no authenticated session identifier linking the device to the transaction.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 299,
+          "char_start": 0,
+          "content_sha256": "f848c2814467426ecc6dbeddb9c40061afbf3da1a33f76e4c87eab079e28870d",
+          "source_id": "a-ledger-002",
+          "source_locator": "case-a-scale/ledger/transaction-TX-1-detail",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "char_end": 236,
+          "char_start": 0,
+          "content_sha256": "51c1efec7181d7f62ccab196028cf103eb2e19662547450c4ba40e7e83175ccb",
+          "source_id": "a-auth-001",
+          "source_locator": "case-a-scale/evidence-request/login-audit",
+          "source_type": "audit_availability_note"
+        },
+        {
+          "char_end": 272,
+          "char_start": 0,
+          "content_sha256": "28602d1009a97533490e8eb479cfe57453e3df0af48cffc1de7893455d5d2cae",
+          "source_id": "a-device-001",
+          "source_locator": "case-a-scale/device-inventory/device-D17",
+          "source_type": "device_inventory_excerpt"
+        }
+      ]
+    },
+    {
+      "case_id": "case-a-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0003",
+      "part_ordinal": 3,
+      "part_sha256": "94c810f85a117361767b542cdbb503e73158274c27529fb7521e1a5913ea9c04",
+      "records": [
+        {
+          "participants": [
+            "TX-1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-message-001",
+              "source_locator": "case-a-scale/message-export/message-77"
+            }
+          ],
+          "summary": "A message-export index references TX-1 and states that the export was collected on 2026-01-12; the source expressly cautions that collection time is not incident time. The index adds no participant and does not establish who controlled ACC-200.",
+          "timestamp_text": "2026-01-12"
+        },
+        {
+          "participants": [
+            "Alice Chen",
+            "ACC-100",
+            "ACC-200"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-memo-001",
+              "source_locator": "case-a-scale/memo/paragraph-2"
+            },
+            {
+              "source_id": "a-support-001",
+              "source_locator": "case-a-scale/provider-request/request-200"
+            }
+          ],
+          "summary": "The investigator memo repeats that Alice Chen is reported as the holder of ACC-100 and recommends obtaining provider-side account and authentication records. It states that the current packet is insufficient to verify ownership of destination account ACC-200. A provider-request log records an unanswered request for account-holder information associated with ACC-200, sent after transaction review began; no response, account-holder name, or controller identifier is present.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 243,
+          "char_start": 0,
+          "content_sha256": "db1f5d5e1bb809471cfd6fcd5cef66307103577248e4410221610b1ff8110319",
+          "source_id": "a-message-001",
+          "source_locator": "case-a-scale/message-export/message-77",
+          "source_type": "message_export_excerpt"
+        },
+        {
+          "char_end": 263,
+          "char_start": 0,
+          "content_sha256": "688a8630d12fea2012cb68a90dc3fb137eb0059825175f37e2879dddf63d2e50",
+          "source_id": "a-memo-001",
+          "source_locator": "case-a-scale/memo/paragraph-2",
+          "source_type": "investigation_memo"
+        },
+        {
+          "char_end": 254,
+          "char_start": 0,
+          "content_sha256": "c08ad54bfc97fdda2fe86bfcd43a15537953863199281d205ece9fab44f1b7b4",
+          "source_id": "a-support-001",
+          "source_locator": "case-a-scale/provider-request/request-200",
+          "source_type": "provider_request_log"
+        }
+      ]
+    },
+    {
+      "case_id": "case-a-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0004",
+      "part_ordinal": 4,
+      "part_sha256": "3a82472840dc6283414d93207490b5ccbe035cbfc3cd4ffcd68f86cebdbae55a",
+      "records": [
+        {
+          "participants": [
+            "TX-1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-003",
+              "source_locator": "case-a-scale/ledger/reconciliation-note"
+            }
+          ],
+          "summary": "A reconciliation note states that two transaction exports appear to refer to the same TX-1 record. It characterizes the comparison as administrative rather than a second transfer, preserves the same amount and transaction time, and warns that duplicate exports should not be counted as separate events.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 281,
+          "char_start": 0,
+          "content_sha256": "f1d7d5d4fea27363e0d8931d1c02a2e32252e6b3d9b789d0c9bcfe32586da233",
+          "source_id": "a-ledger-003",
+          "source_locator": "case-a-scale/ledger/reconciliation-note",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "char_end": 273,
+          "char_start": 0,
+          "content_sha256": "cd73a5b6187fb616ab2eb9529eb75676a8e396c9a7b9d583e42f7c26919b9274",
+          "source_id": "a-ops-001",
+          "source_locator": "case-a-scale/operations/relay-maintenance",
+          "source_type": "operations_log"
+        },
+        {
+          "char_end": 236,
+          "char_start": 0,
+          "content_sha256": "3eb6a3a853fc58b7d062f8e0f0e58b6ce3b5f233e58d953acff747959a777377",
+          "source_id": "a-admin-001",
+          "source_locator": "case-a-scale/administration/packet-index",
+          "source_type": "administrative_note"
+        }
+      ]
+    },
+    {
+      "case_id": "case-a-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0005",
+      "part_ordinal": 5,
+      "part_sha256": "7c39d573c4122e6b430500afaf11b31f0b3b1fcd9e004fcac81ca96a84ebf391",
+      "records": [
+        {
+          "participants": [
+            "review note",
+            "provider",
+            "destination account"
+          ],
+          "source_refs": [
+            {
+              "source_id": "a-review-001",
+              "source_locator": "case-a-scale/review/verification-plan"
+            }
+          ],
+          "summary": "A review note recommends preserving the original statement and ledger exports, obtaining provider account records, requesting login and device telemetry, and checking whether the destination account has a verified controller. The note describes these as proposed verification steps, not completed investigative results.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 263,
+          "char_start": 0,
+          "content_sha256": "dc89af9e3a6c0eff4984d281b5e0e6ba8b20e6745f7b37a67ff98862c8eff209",
+          "source_id": "a-finance-001",
+          "source_locator": "case-a-scale/unrelated/office-invoice",
+          "source_type": "unrelated_finance_record"
+        },
+        {
+          "char_end": 295,
+          "char_start": 0,
+          "content_sha256": "c0d65171c2dd90edeb075e2001c7ed9bec3079a120efdbac3a468b6a6188f358",
+          "source_id": "a-review-001",
+          "source_locator": "case-a-scale/review/verification-plan",
+          "source_type": "investigator_review_note"
+        }
+      ]
+    }
+  ]
+}

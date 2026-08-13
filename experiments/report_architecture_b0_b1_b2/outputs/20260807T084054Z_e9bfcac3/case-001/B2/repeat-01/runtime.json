@@ -1,0 +1,28 @@
+{
+  "calls": [
+    {
+      "chunk_id": null,
+      "failure_code": "reference_missing relationship entity_invalid",
+      "input_tokens": 3179,
+      "latency_ms": 8197.895,
+      "output_tokens": 1265,
+      "parse_status": "failed",
+      "response_sha256": "351cbc11cc0f7bcb114d5cd8ec599eb2b10c0c9934343460acbf05af9d9de1a5",
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T08:40:54.661485Z"
+    }
+  ],
+  "case_id": "case-001",
+  "condition": "B2",
+  "failure_code": "reference_missing relationship entity_invalid",
+  "input_tokens": 3179,
+  "model_calls": 1,
+  "output_tokens": 1265,
+  "parse_validation_status": "failed",
+  "raw_report_response_available": false,
+  "relationship_ir_available": false,
+  "repeat": 1,
+  "status": "failed",
+  "total_latency_ms": 8197.895,
+  "validated_report_available": false
+}

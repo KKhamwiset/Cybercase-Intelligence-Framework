@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Request
 
-from RAG import AgentResponse, ChainResponse, build_mitre_table
+from RAG.GraphRAG.pipeline.mitre_table import build_mitre_table
 from routers.context_store import (
     export_retrieval_context,
     load_retrieval_context,
@@ -25,51 +25,28 @@ async def health(request: Request):
 @router.post("/query", response_model=QueryResponse)
 async def query_rag(request: QueryRequest, req: Request):
     rag_agent = req.app.state.rag_agent
-    rag_chain = req.app.state.rag_chain
-
-    if request.use_agent:
-        print("Agent requested")
-        if not rag_agent:
-            raise HTTPException(status_code=503, detail="RAG Agent not available")
-        try:
-            response: AgentResponse = rag_agent.query(request.query)
-            mitre_table = build_mitre_table(response.graphrag_result, response.answer)
-            retrieval_context_id = store_retrieval_context(
-                req,
-                query=request.query,
-                context=response.context,
-                rag_result=response.graphrag_result,
-                answer=response.answer,
-                mitre_table=mitre_table,
-            )
-            return QueryResponse(
-                status=response.status,
-                answer=response.answer,
-                retrieval_context_id=retrieval_context_id,
-                mitre_table=mitre_table,
-            )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    if not rag_chain:
-        raise HTTPException(status_code=503, detail="RAG Chain not available")
+    if not rag_agent:
+        raise HTTPException(status_code=503, detail="RAG Agent not available")
     try:
-        chain_response: ChainResponse = rag_chain.query_with_details(request.query)
+        agent_response = rag_agent.query(request.query, verbose=False)
+        # Keep the old answer-grounded MITRE selection inside rag-service. The
+        # generated answer is used only as an internal relevance signal; it is
+        # deliberately excluded from the HTTP response and context snapshot.
         mitre_table = build_mitre_table(
-            chain_response.graphrag_result, chain_response.answer
+            agent_response.graphrag_result,
+            agent_response.answer,
         )
         retrieval_context_id = store_retrieval_context(
             req,
             query=request.query,
-            context=chain_response.context,
-            rag_result=chain_response.graphrag_result,
-            answer=chain_response.answer,
+            context=agent_response.context,
+            rag_result=agent_response.graphrag_result,
             mitre_table=mitre_table,
         )
         return QueryResponse(
             status="completed",
-            answer=chain_response.answer,
-            retrieval_context_id=retrieval_context_id,
+            retrieval_context_id=retrieval_context_id or None,
+            context=agent_response.context,
             mitre_table=mitre_table,
         )
     except Exception as e:
@@ -84,11 +61,6 @@ async def get_retrieval_context(context_id: str, req: Request):
     cached = load_retrieval_context(req, context_id)
     if not cached:
         raise HTTPException(status_code=404, detail="Retrieval context not found")
-
-    if not cached.get("mitre_table") and cached.get("rag_result") and cached.get("answer"):
-        cached["mitre_table"] = build_mitre_table(
-            cached["rag_result"], cached["answer"]
-        )
 
     snapshot = export_retrieval_context(req, context_id)
     if not snapshot:

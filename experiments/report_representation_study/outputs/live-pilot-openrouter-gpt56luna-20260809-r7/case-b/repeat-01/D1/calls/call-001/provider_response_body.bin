@@ -1,0 +1,9 @@
+
+         
+
+         
+
+         
+
+         
+{"id":"gen-1786206322-rIAdf1H8B5DQXPvMkr3a","object":"chat.completion","created":1786206322,"model":"openai/gpt-5.6-luna","provider":"OpenAI","system_fingerprint":null,"service_tier":"default","choices":[{"index":0,"logprobs":null,"finish_reason":"stop","native_finish_reason":"completed","message":{"role":"assistant","content":"{\"records\":[{\"timestamp_text\":null,\"participants\":[\"ACC-B1\"],\"summary\":\"The owner or controller of account ACC-B1 is unknown, and no login audit records were provided with the case packet.\",\"source_refs\":[{\"source_id\":\"b-memo-001\",\"source_locator\":\"case-b/memo/paragraph-1\"}]},{\"timestamp_text\":null,\"participants\":[\"Bob Niran\",\"ACC-B1\"],\"summary\":\"The interview summary identifies Bob Niran, but investigators state that the available information does not establish that Bob Niran controls account ACC-B1.\",\"source_refs\":[{\"source_id\":\"b-interview-001\",\"source_locator\":\"case-b/interview/bob/paragraph-2\"}]}]}","refusal":null}}],"usage":{"prompt_tokens":922,"completion_tokens":148,"total_tokens":1070,"cost":0.000181,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.000181,"upstream_inference_prompt_cost":0.0000922,"upstream_inference_completions_cost":0.0000888},"completion_tokens_details":{"reasoning_tokens":0,"image_tokens":0,"audio_tokens":0}},"openrouter_metadata":{"requested":"openai/gpt-5.6-luna-20260709","strategy":"direct","region":"TPE","summary":"available=1, selected=OpenAI","attempt":1,"is_byok":false,"endpoints":{"total":4,"available":[{"provider":"OpenAI","model":"openai/gpt-5.6-luna-20260709","selected":true}]}}}

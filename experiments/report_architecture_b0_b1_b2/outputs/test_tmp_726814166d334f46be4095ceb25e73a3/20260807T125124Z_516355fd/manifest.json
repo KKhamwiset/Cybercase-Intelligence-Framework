@@ -1,0 +1,97 @@
+{
+  "active_transport_contract_sha256": {
+    "relationship_extraction": "030b22b7d9b215b05a9accd029868c25093dc1316380b4e4a929e173528e0563",
+    "report": "0438f1c95e8830abbfb78b168046eb23c023b9c5f37ff2ce867906a1c509bc09"
+  },
+  "available_transport_contract_sha256": {
+    "relationship_extraction_provider_output_config": "0114bec2863644b5c2dd9a9b2cd0a96fd4fd2099046da632ce05459cec06f921",
+    "relationship_extraction_tool": "030b22b7d9b215b05a9accd029868c25093dc1316380b4e4a929e173528e0563",
+    "report_provider_output_config": "2548477d4210a9b5206c322f9d222273d69802b70c47b061de3e34cc64fe9627",
+    "report_tool": "0438f1c95e8830abbfb78b168046eb23c023b9c5f37ff2ce867906a1c509bc09"
+  },
+  "cases": [
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "chunk_count": 2,
+      "estimated_b0_report_context_tokens": 2378,
+      "estimated_full_case_tokens": 261,
+      "estimated_full_extraction_context_tokens": 2650,
+      "reference_context_ids": [
+        "REF-001"
+      ],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-003"
+      ]
+    }
+  ],
+  "chunk_configuration": {
+    "context_window_tokens": 8192,
+    "max_chunk_tokens": 220
+  },
+  "conditions": [
+    "B0"
+  ],
+  "decoding_settings": {
+    "extraction_max_output_tokens": 256,
+    "report_max_output_tokens": 512,
+    "temperature": 0.0
+  },
+  "dry_run": false,
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "finished_at": "2026-08-07T12:51:25.317878+00:00",
+  "local_schema_sha256": {
+    "relationship_ir": "234cd353f5dfb72d855a995cec858a1cc777e25edeaf2b0630188774b5fe0d2a",
+    "report": "3a109a234f50f70e5c11e49657b23235150eb4c4431dfadcbad0ac0f632d324a"
+  },
+  "model": "claude-haiku-4-5-20251001",
+  "output_enforcement_modes": {
+    "relationship_extraction": "tool_json_local_validation",
+    "report": "tool_json_local_validation"
+  },
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v4",
+    "relationship_ir": "relationship_ir_v1",
+    "report": "report_architecture_report_prompt_v2",
+    "report_schema": "baseline_report_v1"
+  },
+  "protocol_versions": {
+    "experiment": "report_architecture_b0_b1_b2_v6",
+    "relationship_extraction_transport": "anthropic_relationship_extraction_transport_v5",
+    "report_transport": "anthropic_report_transport_v1"
+  },
+  "provider": "anthropic",
+  "provider_schema_sha256": {
+    "relationship_ir": "adcfc775d5935d78e5a67fa2d69be96728356c9d3943ef494742e88a4ad9a927",
+    "report": "334469d1fd9d7f470309826f2ef9919f654d6259b816b84bc503c8b68beb837f"
+  },
+  "provider_settings": {
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "timeout_seconds": 1.0
+  },
+  "repeats": 1,
+  "repository": {
+    "dirty": true,
+    "experiment_code_sha": "98037e3f9fd8e6adedf1882c5cff830571d3970b",
+    "head_sha": "98037e3f9fd8e6adedf1882c5cff830571d3970b"
+  },
+  "results": [
+    {
+      "case_id": "case-test",
+      "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+      "condition": "B0",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 1,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "completed",
+      "total_latency_ms": 0.495
+    }
+  ],
+  "run_id": "20260807T125124Z_516355fd",
+  "started_at": "2026-08-07T12:51:25.025394+00:00"
+}

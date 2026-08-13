@@ -1,0 +1,28 @@
+{
+  "calls": [
+    {
+      "chunk_id": null,
+      "failure_code": "relationship_ir_invalid_json",
+      "input_tokens": 1957,
+      "latency_ms": 7422.278,
+      "output_tokens": 1194,
+      "parse_status": "failed",
+      "response_sha256": "6987be56c19536e7c525b8ea20dde2a86acf183419821676a80df4a4221a1c79",
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T07:57:10.071511Z"
+    }
+  ],
+  "case_id": "case-001",
+  "condition": "B2",
+  "failure_code": "relationship_ir_invalid_json",
+  "input_tokens": 1957,
+  "model_calls": 1,
+  "output_tokens": 1194,
+  "parse_validation_status": "failed",
+  "raw_report_response_available": false,
+  "relationship_ir_available": false,
+  "repeat": 1,
+  "status": "failed",
+  "total_latency_ms": 7422.278,
+  "validated_report_available": false
+}

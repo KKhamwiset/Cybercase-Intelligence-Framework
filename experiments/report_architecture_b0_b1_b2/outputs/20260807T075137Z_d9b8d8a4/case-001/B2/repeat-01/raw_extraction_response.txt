@@ -1,0 +1,102 @@
+```json
+{
+  "case_id": "case-001",
+  "language": "en",
+  "schema_version": "relationship_ir_v1",
+  "entities": [
+    {
+      "entity_id": "ENT-001",
+      "entity_type": "account",
+      "name": "employee@example.org",
+      "description": "Employee account that received a suspicious message",
+      "source_ids": ["SRC-001"]
+    },
+    {
+      "entity_id": "ENT-002",
+      "entity_type": "account",
+      "name": "ACCT-77",
+      "description": "Recipient account for reported transfer",
+      "source_ids": ["SRC-002"]
+    },
+    {
+      "entity_id": "ENT-003",
+      "entity_type": "device",
+      "name": "HOST-7",
+      "description": "Device reported to have accessed the employee account",
+      "source_ids": ["SRC-003"]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "EVT-001",
+      "event_type": "message_received",
+      "timestamp": "2026-08-01T10:20:00Z",
+      "description": "Employee account received a suspicious message",
+      "involved_entities": ["ENT-001"],
+      "source_ids": ["SRC-001"]
+    },
+    {
+      "event_id": "EVT-002",
+      "event_type": "financial_transfer",
+      "timestamp": null,
+      "description": "Transfer of USD 4,200 reported from employee account to ACCT-77",
+      "involved_entities": ["ENT-001", "ENT-002"],
+      "source_ids": ["SRC-002"]
+    },
+    {
+      "event_id": "EVT-003",
+      "event_type": "account_access",
+      "timestamp": null,
+      "description": "Device HOST-7 was used to access the employee account",
+      "involved_entities": ["ENT-003", "ENT-001"],
+      "source_ids": ["SRC-003"]
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "REL-001",
+      "relationship_type": "received_message",
+      "source_entity": "ENT-001",
+      "target_entity": null,
+      "description": "Employee account received a suspicious message",
+      "relationship_status": "reported",
+      "source_ids": ["SRC-001"]
+    },
+    {
+      "relationship_id": "REL-002",
+      "relationship_type": "transfer_from",
+      "source_entity": "ENT-001",
+      "target_entity": "ENT-002",
+      "description": "Transfer of USD 4,200 reported from employee account to ACCT-77. Recipient account control is unknown.",
+      "relationship_status": "reported",
+      "source_ids": ["SRC-002"]
+    },
+    {
+      "relationship_id": "REL-003",
+      "relationship_type": "accessed_account",
+      "source_entity": "ENT-003",
+      "target_entity": "ENT-001",
+      "description": "Device HOST-7 was used to access the employee account. Device ownership and access attribution remain unknown.",
+      "relationship_status": "reported",
+      "source_ids": ["SRC-003"]
+    }
+  ],
+  "unresolved_elements": [
+    {
+      "element_type": "account_control",
+      "description": "ACCT-77 controller is not established",
+      "source_ids": ["SRC-002"]
+    },
+    {
+      "element_type": "device_ownership",
+      "description": "HOST-7 ownership is unknown",
+      "source_ids": ["SRC-003"]
+    },
+    {
+      "element_type": "access_attribution",
+      "description": "Attribution of HOST-7 access to employee account remains unknown",
+      "source_ids": ["SRC-003"]
+    }
+  ]
+}
+```

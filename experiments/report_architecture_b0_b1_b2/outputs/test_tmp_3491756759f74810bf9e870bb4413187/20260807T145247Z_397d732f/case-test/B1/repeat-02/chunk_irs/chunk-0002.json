@@ -1,0 +1,50 @@
+{
+  "entities": [
+    {
+      "canonical_name": "employee account",
+      "entity_id": "ENT-001",
+      "entity_type": "account",
+      "reported_role": "reported account",
+      "reported_roles": [],
+      "source_ids": [
+        "SRC-002"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "action": "was described in a source",
+      "actor_ids": [
+        "ENT-001"
+      ],
+      "event_id": "EV-001",
+      "evidence_ids": [
+        "E-001"
+      ],
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "target_ids": [],
+      "timestamp": null,
+      "timestamp_text": null
+    }
+  ],
+  "evidence": [
+    {
+      "artifact_type": "statement",
+      "description": "The supplied source describes an observation.",
+      "evidence_id": "E-001",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "title": "Observed SRC-002"
+    }
+  ],
+  "missing_information": [],
+  "missing_relationships": [],
+  "relationships": [],
+  "version": "relationship_ir_v1",
+  "warnings": []
+}

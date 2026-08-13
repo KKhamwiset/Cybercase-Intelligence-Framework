@@ -1,0 +1,47 @@
+{
+  "calls": [
+    {
+      "chunk_id": "CHUNK-0001",
+      "failure_code": null,
+      "http_status": null,
+      "input_tokens": 7,
+      "latency_ms": 0.28,
+      "output_tokens": 11,
+      "parse_status": "validated",
+      "provider_response_available": false,
+      "response_sha256": null,
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T14:54:41.679271Z"
+    },
+    {
+      "chunk_id": "CHUNK-0002",
+      "failure_code": "provider_error",
+      "http_status": null,
+      "input_tokens": null,
+      "latency_ms": 0.146,
+      "output_tokens": null,
+      "parse_status": "failed",
+      "provider_response_available": false,
+      "response_sha256": null,
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T14:54:41.679693Z"
+    }
+  ],
+  "case_id": "case-test",
+  "condition": "B1",
+  "failure_code": "provider_error",
+  "input_tokens": null,
+  "model_calls": 2,
+  "output_tokens": null,
+  "parse_validation_status": "failed",
+  "raw_extraction_response_availability": {
+    "CHUNK-0001": false,
+    "CHUNK-0002": false
+  },
+  "raw_report_response_available": false,
+  "relationship_ir_available": false,
+  "repeat": 1,
+  "status": "failed",
+  "total_latency_ms": 0.426,
+  "validated_report_available": false
+}

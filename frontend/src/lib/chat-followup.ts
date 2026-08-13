@@ -193,7 +193,11 @@ export function hasCompletedAssistantOutput(
   detail: ChatThreadDetail,
   requestOrdinal: number,
 ): boolean {
-  if (detail.status !== "idle" && detail.status !== "awaiting_followup") {
+  if (
+    detail.status !== "idle" &&
+    detail.status !== "answered" &&
+    detail.status !== "awaiting_followup"
+  ) {
     return false;
   }
   return detail.messages.some(

@@ -114,7 +114,9 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
             {"max_tokens": 8_192, "temperature": 0.0},
         )
 
-    def test_openrouter_applies_feature_floors_and_omits_temperature(self) -> None:
+    def test_openrouter_applies_feature_floors_and_omits_temperature(
+        self,
+    ) -> None:
         self.assertEqual(
             structured_output_request_options(
                 provider="openrouter",
@@ -211,7 +213,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report_client.request_payload["temperature"], 0.0)
         self.assertNotIn("reasoning", report_client.request_payload)
 
-    async def test_openrouter_call_sites_use_floors_without_reasoning_controls(
+    async def test_openrouter_followup_and_report_call_sites_keep_floors(
         self,
     ) -> None:
         settings.core_llm_provider = "openrouter"
@@ -226,22 +228,6 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(followup_client.request_payload["max_tokens"], 2_048)
         self.assertNotIn("temperature", followup_client.request_payload)
         self.assertNotIn("reasoning", followup_client.request_payload)
-
-        extraction_client = _RecordingAsyncClient(_text_response())
-        with patch(
-            "app.services.extraction.llm_extraction.httpx.AsyncClient",
-            return_value=extraction_client,
-        ):
-            await AnthropicExtractionAdapter().complete(
-                system_prompt="system",
-                input_payload={},
-                model="anthropic-extraction-model",
-                max_output_tokens=2_048,
-            )
-        assert extraction_client.request_payload is not None
-        self.assertEqual(extraction_client.request_payload["max_tokens"], 8_192)
-        self.assertNotIn("temperature", extraction_client.request_payload)
-        self.assertNotIn("reasoning", extraction_client.request_payload)
 
         report_client = _RecordingAsyncClient(_text_response())
         with patch(
@@ -259,6 +245,26 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(report_client.request_payload["max_tokens"], 16_384)
         self.assertNotIn("temperature", report_client.request_payload)
         self.assertNotIn("reasoning", report_client.request_payload)
+
+    async def test_openrouter_extraction_call_site_uses_8192_floor(self) -> None:
+        settings.core_llm_provider = "openrouter"
+        extraction_client = _RecordingAsyncClient(_text_response())
+
+        with patch(
+            "app.services.extraction.llm_extraction.httpx.AsyncClient",
+            return_value=extraction_client,
+        ):
+            await AnthropicExtractionAdapter().complete(
+                system_prompt="system",
+                input_payload={},
+                model="anthropic-extraction-model",
+                max_output_tokens=2_048,
+            )
+
+        assert extraction_client.request_payload is not None
+        self.assertEqual(extraction_client.request_payload["max_tokens"], 8_192)
+        self.assertNotIn("temperature", extraction_client.request_payload)
+        self.assertNotIn("reasoning", extraction_client.request_payload)
 
     async def test_extraction_safe_stop_failures_preserve_usage(self) -> None:
         settings.core_llm_provider = "openrouter"

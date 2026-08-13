@@ -34,7 +34,315 @@ def test_migration_graph_has_one_chat_only_head() -> None:
     )
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["0002_chat_reports"]
+    assert heads == ["0005_rag_contexts"]
+
+
+def test_answered_thread_status_migration_replaces_only_the_status_check(
+    monkeypatch,
+) -> None:
+    migration = _load_migration(
+        "0004_answered_thread_status.py",
+        BASELINE_MIGRATIONS,
+    )
+    events: list[tuple[object, ...]] = []
+
+    class _Operations:
+        def drop_constraint(self, name: str, table_name: str, **kwargs: object) -> None:
+            events.append(("drop_constraint", name, table_name, kwargs.get("type_")))
+
+        def create_check_constraint(
+            self,
+            name: str,
+            table_name: str,
+            condition: str,
+        ) -> None:
+            events.append(("create_check_constraint", name, table_name, condition))
+
+    monkeypatch.setattr(migration, "op", _Operations())
+
+    assert migration.revision == "0004_answered_thread_status"
+    assert migration.down_revision == "0003_case_state_versions"
+
+    migration.upgrade()
+    assert events == [
+        (
+            "drop_constraint",
+            "ck_chat_threads_status",
+            "chat_threads",
+            "check",
+        ),
+        (
+            "create_check_constraint",
+            "ck_chat_threads_status",
+            "chat_threads",
+            "status IN ('idle', 'processing', 'awaiting_followup', 'answered', 'failed')",
+        ),
+    ]
+
+    events.clear()
+    migration.downgrade()
+    assert events == [
+        (
+            "drop_constraint",
+            "ck_chat_threads_status",
+            "chat_threads",
+            "check",
+        ),
+        (
+            "create_check_constraint",
+            "ck_chat_threads_status",
+            "chat_threads",
+            "status IN ('idle', 'processing', 'awaiting_followup', 'failed')",
+        ),
+    ]
+
+
+def test_case_state_version_migration_upgrade_and_downgrade_are_ordered(
+    monkeypatch,
+) -> None:
+    migration = _load_migration(
+        "0003_case_state_versions.py",
+        BASELINE_MIGRATIONS,
+    )
+    source = (
+        BASELINE_MIGRATIONS / "0003_case_state_versions.py"
+    ).read_text(encoding="utf-8")
+    events: list[tuple[object, ...]] = []
+    created_elements: tuple[object, ...] = ()
+
+    class _Operations:
+        def create_unique_constraint(
+            self,
+            name: str,
+            table_name: str,
+            columns: list[str],
+        ) -> None:
+            events.append(
+                ("create_unique_constraint", name, table_name, tuple(columns))
+            )
+
+        def create_table(self, name: str, *elements: object) -> None:
+            nonlocal created_elements
+            created_elements = elements
+            events.append(("create_table", name))
+
+        def create_index(
+            self,
+            name: str,
+            table_name: str,
+            columns: list[str],
+            **kwargs: object,
+        ) -> None:
+            events.append(
+                (
+                    "create_index",
+                    name,
+                    table_name,
+                    tuple(columns),
+                    bool(kwargs.get("unique")),
+                )
+            )
+
+        def add_column(self, table_name: str, column: sa.Column) -> None:
+            events.append(("add_column", table_name, column.name))
+
+        def create_foreign_key(
+            self,
+            name: str,
+            source_table: str,
+            referent_table: str,
+            local_columns: list[str],
+            remote_columns: list[str],
+            **kwargs: object,
+        ) -> None:
+            events.append(
+                (
+                    "create_foreign_key",
+                    name,
+                    source_table,
+                    referent_table,
+                    tuple(local_columns),
+                    tuple(remote_columns),
+                    kwargs.get("ondelete"),
+                )
+            )
+
+        def drop_constraint(
+            self,
+            name: str,
+            table_name: str,
+            **kwargs: object,
+        ) -> None:
+            events.append(
+                ("drop_constraint", name, table_name, kwargs.get("type_"))
+            )
+
+        def drop_column(self, table_name: str, column_name: str) -> None:
+            events.append(("drop_column", table_name, column_name))
+
+        def drop_index(
+            self,
+            name: str,
+            **kwargs: object,
+        ) -> None:
+            events.append(("drop_index", name, kwargs.get("table_name")))
+
+        def drop_table(self, name: str) -> None:
+            events.append(("drop_table", name))
+
+    monkeypatch.setattr(migration, "op", _Operations())
+
+    assert migration.revision == "0003_case_state_versions"
+    assert migration.down_revision == "0002_chat_reports"
+    assert "op.execute" not in source
+    assert "op.bulk_insert" not in source
+
+    migration.upgrade()
+
+    assert events == [
+        (
+            "create_unique_constraint",
+            "uq_chat_messages_thread_id_id",
+            "chat_messages",
+            ("thread_id", "id"),
+        ),
+        ("create_table", "case_state_versions"),
+        (
+            "create_index",
+            "ix_case_state_versions_thread_id_created_at",
+            "case_state_versions",
+            ("thread_id", "created_at"),
+            False,
+        ),
+        (
+            "add_column",
+            "chat_threads",
+            "current_case_state_version_id",
+        ),
+        (
+            "create_foreign_key",
+            "fk_chat_threads_current_case_state_version",
+            "chat_threads",
+            "case_state_versions",
+            ("id", "current_case_state_version_id"),
+            ("thread_id", "id"),
+            None,
+        ),
+    ]
+    assert {
+        element.name
+        for element in created_elements
+        if isinstance(element, sa.Column)
+    } == {
+        "id",
+        "thread_id",
+        "version",
+        "parent_version_id",
+        "trigger_message_id",
+        "delta_json",
+        "state_json",
+        "created_at",
+    }
+    assert {
+        element.name
+        for element in created_elements
+        if isinstance(element, sa.Constraint)
+    } == {
+        "pk_case_state_versions",
+        "uq_case_state_versions_thread_id_version",
+        "uq_case_state_versions_thread_id_id",
+        "ck_case_state_versions_version_positive",
+        "fk_case_state_versions_thread_id_chat_threads",
+        "fk_case_state_versions_thread_parent",
+        "fk_case_state_versions_thread_trigger_message",
+    }
+
+    events.clear()
+    migration.downgrade()
+
+    assert events == [
+        (
+            "drop_constraint",
+            "fk_chat_threads_current_case_state_version",
+            "chat_threads",
+            "foreignkey",
+        ),
+        (
+            "drop_column",
+            "chat_threads",
+            "current_case_state_version_id",
+        ),
+        (
+            "drop_index",
+            "ix_case_state_versions_thread_id_created_at",
+            "case_state_versions",
+        ),
+        ("drop_table", "case_state_versions"),
+        (
+            "drop_constraint",
+            "uq_chat_messages_thread_id_id",
+            "chat_messages",
+            "unique",
+        ),
+    ]
+
+
+def test_rag_context_migration_upgrade_and_downgrade_are_ordered(
+    monkeypatch,
+) -> None:
+    migration = _load_migration(
+        "0005_rag_contexts.py",
+        BASELINE_MIGRATIONS,
+    )
+    events: list[tuple[object, ...]] = []
+    created_elements: tuple[object, ...] = ()
+
+    class _Operations:
+        def create_table(self, name: str, *elements: object) -> None:
+            nonlocal created_elements
+            created_elements = elements
+            events.append(("create_table", name))
+
+        def drop_table(self, name: str) -> None:
+            events.append(("drop_table", name))
+
+    monkeypatch.setattr(migration, "op", _Operations())
+
+    assert migration.revision == "0005_rag_contexts"
+    assert migration.down_revision == "0004_answered_thread_status"
+
+    migration.upgrade()
+
+    assert events == [("create_table", "rag_contexts")]
+    columns = {
+        element.name: element
+        for element in created_elements
+        if isinstance(element, sa.Column)
+    }
+    assert set(columns) == {
+        "retrieval_context_id",
+        "thread_id",
+        "case_state_version_id",
+        "context",
+        "mitre_table",
+        "created_at",
+    }
+    assert columns["retrieval_context_id"].type.length == 160
+    assert str(columns["mitre_table"].server_default.arg) == "'[]'::jsonb"
+    assert {
+        element.name
+        for element in created_elements
+        if isinstance(element, sa.Constraint)
+    } == {
+        "pk_rag_contexts",
+        "uq_rag_contexts_case_state_version_id",
+        "fk_rag_contexts_thread_case_state_version",
+    }
+
+    events.clear()
+    migration.downgrade()
+
+    assert events == [("drop_table", "rag_contexts")]
 
 
 def test_chat_user_baseline_declares_the_retained_schema_explicitly(

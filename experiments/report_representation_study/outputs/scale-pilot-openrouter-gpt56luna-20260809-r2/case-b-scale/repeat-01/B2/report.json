@@ -1,0 +1,431 @@
+{
+  "case_id": "case-b-scale",
+  "report_version": "representation_study_report_v1",
+  "sections": [
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1"
+            }
+          ],
+          "statement_id": "stmt-001",
+          "statement_type": "case_statement",
+          "text": "ACC-B1 is listed as active, while its owner and controller fields are blank."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status"
+            },
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-002",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The relationship between Bob Niran and ACC-B1 is explicitly classified as not established."
+        }
+      ],
+      "heading": "Executive Summary",
+      "section_id": "executive_summary"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1"
+            },
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "statement_id": "stmt-003",
+          "statement_type": "case_statement",
+          "text": "The supplied packet concerns ACC-B1, Bob Niran, and laptop B-17."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-004",
+          "statement_type": "limitation",
+          "text": "The packet contains no incident chronology with occurrence dates or times."
+        }
+      ],
+      "heading": "Case Background and Scope",
+      "section_id": "case_background_scope"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            }
+          ],
+          "statement_id": "stmt-005",
+          "statement_type": "case_statement",
+          "text": "A service-desk ticket used a contact name matching Bob Niran and asked about access to a partially redacted account identifier."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            }
+          ],
+          "statement_id": "stmt-006",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The service-desk ticket did not show authenticated access to ACC-B1."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            }
+          ],
+          "statement_id": "stmt-007",
+          "statement_type": "case_statement",
+          "text": "An email header included Bob Niran as a visible sender name in a discussion about account access."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            }
+          ],
+          "statement_id": "stmt-008",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The email header did not provide verified account-control or authentication context."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            }
+          ],
+          "statement_id": "stmt-009",
+          "statement_type": "case_statement",
+          "text": "A provider request sought registration, recovery, and login records for ACC-B1."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            },
+            {
+              "source_id": "b-audit-001",
+              "source_locator": "case-b-scale/evidence-request/login-audit"
+            }
+          ],
+          "statement_id": "stmt-010",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The requested provider records were not supplied in the packet."
+        }
+      ],
+      "heading": "Evidence Findings",
+      "section_id": "evidence_findings"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1"
+            }
+          ],
+          "statement_id": "stmt-011",
+          "statement_type": "case_statement",
+          "text": "ACC-B1 is the reported account target."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "statement_id": "stmt-012",
+          "statement_type": "case_statement",
+          "text": "Laptop B-17 is listed as issued to Bob Niran."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            },
+            {
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status"
+            }
+          ],
+          "statement_id": "stmt-013",
+          "statement_type": "uncertainty_or_gap",
+          "text": "No session record links laptop B-17 to ACC-B1."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1"
+            },
+            {
+              "source_id": "b-platform-001",
+              "source_locator": "case-b-scale/platform/field-availability"
+            }
+          ],
+          "statement_id": "stmt-014",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The owner or controller of ACC-B1 is unknown."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2"
+            },
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            },
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            },
+            {
+              "source_id": "b-witness-001",
+              "source_locator": "case-b-scale/witness/paragraph-4"
+            },
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "statement_id": "stmt-015",
+          "statement_type": "uncertainty_or_gap",
+          "text": "Bob Niran's mention, service-desk contact name, email sender name, witness account, and device issuance do not establish that Bob controls ACC-B1."
+        }
+      ],
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            }
+          ],
+          "statement_id": "stmt-016",
+          "statement_type": "case_statement",
+          "text": "The packet records a service-desk ticket concerning account access."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            }
+          ],
+          "statement_id": "stmt-017",
+          "statement_type": "case_statement",
+          "text": "The packet records an email discussion about account access with Bob Niran shown as a sender name."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "statement_id": "stmt-018",
+          "statement_type": "case_statement",
+          "text": "The packet records laptop B-17 as issued to Bob Niran."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-019",
+          "statement_type": "limitation",
+          "text": "The packet does not provide occurrence dates or times for these records."
+        }
+      ],
+      "heading": "Chronological Timeline",
+      "section_id": "chronological_timeline"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-audit-001",
+              "source_locator": "case-b-scale/evidence-request/login-audit"
+            },
+            {
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status"
+            },
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            }
+          ],
+          "statement_id": "stmt-020",
+          "statement_type": "uncertainty_or_gap",
+          "text": "No authenticated session, login audit, recovery record, or device telemetry connecting ACC-B1 to Bob Niran was supplied."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-021",
+          "statement_type": "limitation",
+          "text": "The supplied representation does not support a specific MITRE ATT&CK technique mapping."
+        }
+      ],
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status"
+            },
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b-scale/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-022",
+          "statement_type": "uncertainty_or_gap",
+          "text": "Available information does not establish that Bob Niran controls ACC-B1."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b-scale/memo/paragraph-1"
+            },
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            },
+            {
+              "source_id": "b-platform-001",
+              "source_locator": "case-b-scale/platform/field-availability"
+            }
+          ],
+          "statement_id": "stmt-023",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The packet lacks an identified owner, controller, recovery address, or authenticated session for ACC-B1."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-024",
+          "statement_type": "next_step",
+          "text": "Request provider registration, recovery, login, authentication, and session records for ACC-B1."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-025",
+          "statement_type": "next_step",
+          "text": "Preserve and verify authenticated device telemetry and session identifiers before assessing any relationship between laptop B-17 and ACC-B1."
+        }
+      ],
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Provisional Investigative Report: case-b-scale"
+}

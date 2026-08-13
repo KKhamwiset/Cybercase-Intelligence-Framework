@@ -1,0 +1,402 @@
+{
+  "blocks": [
+    {
+      "arms": [
+        {
+          "condition": "D1",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        },
+        {
+          "condition": "B2",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0001",
+      "case_file": "F:/Cybercase Framework/experiments/report_representation_study/cases/case-a.json",
+      "case_file_sha256": "e1e6c3bfb056e39700a2f6736d617ceef04ad332bf8e81f2fd34e2c746b41f04",
+      "case_id": "case-a",
+      "d1_parts": [
+        {
+          "case_id": "case-a",
+          "estimated_request_tokens": 1138,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "0a753495f195239ee821c2b55fb036f9029d72c48bee5dbe579dd6465bebd6b1",
+          "source_spans": [
+            {
+              "char_end": 89,
+              "char_start": 0,
+              "content": "The intake statement reports that Alice Chen is the registered holder of account ACC-100.",
+              "content_sha256": "6aa3a90e0cd64c5c9d83a378ae9610440e61c6a6b8c78bc6d67447112cf27d44",
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1",
+              "source_type": "investigator_statement"
+            },
+            {
+              "char_end": 154,
+              "char_start": 0,
+              "content": "Transaction record TX-1 reports a transfer of USD 500 from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC. The record names Alice Chen as the initiating user.",
+              "content_sha256": "e8f9b30527a8eea82ca5a4f99d70b82ec9b5c5add4ead00644c6d01307054871",
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1",
+              "source_type": "transaction_log_excerpt"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "D1",
+        "B0",
+        "B2"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    },
+    {
+      "arms": [
+        {
+          "condition": "B2",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        },
+        {
+          "condition": "D1",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0002",
+      "case_file": "F:/Cybercase Framework/experiments/report_representation_study/cases/case-b.json",
+      "case_file_sha256": "a13b5408fc70229c9e91b37617ec5383d4ffa4b99f83fae660f2834efb37eae3",
+      "case_id": "case-b",
+      "d1_parts": [
+        {
+          "case_id": "case-b",
+          "estimated_request_tokens": 1133,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "d75ea9de6b81bc602304007e323f68fd4c096d45c91fbf0addfcf0325f44b188",
+          "source_spans": [
+            {
+              "char_end": 112,
+              "char_start": 0,
+              "content": "The owner or controller of account ACC-B1 is unknown. No login audit records were provided with the case packet.",
+              "content_sha256": "9481025b1b4d789742a7644c911df510d5fe145107668e4d571361ee17f8e8aa",
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1",
+              "source_type": "investigation_memo"
+            },
+            {
+              "char_end": 153,
+              "char_start": 0,
+              "content": "The interview summary identifies Bob Niran. Investigators state that the available information does not establish that Bob Niran controls account ACC-B1.",
+              "content_sha256": "b79af73b5848099655198ba249b8a390edc1b7a6183197ee1c1b8b5677b626dd",
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2",
+              "source_type": "interview_summary"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "B2",
+        "B0",
+        "D1"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    },
+    {
+      "arms": [
+        {
+          "condition": "D1",
+          "status": "planned"
+        },
+        {
+          "condition": "B2",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0003",
+      "case_file": "F:/Cybercase Framework/experiments/report_representation_study/cases/case-c.json",
+      "case_file_sha256": "779eef44aa4545eda732638fa13aac4488595cf6087b75fe8f6ce49f99793536",
+      "case_id": "case-c",
+      "d1_parts": [
+        {
+          "case_id": "case-c",
+          "estimated_request_tokens": 1137,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "1ab55f16e7e2dac9971dc998e022a6e9bcbe81beef444eda0b6b1ade758c43f9",
+          "source_spans": [
+            {
+              "char_end": 124,
+              "char_start": 0,
+              "content": "The first report states that the handle RedFox belongs to Carol V. and that RedFox sent the message at 2026-03-01 10:00 UTC.",
+              "content_sha256": "b3531ae7c1ff58cd10085afdc881ce0754aa182aa6f8bf229e65525288d4d378",
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3",
+              "source_type": "incident_report"
+            },
+            {
+              "char_end": 159,
+              "char_start": 0,
+              "content": "A witness instead says that RedFox may refer to Carla V. and recalls the message at approximately 2026-03-01 11:00 UTC. The witness says the time is uncertain.",
+              "content_sha256": "504c1407d418a950e02bfa04761d551e546663550b66995b29d5fcccd0bd2b01",
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1",
+              "source_type": "witness_statement"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "D1",
+        "B2",
+        "B0"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    }
+  ],
+  "case_inputs": {
+    "case-a": {
+      "case_id": "case-a",
+      "case_packet_sha256": "2edb4a640f2accf86940f02099cb13b21ea08b1777d2adcaa3ad7ff391970ea0",
+      "frozen_case_mandate_sha256": "70d39f4b3185f2d690d0d42adb10758f08c1802a74434821ae78e0f567762c74",
+      "ordered_sources": [
+        {
+          "content_sha256": "6aa3a90e0cd64c5c9d83a378ae9610440e61c6a6b8c78bc6d67447112cf27d44",
+          "content_utf8_bytes": 89,
+          "ordinal": 1,
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1",
+          "source_type": "investigator_statement"
+        },
+        {
+          "content_sha256": "e8f9b30527a8eea82ca5a4f99d70b82ec9b5c5add4ead00644c6d01307054871",
+          "content_utf8_bytes": 154,
+          "ordinal": 2,
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1",
+          "source_type": "transaction_log_excerpt"
+        }
+      ],
+      "reference_context": []
+    },
+    "case-b": {
+      "case_id": "case-b",
+      "case_packet_sha256": "c595db9ec10968f105024f420222bc50cab3d45169e0303a9a2a73759990ede7",
+      "frozen_case_mandate_sha256": "c5600788880e2caf15823acbdab0f210014bad288ef25d5b8ee49086f268113a",
+      "ordered_sources": [
+        {
+          "content_sha256": "9481025b1b4d789742a7644c911df510d5fe145107668e4d571361ee17f8e8aa",
+          "content_utf8_bytes": 112,
+          "ordinal": 1,
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1",
+          "source_type": "investigation_memo"
+        },
+        {
+          "content_sha256": "b79af73b5848099655198ba249b8a390edc1b7a6183197ee1c1b8b5677b626dd",
+          "content_utf8_bytes": 153,
+          "ordinal": 2,
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2",
+          "source_type": "interview_summary"
+        }
+      ],
+      "reference_context": []
+    },
+    "case-c": {
+      "case_id": "case-c",
+      "case_packet_sha256": "79ff08e319e791a353c58fddf334c60a63b541daca9ff1a0f943d5381944442f",
+      "frozen_case_mandate_sha256": "870d2b62aa845562913a83ed09d808b2a6b533cd85f40be403c746d132b97a49",
+      "ordered_sources": [
+        {
+          "content_sha256": "b3531ae7c1ff58cd10085afdc881ce0754aa182aa6f8bf229e65525288d4d378",
+          "content_utf8_bytes": 124,
+          "ordinal": 1,
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3",
+          "source_type": "incident_report"
+        },
+        {
+          "content_sha256": "504c1407d418a950e02bfa04761d551e546663550b66995b29d5fcccd0bd2b01",
+          "content_utf8_bytes": 159,
+          "ordinal": 2,
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1",
+          "source_type": "witness_statement"
+        }
+      ],
+      "reference_context": []
+    }
+  },
+  "conditions": [
+    "B0",
+    "D1",
+    "B2"
+  ],
+  "frozen_release": {
+    "artifact_count": 56,
+    "manifest_version": "frozen_artifact_manifest_v1",
+    "registry_sha256": "199c99fc3adbbc816d0f2becb03c5e38c41a8508219aac6a016fa70aa2bd5d9d",
+    "release_id": "53ba6a93adadd2588956fedaf29fb4b6bdca2a628adf04870e24e875e3cde09e"
+  },
+  "implementation_parent_sha": "513ccfed7881432d7e170e795cfcdbac453bee46",
+  "mode": "dry_run",
+  "pinned_configuration": {
+    "context_window_tokens": 200000,
+    "d1_partition": {
+      "context_window_tokens": 200000,
+      "estimator_version": "utf8_bytes_div4_v1",
+      "intermediate_output_allowance_tokens": 8192,
+      "max_stage1_request_tokens": 187712,
+      "safety_margin_tokens": 4096
+    },
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "relationship_extraction_max_output_tokens": 24000,
+    "report_max_output_tokens": 16000,
+    "retry_policy": "none",
+    "temperature": 0.0
+  },
+  "prompt_registry": {
+    "case-a": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "38abdebc24327b29b523d3be1e2fa9d023b9567b93d67c4963411a6b832a20e7",
+        "version": "b2_relationship_extraction_v3"
+      },
+      "d1_stage1": {
+        "sha256": "071c97bc1dc8f13043c5652610c457fe60f9007562cb333ca0e5befda09fd6a0",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "3a7330c0ab41a5e27fa286bc4b10d2c6a09dc51388cb1af6375bc5f935906d87",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "932cd182bda0a218dffca25b180cc0106cd457865f8b872b8d00c1caab4a50c9",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "431d7b9df94cc07a018e3ae129e8e4b768b3386970162dc6868f15d5018362b5",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    },
+    "case-b": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "f98250fe72417f1b4e447dc612da1dac84e83312752c22fb6bffadfa1579664c",
+        "version": "b2_relationship_extraction_v3"
+      },
+      "d1_stage1": {
+        "sha256": "f8d3d9112d7b970cb541823f88dfee9180d528c324d780a110831665cfd3e506",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "927b16cb27f6a24250b18b28b4e6bd70b56bc121db5de4a186799711c98e5c46",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "af7270afb2b75735956184add55125710aa0aad95cb554ab3d66d1093bc9cf7d",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "5023fa402168e19e43130ad19bb0c91eef2c2ed6291b362decdbf3a2e6c94d9c",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    },
+    "case-c": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "ce73c7f4fdc9e6493c9054c6e43b07d8f0de11051a4181eb2449b7e35343388f",
+        "version": "b2_relationship_extraction_v3"
+      },
+      "d1_stage1": {
+        "sha256": "bd85288ac41b2a68b2eee005732accc1525c11466683972df433ca7418cc70e3",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "350aa6f451d7a0314cf59b2cfd80f63674ef6595f6005b00f34ea450efaf5623",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "b62b2d9e523f47dba99e864d729374b5bccc47c6504946299ced578ef0099653",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "80db97731d2817ca453c8d7c861d3165cf5d74166ac53771e4fb80903f037758",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    }
+  },
+  "protocol_version": "report_representation_study_v1",
+  "repeats": 1,
+  "run_id": "preflight-live-pilot-v1",
+  "seed": 20260808,
+  "status": "dry_run"
+}

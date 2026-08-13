@@ -1,0 +1,9 @@
+
+         
+
+         
+
+         
+
+         
+{"id":"gen-1786210251-OzYKeStNFm1YQ7ISOf2D","object":"chat.completion","created":1786210251,"model":"openai/gpt-5.6-luna","provider":"OpenAI","system_fingerprint":null,"service_tier":"default","choices":[{"index":0,"logprobs":null,"finish_reason":"stop","native_finish_reason":"completed","message":{"role":"assistant","content":"{\"records\":[{\"timestamp_text\":null,\"participants\":[\"TX-1\"],\"summary\":\"A reconciliation note states that two transaction exports appear to refer to the same TX-1 record. It characterizes this as an administrative comparison rather than a second transfer, preserves the same amount and transaction time, and warns that duplicate exports should not be counted as separate events.\",\"source_refs\":[{\"source_id\":\"a-ledger-003\",\"source_locator\":\"case-a-scale/ledger/reconciliation-note\"}]}]}","refusal":null}}],"usage":{"prompt_tokens":1167,"completion_tokens":103,"total_tokens":1270,"cost":0.0002076,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":1164,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.0002076,"upstream_inference_prompt_cost":0.0001458,"upstream_inference_completions_cost":0.0000618},"completion_tokens_details":{"reasoning_tokens":0,"image_tokens":0,"audio_tokens":0}},"openrouter_metadata":{"requested":"openai/gpt-5.6-luna-20260709","strategy":"direct","region":"TPE","summary":"available=1, selected=OpenAI","attempt":1,"is_byok":false,"endpoints":{"total":4,"available":[{"provider":"OpenAI","model":"openai/gpt-5.6-luna-20260709","selected":true}]}}}

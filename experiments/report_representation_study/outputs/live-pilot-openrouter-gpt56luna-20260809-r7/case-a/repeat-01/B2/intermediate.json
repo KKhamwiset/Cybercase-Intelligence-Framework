@@ -1,0 +1,191 @@
+{
+  "artifact_entity_links": [],
+  "artifact_records": [
+    {
+      "artifact_id": "art-tx-1",
+      "artifact_type": "transaction record",
+      "description": "Transaction record TX-1 reporting a USD 500 transfer from ACC-100 to ACC-200 and naming Alice Chen as the initiating user.",
+      "source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "temporal_assertions": []
+    }
+  ],
+  "case_id": "case-a",
+  "conflicts": [],
+  "coreference_candidates": [],
+  "entities": [
+    {
+      "aliases": [],
+      "canonical_label": "Alice Chen",
+      "entity_id": "ent-alice-chen",
+      "entity_type": "person",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        },
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "stability_basis": null
+    },
+    {
+      "aliases": [],
+      "canonical_label": "ACC-100",
+      "entity_id": "ent-acc-100",
+      "entity_type": "account",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        },
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "stability_basis": null
+    },
+    {
+      "aliases": [],
+      "canonical_label": "ACC-200",
+      "entity_id": "ent-acc-200",
+      "entity_type": "account",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "stability_basis": null
+    }
+  ],
+  "events": [
+    {
+      "description": "Reported transfer of USD 500 from ACC-100 to ACC-200; the transaction record names Alice Chen as the initiating user.",
+      "event_id": "evt-tx-1",
+      "participants": [
+        {
+          "entity_id": "ent-alice-chen",
+          "role": "actor",
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "status": "reported"
+        },
+        {
+          "entity_id": "ent-acc-100",
+          "role": "source_account",
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "status": "reported"
+        },
+        {
+          "entity_id": "ent-acc-200",
+          "role": "target_account",
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": [
+        {
+          "normalized_end": null,
+          "normalized_start": "2026-01-10T09:00:00Z",
+          "precision": "minute",
+          "raw_text": "2026-01-10 09:00 UTC",
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "status": "reported",
+          "time_kind": "incident",
+          "timezone": "UTC"
+        }
+      ]
+    }
+  ],
+  "ir_version": "relationship_ir_v2",
+  "missing_evidence": [
+    {
+      "context_event_ids": [
+        "evt-tx-1"
+      ],
+      "derivation": "frozen_case_mandate",
+      "description": "Independent verification of the reported account relationship and transfer event is not included in the packet; appropriate verification would require reviewing authoritative account-registration records and complete transaction or payment-system records.",
+      "gap_id": "gap-verify-transfer",
+      "known_entity_ids": [
+        "ent-alice-chen",
+        "ent-acc-100",
+        "ent-acc-200"
+      ],
+      "source_refs": []
+    }
+  ],
+  "missing_information": [
+    {
+      "context_event_ids": [
+        "evt-tx-1"
+      ],
+      "derivation": "frozen_case_mandate",
+      "description": "The packet does not provide additional transaction context such as the transfer purpose, authorization evidence, recipient identity, or surrounding account activity.",
+      "gap_id": "gap-transaction-context",
+      "known_entity_ids": [
+        "ent-alice-chen",
+        "ent-acc-100",
+        "ent-acc-200"
+      ],
+      "source_refs": []
+    }
+  ],
+  "relationship_assertions": [
+    {
+      "object_entity_id": "ent-acc-100",
+      "predicate": "registered_holder_of",
+      "relationship_id": "rel-alice-holder-acc100",
+      "source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        }
+      ],
+      "statement": "The intake statement reports that Alice Chen is the registered holder of account ACC-100.",
+      "status": "reported",
+      "subject_entity_id": "ent-alice-chen"
+    }
+  ],
+  "unknown_counterpart_gaps": [],
+  "warnings": [
+    "The account-holder and initiating-user assertions are source-reported and are not independently verified by the packet.",
+    "The packet contains a transaction-log excerpt rather than complete underlying account or payment-system records."
+  ]
+}

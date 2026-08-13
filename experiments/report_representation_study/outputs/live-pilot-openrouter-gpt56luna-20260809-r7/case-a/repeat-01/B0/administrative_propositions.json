@@ -1,0 +1,461 @@
+{
+  "export_version": "human_proposition_export_v1",
+  "gold_status": "not_available",
+  "propositions": [
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-001",
+      "statement_text": "The intake statement reports that Alice Chen is the registered holder of account ACC-100.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "executive_summary",
+      "statement_id": "stmt-002",
+      "statement_text": "Transaction record TX-1 reports a transfer of USD 500 from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-003",
+      "statement_text": "This report is limited to the supplied investigator statement and transaction log excerpt.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "missing_information",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "case_background_scope",
+      "statement_id": "stmt-004",
+      "statement_text": "The supplied materials do not establish the identity or ownership of account ACC-200.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-005",
+      "statement_text": "The investigator statement reports a relationship between Alice Chen and account ACC-100 as registered holder.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-006",
+      "statement_text": "The transaction log excerpt names Alice Chen as the initiating user for transaction TX-1.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "evidence_findings",
+      "statement_id": "stmt-007",
+      "statement_text": "The supplied materials do not independently verify the accuracy, integrity, or provenance of the intake statement or transaction log excerpt.",
+      "statement_type": "limitation",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-008",
+      "statement_text": "Alice Chen is identified in the supplied materials as the reported registered holder of account ACC-100.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-009",
+      "statement_text": "Alice Chen is identified in the transaction record as the reported initiating user for transaction TX-1.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-010",
+      "statement_text": "Account ACC-100 is identified as the reported source account for transaction TX-1.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "individuals_accounts_systems_roles",
+      "statement_id": "stmt-011",
+      "statement_text": "Account ACC-200 is identified as the reported destination account for transaction TX-1.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-012",
+      "statement_text": "At 2026-01-10 09:00 UTC, transaction TX-1 is reported to have transferred USD 500 from ACC-100 to ACC-200.",
+      "statement_type": "case_statement",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "missing_information",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "chronological_timeline",
+      "statement_id": "stmt-013",
+      "statement_text": "The supplied materials do not provide a date or time for the account-holder relationship reported in the intake statement.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_established",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "technical_analysis_mitre",
+      "statement_id": "stmt-014",
+      "statement_text": "The supplied materials describe an account transfer event but do not provide evidence sufficient for a supported MITRE ATT&CK technique mapping.",
+      "statement_type": "analysis_candidate",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "missing_evidence",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "technical_analysis_mitre",
+      "statement_id": "stmt-015",
+      "statement_text": "No authentication records, device data, access logs, or transaction-control details were supplied for technical validation of the initiating-user field.",
+      "statement_type": "uncertainty_or_gap",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "reported",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [
+        {
+          "source_id": "a-statement-001",
+          "source_locator": "case-a/statement/line-1"
+        },
+        {
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a/ledger/transaction-TX-1"
+        }
+      ],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-016",
+      "statement_text": "The supplied records support only a provisional report that Alice Chen is associated with ACC-100 as its reported registered holder and that TX-1 is reported as a USD 500 transfer from ACC-100 to ACC-200.",
+      "statement_type": "analysis_candidate",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-017",
+      "statement_text": "Verify the account-holder relationship and transaction details against authoritative account records and preserved ledger records.",
+      "statement_type": "next_step",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-018",
+      "statement_text": "Collect and preserve relevant authentication, access, device, authorization, and audit records for transaction TX-1.",
+      "statement_type": "next_step",
+      "verdict": null
+    },
+    {
+      "atomicity_verdict": null,
+      "block_id": "block-0001",
+      "case_id": "case-a",
+      "condition": "B0",
+      "model_epistemic_status": "not_applicable",
+      "model_mitre_technique_ids": [],
+      "model_reference_ids": [],
+      "model_source_refs": [],
+      "notes": null,
+      "repeat": 1,
+      "reviewer_locations": [],
+      "reviewer_source_ids": [],
+      "run_id": "live-pilot-openrouter-gpt56luna-20260809-r7",
+      "section_id": "conclusions_limitations_next_steps",
+      "statement_id": "stmt-019",
+      "statement_text": "Verify the identity and account relationship of the holder of ACC-200 through appropriate account records.",
+      "statement_type": "next_step",
+      "verdict": null
+    }
+  ],
+  "scoring_status": "not_scored"
+}

@@ -10,6 +10,8 @@ export type WorkspaceView = "chat" | "extraction" | "report";
 
 export type EvidenceRouteView = "extraction" | "timeline" | "relationships";
 
+export type CaseInformationRouteView = EvidenceRouteView;
+
 export type WorkspaceRouteView = WorkspaceView | EvidenceRouteView;
 
 export function workspaceViewForRoute(

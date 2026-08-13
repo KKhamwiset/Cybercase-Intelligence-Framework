@@ -58,8 +58,7 @@ backend/app/services/
 │   ├── structured_output_router.py
 │   └── structured_output_request_router.py
 ├── extraction/               # Source-Bounded Fact & Entity/Relationship Extraction
-│   ├── llm_extraction.py
-│   └── demo_extraction.py
+│   └── llm_extraction.py
 └── reports/                  # Incident Report Generation & PDF Export
     ├── report_service.py
     ├── report_generation.py

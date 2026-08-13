@@ -31,7 +31,10 @@ export type ThreadStatus =
   | "idle"
   | "processing"
   | "awaiting_followup"
+  | "answered"
   | "failed";
+
+export type ChatMessageAction = "ask" | "add_case_info";
 
 export type RunStatus = "queued" | "running" | "completed" | "failed";
 
@@ -321,10 +324,15 @@ export const createChatMessage = async (
   content: string,
   idempotencyKey: string,
   signal?: AbortSignal,
+  action?: ChatMessageAction,
 ): Promise<ChatMessageAccepted> => {
   const response = await axios.post<ChatMessageAccepted>(
     `${getApiBaseUrl()}/chats/${encodeURIComponent(threadId)}/messages`,
-    { content, idempotency_key: idempotencyKey },
+    {
+      content,
+      idempotency_key: idempotencyKey,
+      ...(action ? { action } : {}),
+    },
     { signal },
   );
   return response.data;

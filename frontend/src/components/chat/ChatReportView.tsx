@@ -69,7 +69,7 @@ export function ChatReportView({
   const canGenerate =
     Boolean(threadId) &&
     hasMessages &&
-    threadStatus === "idle" &&
+    (threadStatus === "idle" || threadStatus === "answered") &&
     hasValidatedExtraction &&
     !isGenerating;
 

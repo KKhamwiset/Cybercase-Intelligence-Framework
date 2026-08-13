@@ -1,0 +1,321 @@
+{
+  "case_id": "case-b-scale",
+  "intermediate_version": "d1_summary_records_v1",
+  "ordered_parts": [
+    {
+      "case_id": "case-b-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0001",
+      "part_ordinal": 1,
+      "part_sha256": "21fd60b22c30b59cd13d34e75f1f1a3a8e1e9cd823c18af78a7d64cf29342944",
+      "records": [
+        {
+          "participants": [
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b-scale/memo/paragraph-1"
+            },
+            {
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1"
+            }
+          ],
+          "summary": "The owner or controller of account ACC-B1 remains unknown. The account-registry excerpt lists ACC-B1 as active but leaves the owner and controller fields blank and contains no identity-verification record, customer identifier, or provider signature connecting the account to Bob Niran or another individual.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2"
+            }
+          ],
+          "summary": "The interview summary identifies Bob Niran as a person mentioned during the interview, but investigators state that the available information does not establish that he controls account ACC-B1; he is not described as a verified account holder.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "ACC-B1",
+            "provider"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-audit-001",
+              "source_locator": "case-b-scale/evidence-request/login-audit"
+            },
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b-scale/memo/paragraph-1"
+            }
+          ],
+          "summary": "Requested login, authentication, and session audit records were not supplied. The evidence-request note characterizes these records as missing from the packet, does not state that no logins occurred, and indicates that the records should be requested from the provider.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 240,
+          "char_start": 0,
+          "content_sha256": "8336059179e79402aa6d654fb1ea8f89fc8b54ba7236b4e53e69151a010a7d5b",
+          "source_id": "b-memo-001",
+          "source_locator": "case-b-scale/memo/paragraph-1",
+          "source_type": "investigation_memo"
+        },
+        {
+          "char_end": 248,
+          "char_start": 0,
+          "content_sha256": "36bf7597c91cfa15e290a384edeb620c5f7f0d88d5df74e829ee43847ee68378",
+          "source_id": "b-interview-001",
+          "source_locator": "case-b-scale/interview/bob/paragraph-2",
+          "source_type": "interview_summary"
+        },
+        {
+          "char_end": 296,
+          "char_start": 0,
+          "content_sha256": "b6342516f550a56abab6ba28579429aba24a2d94b35eeb8193a7c44b2b163e2d",
+          "source_id": "b-registry-001",
+          "source_locator": "case-b-scale/account-registry/acc-b1",
+          "source_type": "account_registry_excerpt"
+        },
+        {
+          "char_end": 268,
+          "char_start": 0,
+          "content_sha256": "2eea4b9218c4b2b7b6b9d229d93a5d0282dc6e88357fcd3695bd28af86033d15",
+          "source_id": "b-audit-001",
+          "source_locator": "case-b-scale/evidence-request/login-audit",
+          "source_type": "audit_availability_note"
+        }
+      ]
+    },
+    {
+      "case_id": "case-b-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0002",
+      "part_ordinal": 2,
+      "part_sha256": "737d00ec75d834bb303c6243456cc334136da356eb22de0b7dd5d6fabf5288d6",
+      "records": [
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            }
+          ],
+          "summary": "A service-desk ticket submitted using a contact name matching Bob Niran asked about access to the partially redacted account identifier. The ticket does not show authenticated access to ACC-B1 and cannot by itself establish ownership or control.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            }
+          ],
+          "summary": "An email header displayed Bob Niran as the sender name in a discussion about account access, but lacked a verified account-control assertion, authentication context, and complete destination metadata. It supports only that Bob was mentioned in the correspondence, not that he controlled ACC-B1.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "B-17",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "summary": "The device inventory lists laptop B-17 as issued to Bob Niran, but no session record links the device to ACC-B1 and the inventory does not establish who used it during any relevant event. Device issuance is an association, not proof of account control.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status"
+            }
+          ],
+          "summary": "An analyst note classifies the relationship between Bob Niran and ACC-B1 as not established. It identifies provider account records, login audit data, session identifiers, and authenticated device telemetry as needed for verification, and states that the classification is provisional and source-grounded.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 267,
+          "char_start": 0,
+          "content_sha256": "0c372db1a566ad92f28bc84b47a9f09ba54194050d25368dfc25e5b965953843",
+          "source_id": "b-support-001",
+          "source_locator": "case-b-scale/service-desk/ticket-44",
+          "source_type": "service_desk_excerpt"
+        },
+        {
+          "char_end": 299,
+          "char_start": 0,
+          "content_sha256": "f791f25f6715eec82032568242a459e8acb55c340483b2f587d9b0be1d5a2ddb",
+          "source_id": "b-email-001",
+          "source_locator": "case-b-scale/email/header-17",
+          "source_type": "email_header_excerpt"
+        },
+        {
+          "char_end": 254,
+          "char_start": 0,
+          "content_sha256": "b1366563b9716de1323160a06057522633900449f7e0b88abf249b3d69f96577",
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17",
+          "source_type": "device_inventory_excerpt"
+        },
+        {
+          "char_end": 294,
+          "char_start": 0,
+          "content_sha256": "3aed7e9539d2d4a46731937b7d863961d2901c4bff217490d42bd147f0611ed0",
+          "source_id": "b-analyst-001",
+          "source_locator": "case-b-scale/analysis/control-status",
+          "source_type": "analyst_note"
+        }
+      ]
+    },
+    {
+      "case_id": "case-b-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0003",
+      "part_ordinal": 3,
+      "part_sha256": "7d6a32c6e3aefb34fd4e4668e25cdf50ecfcde9d176fd21e3d5f07c38c08c418",
+      "records": [
+        {
+          "participants": [
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            }
+          ],
+          "summary": "A provider request seeks ACC-B1 registration, recovery, and login records, but the request remains unanswered in the packet. No response identifies an owner, controller, recovery address, or authenticated session, leaving those verification items unresolved.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-witness-001",
+              "source_locator": "case-b-scale/witness/paragraph-4"
+            }
+          ],
+          "summary": "A witness recalls Bob discussing an account problem during a meeting but cannot identify the account number or say that Bob logged into ACC-B1; the observation is contextual and does not establish account control.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-platform-001",
+              "source_locator": "case-b-scale/platform/field-availability"
+            }
+          ],
+          "summary": "The platform response states that the supplied account export lacks a public owner field for ACC-B1, provides no substitute identity, and neither confirms nor denies any person as controller.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-duplicate-001",
+              "source_locator": "case-b-scale/memo/addendum-1"
+            }
+          ],
+          "summary": "A memo addendum repeats that the owner is unknown and that Bob Niran is mentioned but not established as controller. It is identified as an addendum to the same investigation memo, not an independent confirmation or new ownership finding.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 220,
+          "char_start": 0,
+          "content_sha256": "80b9a09971b3974b46a3a7682a8e36769e06d23f0201b2a04d2b3b2a8e9e82f0",
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1",
+          "source_type": "provider_request_log"
+        },
+        {
+          "char_end": 231,
+          "char_start": 0,
+          "content_sha256": "5acb0b9c2562afb3b9c14a23155242a15244ab12ccfe4f13b2a61d6b50e7c679",
+          "source_id": "b-witness-001",
+          "source_locator": "case-b-scale/witness/paragraph-4",
+          "source_type": "witness_statement"
+        },
+        {
+          "char_end": 208,
+          "char_start": 0,
+          "content_sha256": "dcffeca56e2923e50c70ccf7e550c99823276319bee6c760dbc8f3ef6357174a",
+          "source_id": "b-platform-001",
+          "source_locator": "case-b-scale/platform/field-availability",
+          "source_type": "platform_response_excerpt"
+        },
+        {
+          "char_end": 226,
+          "char_start": 0,
+          "content_sha256": "d14817b80876c40d559876cca6ecd8ef64bdae00b01613f0b23eaf257456f5de",
+          "source_id": "b-duplicate-001",
+          "source_locator": "case-b-scale/memo/addendum-1",
+          "source_type": "memo_addendum"
+        }
+      ]
+    },
+    {
+      "case_id": "case-b-scale",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0004",
+      "part_ordinal": 4,
+      "part_sha256": "cf3635b67f366ba401bf1c0a88710b42c7dc6cab76c0cf2561dfb32322e608cf",
+      "records": [],
+      "source_spans": [
+        {
+          "char_end": 248,
+          "char_start": 0,
+          "content_sha256": "eee3965a017a1e710a38035f03ea340a215692b0e884120c0cf75fd54e27f295",
+          "source_id": "b-ops-001",
+          "source_locator": "case-b-scale/unrelated/server-maintenance",
+          "source_type": "operations_log"
+        },
+        {
+          "char_end": 251,
+          "char_start": 0,
+          "content_sha256": "7fe0dd64be22624e07ea88623a3e593a79d13ac4a4bc44852ed968067a54cae8",
+          "source_id": "b-admin-001",
+          "source_locator": "case-b-scale/administration/packet-index",
+          "source_type": "administrative_note"
+        }
+      ]
+    }
+  ]
+}

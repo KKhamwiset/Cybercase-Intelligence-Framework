@@ -1,0 +1,291 @@
+{
+  "case_id": "case-a",
+  "report_version": "representation_study_report_v1",
+  "sections": [
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-001",
+          "statement_type": "case_statement",
+          "text": "The intake statement reports that Alice Chen is the registered holder of account ACC-100."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-002",
+          "statement_type": "case_statement",
+          "text": "Transaction record TX-1 reports a USD 500 transfer from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC."
+        }
+      ],
+      "heading": "Executive Summary",
+      "section_id": "executive_summary"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            },
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-003",
+          "statement_type": "case_statement",
+          "text": "The supplied records concern the reported relationship between Alice Chen and ACC-100 and the reported transfer identified as TX-1."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-004",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied representation does not establish the identity or ownership of the holder of ACC-200."
+        }
+      ],
+      "heading": "Case Background and Scope",
+      "section_id": "case_background_scope"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-005",
+          "statement_type": "case_statement",
+          "text": "The intake statement reports that Alice Chen is the registered holder of ACC-100."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-006",
+          "statement_type": "case_statement",
+          "text": "The transaction record identifies Alice Chen as the initiating user for TX-1."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-007",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied records do not include authentication, device, network, authorization, or account-access evidence for TX-1."
+        }
+      ],
+      "heading": "Evidence Findings",
+      "section_id": "evidence_findings"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-008",
+          "statement_type": "case_statement",
+          "text": "Alice Chen is reported as the registered holder of ACC-100."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-009",
+          "statement_type": "case_statement",
+          "text": "Alice Chen is reported as the initiating user associated with TX-1."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-010",
+          "statement_type": "case_statement",
+          "text": "ACC-100 is reported as the source account for TX-1."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-011",
+          "statement_type": "case_statement",
+          "text": "ACC-200 is reported as the destination account for TX-1."
+        }
+      ],
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-012",
+          "statement_type": "case_statement",
+          "text": "At 2026-01-10 09:00 UTC, transaction record TX-1 reports a USD 500 transfer from ACC-100 to ACC-200."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-013",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied records do not provide a timestamp for the statement concerning the reported registration of ACC-100 to Alice Chen."
+        }
+      ],
+      "heading": "Chronological Timeline",
+      "section_id": "chronological_timeline"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-014",
+          "statement_type": "analysis_candidate",
+          "text": "The supplied records identify a ledger transfer but do not provide sufficient technical evidence to support a specific MITRE ATT&CK technique mapping."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-015",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied records do not establish whether the reported initiating user directly authenticated to the account or whether another access mechanism was involved."
+        }
+      ],
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-016",
+          "statement_type": "next_step",
+          "text": "The reported account relationship and transfer should be treated as provisional pending verification against authoritative account and transaction records."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-017",
+          "statement_type": "next_step",
+          "text": "Investigators should preserve the authoritative transaction record, account-registration records, authentication logs, device and network metadata, and relevant audit logs for TX-1."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-018",
+          "statement_type": "next_step",
+          "text": "Investigators should verify the identity and relationship of the holder of ACC-200 using authoritative account records."
+        }
+      ],
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Provisional Investigative Report: case-a"
+}

@@ -98,20 +98,27 @@ class Settings(BaseSettings):
     chat_followup_combined_query_max_chars: int = 12_000
     chat_followup_max_rounds: int = Field(default=3, ge=1, le=8)
 
+    # Post-answer ASK reasons over the persisted case and latest analysis. It
+    # deliberately does not call the retrieval service again.
+    chat_ask_model: str = "openai/gpt-5.6-luna"
+    chat_ask_timeout_seconds: float = 60.0
+    chat_ask_max_output_tokens: int = 2_048
+    chat_ask_max_input_chars: int = 20_000
+
     # Terminal chat extraction baseline. A missing provider key produces an
     # explicit failed extraction record rather than falling back to regex.
     chat_extraction_enabled: bool = True
     chat_extraction_model: str = "openai/gpt-5.6-luna"
     chat_extraction_timeout_seconds: float = 60.0
     chat_extraction_max_input_chars: int = 20_000
-    chat_extraction_max_output_tokens: int = 2_048
+    chat_extraction_max_output_tokens: int = 8_192
     chat_extraction_max_entities: int = 24
     chat_extraction_max_relationships: int = 48
     chat_extraction_max_evidence: int = 24
     chat_extraction_max_timeline: int = 32
     chat_extraction_max_missing_information: int = 16
     chat_extraction_max_text_chars: int = 4_000
-    chat_extraction_max_raw_response_chars: int = 12_000
+    chat_extraction_max_raw_response_chars: int = 48_000
 
     # Persisted report generation. The report service performs one provider
     # call per valid generation attempt and never repairs model output.

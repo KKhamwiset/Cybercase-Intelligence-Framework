@@ -1,0 +1,253 @@
+{
+  "case_id": "case-b",
+  "report_version": "representation_study_report_v1",
+  "sections": [
+    {
+      "content": [
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-001",
+          "statement_type": "case_statement",
+          "text": "The owner or controller of account ACC-B1 is unknown."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-002",
+          "statement_type": "case_statement",
+          "text": "The available information does not establish that Bob Niran controls account ACC-B1."
+        }
+      ],
+      "heading": "Executive Summary",
+      "section_id": "executive_summary"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-003",
+          "statement_type": "case_statement",
+          "text": "The interview summary identifies Bob Niran."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-004",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The case packet does not establish the owner or controller of account ACC-B1."
+        }
+      ],
+      "heading": "Case Background and Scope",
+      "section_id": "case_background_scope"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-005",
+          "statement_type": "uncertainty_or_gap",
+          "text": "No login audit records were provided with the case packet."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-006",
+          "statement_type": "case_statement",
+          "text": "The available information does not establish a control relationship between Bob Niran and account ACC-B1."
+        }
+      ],
+      "heading": "Evidence Findings",
+      "section_id": "evidence_findings"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-007",
+          "statement_type": "case_statement",
+          "text": "Bob Niran is identified in the interview summary."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-008",
+          "statement_type": "case_statement",
+          "text": "Account ACC-B1 has an unknown owner or controller."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-009",
+          "statement_type": "case_statement",
+          "text": "Bob Niran's control of account ACC-B1 is not established."
+        }
+      ],
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            },
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-010",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied sources do not provide dated events for a chronological timeline."
+        }
+      ],
+      "heading": "Chronological Timeline",
+      "section_id": "chronological_timeline"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-011",
+          "statement_type": "limitation",
+          "text": "The supplied sources do not provide sufficient technical activity details to support a MITRE ATT&CK mapping."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-012",
+          "statement_type": "uncertainty_or_gap",
+          "text": "No login audit records were provided for technical analysis of account ACC-B1."
+        }
+      ],
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            },
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-013",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied information is insufficient to identify the owner or controller of account ACC-B1."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-014",
+          "statement_type": "next_step",
+          "text": "Investigators should preserve and obtain available login audit records for account ACC-B1 through appropriate verification channels."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-015",
+          "statement_type": "next_step",
+          "text": "Investigators should verify any proposed relationship between Bob Niran and account ACC-B1 using account-provider records or other authorized evidence."
+        }
+      ],
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Provisional Investigative Report: case-b"
+}

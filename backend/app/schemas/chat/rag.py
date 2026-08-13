@@ -19,6 +19,8 @@ class QueryRequest(RagQueryRequest):
 class MitreTableRow(BaseModel):
     """One entry of the MITRE mapping table produced by the RAG service."""
 
+    model_config = ConfigDict(extra="forbid")
+
     technique_id: str = ""
     name: str
     entity_type: str = ""
@@ -31,11 +33,11 @@ class MitreTableRow(BaseModel):
 
 
 class QueryResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     status: Literal["completed"]
-    answer: str = ""
-    retrieval_context_id: str | None = None
+    retrieval_context_id: str | None
+    context: str
     mitre_table: list[MitreTableRow] = Field(default_factory=list)
 
     @field_validator("retrieval_context_id", mode="before")

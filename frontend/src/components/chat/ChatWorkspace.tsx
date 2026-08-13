@@ -19,6 +19,7 @@ import {
   listChatThreads,
   updateChatThread,
   type PersistedChatMessage,
+  type ChatMessageAction,
   type ChatThreadDetail,
   type ChatThreadRead,
   type ThreadStatus,
@@ -29,7 +30,7 @@ import { ChatRelationshipsView } from "@/components/chat/ChatRelationshipsView";
 import { ChatReportView } from "@/components/chat/ChatReportView";
 import { ChatTimelineView } from "@/components/chat/ChatTimelineView";
 import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
-import { EvidenceRouteHeader } from "@/components/chat/EvidenceRouteHeader";
+import { EvidenceRouteHeader } from "@/components/chat/RouteHeader";
 import { Icon } from "@/components/chat/icons";
 import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
 import {
@@ -58,6 +59,7 @@ interface PendingSubmission {
   content: string;
   key: string;
   kind: "message" | "followup";
+  action?: ChatMessageAction;
   lastKnownMessageOrdinal: number;
   requestOrdinal?: number;
 }
@@ -135,9 +137,9 @@ function chatRouteState(pathname: string): ChatRouteState {
   const routeSegment = segments[2];
   const view: WorkspaceRouteView =
     routeSegment === "extraction" ||
-    routeSegment === "timeline" ||
-    routeSegment === "relationships" ||
-    routeSegment === "report"
+      routeSegment === "timeline" ||
+      routeSegment === "relationships" ||
+      routeSegment === "report"
       ? routeSegment
       : "chat";
 
@@ -166,6 +168,8 @@ export function ChatWorkspace() {
   const [threadStatus, setThreadStatus] = useState<ThreadStatus | null>(null);
   const [messages, setMessages] = useState<PersistedChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [postAnswerAction, setPostAnswerAction] =
+    useState<ChatMessageAction | null>(null);
   const [pendingFollowUp, setPendingFollowUp] = useState<{
     threadId: string;
     followUp: ActiveChatFollowUp;
@@ -219,10 +223,10 @@ export function ChatWorkspace() {
       const recoveredRequestOrdinal =
         pending?.threadId === detail.id && pending.requestOrdinal === undefined
           ? persistedRequestOrdinal(
-              detail,
-              pending.lastKnownMessageOrdinal,
-              pending.content,
-            )
+            detail,
+            pending.lastKnownMessageOrdinal,
+            pending.content,
+          )
           : undefined;
       if (
         pending?.threadId === detail.id &&
@@ -241,7 +245,7 @@ export function ChatWorkspace() {
       if (failureMessage || detail.status === "failed") {
         setQueryError(
           failureMessage ||
-            "Background processing failed. Retry the saved message.",
+          "Background processing failed. Retry the saved message.",
         );
       } else if (
         pending?.threadId !== detail.id ||
@@ -258,6 +262,7 @@ export function ChatWorkspace() {
         pendingSubmissionRef.current = null;
         setPendingFollowUp(null);
         setInput("");
+        setPostAnswerAction(null);
       }
     },
     [upsertThread],
@@ -335,6 +340,7 @@ export function ChatWorkspace() {
       activeThreadIdRef.current = threadId;
 
       setActiveThreadId(threadId);
+      setPostAnswerAction(null);
       const pending = pendingSubmissionRef.current;
       setInput(
         pending?.threadId === threadId && pending.kind === "followup"
@@ -430,6 +436,7 @@ export function ChatWorkspace() {
   const handleNewChat = useCallback(async () => {
     if (creatingThread) return;
     setActiveView("chat");
+    setPostAnswerAction(null);
     setCreatingThread(true);
     setThreadsError(null);
     try {
@@ -524,6 +531,12 @@ export function ChatWorkspace() {
     const content = rawContent.trim();
     if (!content) return;
     const statusBeforeSubmit = threadStatus;
+    const action =
+      statusBeforeSubmit === "answered" ? postAnswerAction ?? undefined : undefined;
+    if (statusBeforeSubmit === "answered" && action === undefined) {
+      setQueryError("Choose how to use the next message before sending it.");
+      return;
+    }
 
     void (async () => {
       let threadId = activeThreadIdRef.current;
@@ -553,22 +566,27 @@ export function ChatWorkspace() {
       const existingMessages = messages;
       const pending = pendingSubmissionRef.current;
       const idempotencyKey =
-        pending?.threadId === threadId && pending.content === content
+        pending?.threadId === threadId &&
+        pending.content === content &&
+        pending.action === action
           ? pending.key
           : window.crypto.randomUUID();
       const lastKnownMessageOrdinal =
-        pending?.threadId === threadId && pending.content === content
+        pending?.threadId === threadId &&
+        pending.content === content &&
+        pending.action === action
           ? pending.lastKnownMessageOrdinal
           : existingMessages.reduce(
-              (latestOrdinal, message) =>
-                Math.max(latestOrdinal, message.ordinal),
-              0,
-            );
+            (latestOrdinal, message) =>
+              Math.max(latestOrdinal, message.ordinal),
+            0,
+          );
       pendingSubmissionRef.current = {
         threadId,
         content,
         key: idempotencyKey,
         kind,
+        action,
         lastKnownMessageOrdinal,
       };
       if (kind === "followup" && followUp) {
@@ -586,6 +604,7 @@ export function ChatWorkspace() {
           content,
           idempotencyKey,
           controller.signal,
+          action,
         );
         if (!isCurrentSelection(threadId, generation)) return;
         requestAccepted = true;
@@ -645,6 +664,7 @@ export function ChatWorkspace() {
           pendingSubmissionRef.current = null;
           setPendingFollowUp(null);
           setInput("");
+          setPostAnswerAction(null);
         } else if (
           completedDetail &&
           isCurrentSelection(threadId, generation)
@@ -702,6 +722,7 @@ export function ChatWorkspace() {
         pendingSubmissionRef.current = null;
         setPendingFollowUp(null);
       }
+      setPostAnswerAction(null);
     }
 
     try {
@@ -728,6 +749,7 @@ export function ChatWorkspace() {
     setThreadStatus(null);
     setQueryError(null);
     setPhase("idle");
+    setPostAnswerAction(null);
 
     if (remainingThreads[0]) {
       router.replace(chatPath(remainingThreads[0].id, activeView));
@@ -753,6 +775,12 @@ export function ChatWorkspace() {
       ? pendingFollowUp.followUp
       : null);
   const visibleMessages = chatTranscriptMessages(messages);
+  const handlePostAnswerActionChange = useCallback(
+    (action: ChatMessageAction) => {
+      if (threadStatus === "answered") setPostAnswerAction(action);
+    },
+    [threadStatus],
+  );
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     submitContent(
@@ -824,7 +852,7 @@ export function ChatWorkspace() {
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#C9C7BF] bg-white px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
             >
               <option value="chat">Chat</option>
-              <option value="extraction">Evidence &amp; timeline</option>
+              <option value="extraction">Case information &amp; timeline</option>
               <option value="report">Report generation</option>
             </select>
           </div>
@@ -903,7 +931,9 @@ export function ChatWorkspace() {
                   threadStatus={threadStatus}
                   phase={phase}
                   error={queryError}
+                  postAnswerAction={postAnswerAction}
                   onInputChange={setInput}
+                  onPostAnswerActionChange={handlePostAnswerActionChange}
                   onSubmit={handleSubmit}
                 />
               </div>

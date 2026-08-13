@@ -1,0 +1,53 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "CHUNK-0001",
+      "chunk_sha256": "5d70ac5075224a153ae561ba126dfaa372dc8715fbd4ee78c49b6624678b4c25",
+      "estimated_tokens": 213,
+      "max_tokens": 220,
+      "ordinal": 1,
+      "sources": [
+        {
+          "char_end": 174,
+          "char_start": 0,
+          "content": "A reported account received a suspicious message on 2026-08-01 at approximately 10:20. A reported account received a suspicious message on 2026-08-01 at approximately 10:20. ",
+          "content_sha256": "4be002f5d837b08265a6f27c2752868f0a646c177a7c5dd5ca938c505a581078",
+          "parent_source_id": "SRC-001",
+          "source_id": "SRC-001",
+          "source_locator": "statement://1",
+          "source_type": "statement"
+        },
+        {
+          "char_end": 190,
+          "char_start": 0,
+          "content": "A record describes a transfer to ACCT-77 and says control of that account was not established. A record describes a transfer to ACCT-77 and says control of that account was not established. ",
+          "content_sha256": "e75c3f1ec9e01b2d21f6e4b6b9a7c553f10c36c721c447f857c4082556b8d446",
+          "parent_source_id": "SRC-002",
+          "source_id": "SRC-002",
+          "source_locator": "record://2",
+          "source_type": "record"
+        }
+      ]
+    },
+    {
+      "chunk_id": "CHUNK-0002",
+      "chunk_sha256": "a700f9d59ef93360121e721207e5089e08e54ff98cbaa5870d73ae26c20d210b",
+      "estimated_tokens": 106,
+      "max_tokens": 220,
+      "ordinal": 2,
+      "sources": [
+        {
+          "char_end": 168,
+          "char_start": 0,
+          "content": "A device observation mentions HOST-7, but ownership and attribution remain unknown. A device observation mentions HOST-7, but ownership and attribution remain unknown. ",
+          "content_sha256": "f53a333bb6d6b31e05aa43ee519b4587cf644d67d211b6a256895e77d85e8dc7",
+          "parent_source_id": "SRC-003",
+          "source_id": "SRC-003",
+          "source_locator": "observation://3",
+          "source_type": "observation"
+        }
+      ]
+    }
+  ],
+  "max_chunk_tokens": 220
+}

@@ -9,6 +9,7 @@ ThreadStatus = Literal[
     "idle",
     "processing",
     "awaiting_followup",
+    "answered",
     "failed",
 ]
 
