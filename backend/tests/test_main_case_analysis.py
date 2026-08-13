@@ -1,13 +1,17 @@
 from copy import deepcopy
 import json
 import unittest
+from typing import get_args
 from unittest.mock import patch
 
 import httpx
 
+from app.config import settings
 from app.services.case_analysis import (
+    AnalysisMode,
     CaseAnalysisFailure,
     MainCaseAnalysisService,
+    build_case_analysis_prompt,
 )
 from app.services.llm.core_llm import CoreLlmTarget
 
@@ -55,6 +59,13 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
 
         def respond(request: httpx.Request) -> httpx.Response:
             request_payload = json.loads(request.content)
+            system_prompt = request_payload["system"]
+            self.assertIn("TRUST HIERARCHY", system_prompt)
+            self.assertIn("Do not retrieve new information", system_prompt)
+            self.assertIn("ANALYSIS MODE: question_answer", system_prompt)
+            self.assertIn("Answer the supplied question directly", system_prompt)
+            self.assertIn("proportional to the specific question", system_prompt)
+            self.assertIn("Do not force the standard five-section", system_prompt)
             self.assertIn(
                 "Which host should be investigated next?",
                 request_payload["messages"][0]["content"],
@@ -77,6 +88,7 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 return_value=_target(),
             ):
                 answer = await MainCaseAnalysisService(client=client).analyze(
+                    mode="question_answer",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question="Which host should be investigated next?",
@@ -104,6 +116,7 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(CaseAnalysisFailure) as raised,
             ):
                 await MainCaseAnalysisService(client=client).analyze(
+                    mode="question_answer",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question="What does the current analysis support?",
@@ -113,12 +126,18 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(case_state, expected_case_state)
         self.assertEqual(analysis_context, expected_analysis_context)
 
-    async def test_optional_question_is_accepted_by_module_contract(self) -> None:
+    async def test_case_overview_uses_deterministic_overview_task(self) -> None:
         case_state, analysis_context = _case_inputs()
 
         def respond(request: httpx.Request) -> httpx.Response:
             request_payload = json.loads(request.content)
             prompt = request_payload["messages"][0]["content"]
+            system_prompt = request_payload["system"]
+            self.assertIn("TRUST HIERARCHY", system_prompt)
+            self.assertIn("Do not retrieve new information", system_prompt)
+            self.assertIn("ANALYSIS MODE: case_overview", system_prompt)
+            self.assertIn("five short sections in this order", system_prompt)
+            self.assertIn('"analysis_mode":"case_overview"', prompt)
             self.assertIn('"question":null', prompt)
             return httpx.Response(
                 200,
@@ -138,6 +157,7 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 return_value=_target(),
             ):
                 answer = await MainCaseAnalysisService(client=client).analyze(
+                    mode="case_overview",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question=None,
@@ -167,6 +187,7 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 return_value=_target(),
             ):
                 answer = await MainCaseAnalysisService(client=client).analyze(
+                    mode="case_overview",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question=None,
@@ -200,6 +221,7 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 return_value=_target(),
             ):
                 answer = await MainCaseAnalysisService(client=client).analyze(
+                    mode="case_overview",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question=None,
@@ -232,12 +254,63 @@ class MainCaseAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertRaises(CaseAnalysisFailure) as raised,
             ):
                 await MainCaseAnalysisService(client=client).analyze(
+                    mode="case_overview",
                     case_state_json=case_state,
                     analysis_context=analysis_context,
                     question=None,
                 )
 
         self.assertEqual(raised.exception.code, "analysis_provider_error")
+
+    def test_analysis_mode_literal_is_exported(self) -> None:
+        self.assertEqual(
+            get_args(AnalysisMode),
+            ("case_overview", "question_answer"),
+        )
+
+    def test_invalid_mode_and_question_combinations_fail_stably(self) -> None:
+        case_state, analysis_context = _case_inputs()
+        invalid_requests = (
+            ("unsupported", None),
+            ("question_answer", None),
+            ("question_answer", "   "),
+            ("case_overview", "Do not accept this question"),
+        )
+
+        for mode, question in invalid_requests:
+            with (
+                self.subTest(mode=mode, question=question),
+                self.assertRaises(CaseAnalysisFailure) as raised,
+            ):
+                build_case_analysis_prompt(
+                    mode=mode,  # type: ignore[arg-type]
+                    case_state_json=case_state,
+                    analysis_context=analysis_context,
+                    question=question,
+                )
+            self.assertEqual(raised.exception.code, "analysis_invalid_request")
+
+    def test_oversized_question_answer_retains_exact_mode_and_question(self) -> None:
+        exact_question = "  Which exact host is supported by this case?  "
+        with patch.object(settings, "chat_ask_max_input_chars", 480):
+            prompt = build_case_analysis_prompt(
+                mode="question_answer",
+                case_state_json={"case_summary": "case " * 1_000},
+                analysis_context={"retrieved_context": "context " * 1_000},
+                question=exact_question,
+            )
+
+        serialized = prompt.split("<case_context_json>\n", 1)[1].split(
+            "\n</case_context_json>",
+            1,
+        )[0]
+        payload = json.loads(serialized)
+        self.assertLessEqual(len(prompt), 480)
+        self.assertEqual(payload["analysis_mode"], "question_answer")
+        self.assertEqual(payload["question"], exact_question)
+        self.assertTrue(payload["context_truncated"])
+        self.assertTrue(payload["case_state"]["truncated"])
+        self.assertTrue(payload["analysis_context"]["truncated"])
 
 
 if __name__ == "__main__":

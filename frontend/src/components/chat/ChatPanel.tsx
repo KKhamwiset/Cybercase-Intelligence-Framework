@@ -66,11 +66,10 @@ export function ChatPanel({
               type="button"
               aria-pressed={postAnswerAction === "ask"}
               onClick={() => onPostAnswerActionChange("ask")}
-              className={`min-h-10 rounded-lg border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 ${
-                postAnswerAction === "ask"
-                  ? "border-[#171717] bg-[#171717] text-white"
-                  : "border-[#C9C7BF] bg-white text-[#171717] hover:border-[#171717]"
-              }`}
+              className={`min-h-10 rounded-lg border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 ${postAnswerAction === "ask"
+                ? "border-[#171717] bg-[#171717] text-white"
+                : "border-[#C9C7BF] bg-white text-[#171717] hover:border-[#171717]"
+                }`}
             >
               Ask about the case
             </button>
@@ -78,11 +77,10 @@ export function ChatPanel({
               type="button"
               aria-pressed={postAnswerAction === "add_case_info"}
               onClick={() => onPostAnswerActionChange("add_case_info")}
-              className={`min-h-10 rounded-lg border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 ${
-                postAnswerAction === "add_case_info"
-                  ? "border-[#171717] bg-[#171717] text-white"
-                  : "border-[#C9C7BF] bg-white text-[#171717] hover:border-[#171717]"
-              }`}
+              className={`min-h-10 rounded-lg border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 ${postAnswerAction === "add_case_info"
+                ? "border-[#171717] bg-[#171717] text-white"
+                : "border-[#C9C7BF] bg-white text-[#171717] hover:border-[#171717]"
+                }`}
             >
               Add case information
             </button>

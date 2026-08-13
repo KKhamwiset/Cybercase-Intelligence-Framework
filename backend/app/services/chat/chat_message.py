@@ -284,6 +284,7 @@ class ChatMessageService:
             post_answer_action = (
                 request.action if thread.status == "answered" else None
             )
+            post_answer_parent_version_id = None
             if thread.status == "answered":
                 if post_answer_action is None:
                     raise HTTPException(
@@ -311,6 +312,7 @@ class ChatMessageService:
                         status_code=status.HTTP_409_CONFLICT,
                         detail="The current case state could not be loaded",
                     )
+                post_answer_parent_version_id = thread.current_case_state_version_id
             elif thread.status == "awaiting_followup":
                 history_result = await self.db.execute(
                     select(ChatMessage)
@@ -356,6 +358,10 @@ class ChatMessageService:
             }
             if post_answer_action is not None:
                 request_payload["action"] = post_answer_action
+                if post_answer_parent_version_id is not None:
+                    request_payload["case_state_version_id"] = str(
+                        post_answer_parent_version_id
+                    )
 
             run = ChatRun(
                 thread_id=thread.id,

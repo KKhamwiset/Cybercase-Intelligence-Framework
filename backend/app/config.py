@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     chat_followup_policy_max_user_chars: int = 4_000
     chat_followup_question_max_chars: int = 300
     chat_followup_combined_query_max_chars: int = 12_000
-    chat_followup_max_rounds: int = Field(default=3, ge=1, le=8)
+    chat_followup_max_rounds: int = Field(default=8, ge=1, le=16)
 
     # Post-answer ASK reasons over the persisted case and latest analysis. It
     # deliberately does not call the retrieval service again.

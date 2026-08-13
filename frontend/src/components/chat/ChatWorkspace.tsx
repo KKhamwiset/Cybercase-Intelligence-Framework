@@ -567,14 +567,14 @@ export function ChatWorkspace() {
       const pending = pendingSubmissionRef.current;
       const idempotencyKey =
         pending?.threadId === threadId &&
-        pending.content === content &&
-        pending.action === action
+          pending.content === content &&
+          pending.action === action
           ? pending.key
           : window.crypto.randomUUID();
       const lastKnownMessageOrdinal =
         pending?.threadId === threadId &&
-        pending.content === content &&
-        pending.action === action
+          pending.content === content &&
+          pending.action === action
           ? pending.lastKnownMessageOrdinal
           : existingMessages.reduce(
             (latestOrdinal, message) =>

@@ -50,6 +50,7 @@ Relevant implementation paths:
 
 - `backend/app/services/chat/chat_message.py`
 - `backend/app/services/chat/chat_worker.py`
+- `backend/app/services/chat/case_state_mutation.py`
 - `backend/app/services/chat/extraction_stage.py`
 - `backend/app/services/chat/outcome_mapper.py`
 - `backend/app/services/case_analysis/service.py`
@@ -61,9 +62,11 @@ An answered thread requires an explicit message action:
 - `ask` reuses the current Case State version and its one-to-one `RagContext`,
   invokes Main Case Analysis with the new question, and must not invoke RAG,
   extraction, or Case State mutation.
-- `add_case_info` is currently a deliberate not-implemented route. It returns
-  a safe explanation and records `state_mutated=false`; it does not change the
-  Case State.
+- `add_case_info` is an explicit mutation route. It extracts a narrow delta
+  from the current Case State plus the new user message, applies that delta
+  deterministically, invokes fresh RAG and `case_overview` analysis, then
+  atomically persists the child Case State version, fresh `RagContext`, and
+  assistant result. A `no_change` delta leaves the current version untouched.
 
 The frontend action selector lives in `ChatPanel`; state and request forwarding
 live in `ChatWorkspace`. The action is included in the idempotency matching so

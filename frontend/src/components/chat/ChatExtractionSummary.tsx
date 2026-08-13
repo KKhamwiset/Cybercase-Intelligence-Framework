@@ -164,7 +164,7 @@ function BaselineExtractionSummary({
       <div className="mt-4 rounded-xl border border-[#DEDCD5] bg-white p-4">
         <div className="flex items-center justify-between gap-3">
           <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
-              Warnings
+            Warnings
           </h4>
           <span className="text-xs font-bold text-[#8A8984]">
             {extraction.warnings.length}

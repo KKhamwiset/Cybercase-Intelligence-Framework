@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from app.schemas.chat.rag import QueryResponse
 from app.services.case_analysis import CASE_ANALYSIS_PROMPT_VERSION
@@ -40,6 +41,8 @@ class AssistantOutcome:
     active_rag_session_id: str | None
     validated_case_state_json: dict[str, object] | None = None
     rag_context_payload: RagContextPayload | None = None
+    case_state_delta_json: dict[str, object] | None = None
+    expected_parent_case_state_version_id: UUID | None = None
 
 
 def map_rag_response(response: QueryResponse) -> dict[str, object]:
@@ -114,6 +117,7 @@ def map_initial_case_analysis_response(
                 "case_state_version_created": True,
                 "rag_invoked": True,
                 "retrieval_context_reused": False,
+                "analysis_mode": "case_overview",
                 "prompt_version": CASE_ANALYSIS_PROMPT_VERSION,
             },
         }
@@ -154,7 +158,81 @@ def map_case_analysis_response(
                 "case_state_version_created": False,
                 "rag_invoked": False,
                 "retrieval_context_reused": True,
+                "analysis_mode": "question_answer",
                 "prompt_version": CASE_ANALYSIS_PROMPT_VERSION,
+            },
+        },
+        thread_status="answered",
+        active_rag_session_id=None,
+    )
+
+
+def map_case_state_mutation_response(
+    answer: str,
+    *,
+    rag_context_payload: RagContextPayload,
+    merged_case_state_json: dict[str, object],
+    delta_json: dict[str, object],
+    expected_parent_case_state_version_id: UUID,
+    mutation_metadata: dict[str, Any],
+) -> AssistantOutcome:
+    """Map a successful explicit mutation into an atomic child-version outcome."""
+
+    metadata_json: dict[str, Any] = {
+        "chat_mutation": deepcopy(mutation_metadata),
+        "retrieved_context": rag_context_payload.context,
+        "mitre_table": deepcopy(list(rag_context_payload.mitre_table)),
+        "case_state_delta": deepcopy(delta_json),
+        "analysis_kind": "grounded_main_analysis",
+        "chat_action": {
+            "action": "add_case_info",
+            "route": "analysis",
+            "grounded_main_analysis": True,
+            "state_mutated": True,
+            "case_state_version_created": True,
+            "rag_invoked": True,
+            "retrieval_context_reused": False,
+            "analysis_mode": "case_overview",
+            "prompt_version": CASE_ANALYSIS_PROMPT_VERSION,
+        },
+    }
+    return AssistantOutcome(
+        content=answer,
+        retrieval_context_id=rag_context_payload.retrieval_context_id,
+        metadata_json=metadata_json,
+        thread_status="answered",
+        active_rag_session_id=None,
+        validated_case_state_json=deepcopy(merged_case_state_json),
+        rag_context_payload=rag_context_payload,
+        case_state_delta_json=deepcopy(delta_json),
+        expected_parent_case_state_version_id=(
+            expected_parent_case_state_version_id
+        ),
+    )
+
+
+def map_case_state_no_change_response(
+    *,
+    mutation_metadata: dict[str, Any],
+) -> AssistantOutcome:
+    """Return a terminal, auditable response without creating a new version."""
+
+    return AssistantOutcome(
+        content=(
+            "No new supported case information was identified, so the "
+            "canonical Case State was unchanged."
+        ),
+        retrieval_context_id=None,
+        metadata_json={
+            "chat_mutation": deepcopy(mutation_metadata),
+            "chat_action": {
+                "action": "add_case_info",
+                "route": "case_update",
+                "state_mutated": False,
+                "status": "no_change",
+                "case_state_version_created": False,
+                "rag_invoked": False,
+                "retrieval_context_reused": False,
             },
         },
         thread_status="answered",

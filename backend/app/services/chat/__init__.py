@@ -2,6 +2,14 @@
 
 from app.services.chat.chat_management import ChatService
 from app.services.chat.chat_message import ChatMessageService
+from app.services.chat.case_state_mutation import (
+    CaseStateDelta,
+    CaseStateDeltaChange,
+    CaseStateDeltaInput,
+    CaseStateMutationFailure,
+    apply_case_state_delta,
+    run_case_state_delta_extraction,
+)
 from app.services.chat.chat_worker import ChatRunWorker, process_chat_run
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
@@ -21,6 +29,12 @@ __all__ = [
     "ChatManagementService",
     "ChatService",
     "ChatMessageService",
+    "CaseStateDelta",
+    "CaseStateDeltaChange",
+    "CaseStateDeltaInput",
+    "CaseStateMutationFailure",
+    "apply_case_state_delta",
+    "run_case_state_delta_extraction",
     "ChatRunWorker",
     "process_chat_run",
     "process_queued_run",

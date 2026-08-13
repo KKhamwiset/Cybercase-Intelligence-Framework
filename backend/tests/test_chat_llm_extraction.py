@@ -605,6 +605,10 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(adapter.calls), 1)
         analysis_call.assert_awaited_once()
         self.assertEqual(
+            analysis_call.await_args.kwargs["mode"],
+            "case_overview",
+        )
+        self.assertEqual(
             persisted_outcome.metadata_json["retrieved_context"],
             "bounded retrieval context",
         )

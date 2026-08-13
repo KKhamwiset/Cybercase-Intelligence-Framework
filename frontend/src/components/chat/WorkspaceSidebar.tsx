@@ -97,11 +97,10 @@ export function WorkspaceSidebar({
                 aria-controls={`workspace-${view}-panel`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => onViewChange(view)}
-                className={`flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 text-left text-sm font-bold outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 motion-reduce:transition-none ${
-                  selected
+                className={`flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 text-left text-sm font-bold outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 motion-reduce:transition-none ${selected
                     ? "border-[#DEDCD5] bg-white text-[#171717] shadow-[0_1px_2px_rgba(23,23,23,0.04)]"
                     : "border-transparent text-[#6B6A66] hover:bg-white/70 hover:text-[#171717]"
-                }`}
+                  }`}
               >
                 <Icon name={icon} className="h-5 w-5 shrink-0" />
                 <span>{workspaceViewLabels[view]}</span>
@@ -142,31 +141,29 @@ export function WorkspaceSidebar({
                     aria-label={`${thread.title}, ${threadStatusLabels[thread.status]}`}
                     title={thread.title}
                     onClick={() => onSelectThread(thread.id)}
-                    className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border px-2.5 text-left outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 motion-reduce:transition-none ${
-                      selected
+                    className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border px-2.5 text-left outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 motion-reduce:transition-none ${selected
                         ? "border-[#DEDCD5] bg-white text-[#171717] shadow-[0_1px_2px_rgba(23,23,23,0.04)]"
                         : "border-transparent text-[#6B6A66] hover:bg-white/70 hover:text-[#171717]"
-                    }`}
+                      }`}
                   >
-                  <span
-                    className={`h-2 w-2 shrink-0 rounded-full ${
-                      thread.status === "failed"
-                        ? "bg-red-600"
-                        : thread.status === "processing"
-                          ? "animate-pulse bg-black motion-reduce:animate-none"
-                          : thread.status === "awaiting_followup"
-                            ? "border border-black bg-white"
-                            : "bg-gray-400"
-                    }`}
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold">
-                      {thread.title}
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${thread.status === "failed"
+                          ? "bg-red-600"
+                          : thread.status === "processing"
+                            ? "animate-pulse bg-black motion-reduce:animate-none"
+                            : thread.status === "awaiting_followup"
+                              ? "border border-black bg-white"
+                              : "bg-gray-400"
+                        }`}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-bold">
+                        {thread.title}
+                      </span>
+                      <span className="block text-[10px] font-semibold text-gray-500">
+                        {threadStatusLabels[thread.status]}
+                      </span>
                     </span>
-                    <span className="block text-[10px] font-semibold text-gray-500">
-                      {threadStatusLabels[thread.status]}
-                    </span>
-                  </span>
                   </button>
                   <button
                     type="button"

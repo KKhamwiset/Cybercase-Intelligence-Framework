@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { PersistedChatMessage, ThreadStatus } from "@/lib/api";
+import { ChatMessageMarkdown } from "./ChatMessageMarkdown";
 import { Icon } from "./icons";
 import type { RunPhase } from "./types";
 
@@ -70,9 +71,13 @@ export function ChatTranscript({
                   >
                     {message.role === "user" ? "You" : "CyberCase"}
                   </p>
-                  <p className="whitespace-pre-wrap break-words text-sm leading-6 sm:text-base">
-                    {message.content}
-                  </p>
+                  {message.role === "user" ? (
+                    <p className="whitespace-pre-wrap break-words text-sm leading-6 sm:text-base">
+                      {message.content}
+                    </p>
+                  ) : (
+                    <ChatMessageMarkdown content={message.content} />
+                  )}
                 </div>
               </article>
             ))}

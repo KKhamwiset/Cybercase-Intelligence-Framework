@@ -107,11 +107,10 @@ export function CaseRelationshipGraph({
                   onClick={() =>
                     setSelectedRelationshipId(relationship.relationship_id)
                   }
-                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F3EF] ${
-                    selected
+                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F3EF] ${selected
                       ? "border-[#171717] bg-white shadow-[0_2px_8px_rgba(23,23,23,0.07)]"
                       : "border-[#DEDCD5] bg-[#FCFBF8] hover:border-[#8A8984]"
-                  }`}
+                    }`}
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0 text-sm font-bold leading-5 text-[#171717] [overflow-wrap:anywhere]">
@@ -236,11 +235,10 @@ function CustomGraphNode({
     <div
       data-graph-node-id={data.entityId}
       data-selected={data.selected}
-      className={`relative min-w-[172px] max-w-[200px] rounded-xl border p-3 text-center transition-all ${
-        data.selected
+      className={`relative min-w-[172px] max-w-[200px] rounded-xl border p-3 text-center transition-all ${data.selected
           ? "border-[#171717] bg-[#F4F3EF] ring-2 ring-[#171717] shadow-md"
           : "border-[#8A8984] bg-[#FCFBF8] hover:border-[#171717]"
-      }`}
+        }`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0" />
@@ -322,9 +320,9 @@ function RelationshipCanvas({
       new Set(
         selectedRelationship
           ? [
-              selectedRelationship.subject_entity_id,
-              selectedRelationship.object_entity_id,
-            ]
+            selectedRelationship.subject_entity_id,
+            selectedRelationship.object_entity_id,
+          ]
           : [],
       ),
     [selectedRelationship],
@@ -443,19 +441,19 @@ function RelationshipCanvas({
                 );
                 const sourcePos = sourceNode
                   ? {
-                      left: sourceNode.position.x,
-                      top: sourceNode.position.y,
-                      x: sourceNode.position.x + GRAPH_NODE_WIDTH / 2,
-                      y: sourceNode.position.y + GRAPH_NODE_HEIGHT / 2,
-                    }
+                    left: sourceNode.position.x,
+                    top: sourceNode.position.y,
+                    x: sourceNode.position.x + GRAPH_NODE_WIDTH / 2,
+                    y: sourceNode.position.y + GRAPH_NODE_HEIGHT / 2,
+                  }
                   : positionsById.get(relationship.subject_entity_id);
                 const targetPos = targetNode
                   ? {
-                      left: targetNode.position.x,
-                      top: targetNode.position.y,
-                      x: targetNode.position.x + GRAPH_NODE_WIDTH / 2,
-                      y: targetNode.position.y + GRAPH_NODE_HEIGHT / 2,
-                    }
+                    left: targetNode.position.x,
+                    top: targetNode.position.y,
+                    x: targetNode.position.x + GRAPH_NODE_WIDTH / 2,
+                    y: targetNode.position.y + GRAPH_NODE_HEIGHT / 2,
+                  }
                   : positionsById.get(relationship.object_entity_id);
 
                 if (!sourcePos || !targetPos) return null;

@@ -71,7 +71,13 @@ def _normalize_schema(value: object) -> object:
             continue
         normalized[key_text] = _normalize_schema(child)
 
-    if normalized.get("type") == "object":
+    # Keep an explicitly open mapping (for example a bounded delta value)
+    # open. Pydantic emits ``additionalProperties: true`` for dict fields;
+    # closing that mapping would make a valid structured mutation impossible.
+    if (
+        normalized.get("type") == "object"
+        and "additionalProperties" not in normalized
+    ):
         normalized["additionalProperties"] = False
     return normalized
 

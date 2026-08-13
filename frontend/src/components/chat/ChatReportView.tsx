@@ -204,21 +204,19 @@ export function ChatReportView({
                     key={report.report_id}
                     type="button"
                     onClick={() => setSelectedReportId(report.report_id)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] ${
-                      report.report_id === selectedReport?.report_id
+                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] ${report.report_id === selectedReport?.report_id
                         ? "border-[#171717] bg-[#171717] text-white"
                         : "border-[#DEDCD5] bg-white text-[#171717] hover:border-[#171717]"
-                    }`}
+                      }`}
                   >
                     <span className="block text-sm font-extrabold">
                       Version {report.version_number}
                     </span>
                     <span
-                      className={`mt-1 block text-[10px] font-bold uppercase tracking-[0.1em] ${
-                        report.report_id === selectedReport?.report_id
+                      className={`mt-1 block text-[10px] font-bold uppercase tracking-[0.1em] ${report.report_id === selectedReport?.report_id
                           ? "text-white/70"
                           : "text-[#6B6A66]"
-                      }`}
+                        }`}
                     >
                       {report.persistence_status === "completed"
                         ? "Validated output"

@@ -1,3 +1,4 @@
+from copy import deepcopy
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
@@ -10,6 +11,9 @@ from app.models.rag_context import RagContext
 from app.schemas.chat import ChatMessageCreate
 from app.schemas.chat.rag import QueryResponse
 from app.services.case_analysis import build_case_analysis_prompt
+from app.services.chat.case_state_retrieval import (
+    project_case_state_to_retrieval_query,
+)
 from app.services.chat.chat_message import ChatMessageService
 from app.services.chat.chat_worker import (
     ClaimedChatRun,
@@ -44,6 +48,21 @@ def _result(value: object) -> Mock:
     result = Mock()
     result.scalar_one_or_none.return_value = value
     return result
+
+
+def _validated_case_state(summary: str) -> dict[str, object]:
+    return {
+        "version": "baseline_extraction_v1",
+        "mode": "single_pass_llm",
+        "status": "candidate",
+        "case_summary": summary,
+        "entities": [],
+        "relationships": [],
+        "evidence": [],
+        "timeline": [],
+        "missing_information": [],
+        "warnings": [],
+    }
 
 
 def _answered_message_db(
@@ -110,6 +129,7 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
 
     def test_ask_prompt_contains_case_state_analysis_context_and_question(self) -> None:
         prompt = build_case_analysis_prompt(
+            mode="question_answer",
             case_state_json={"case_summary": "reported host-7 activity"},
             analysis_context={
                 "answer": "The latest analysis identified host-7.",
@@ -123,6 +143,7 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("The latest analysis identified host-7.", prompt)
         self.assertIn("retrieval-1", prompt)
         self.assertIn("Which host should be investigated next?", prompt)
+        self.assertIn('"analysis_mode":"question_answer"', prompt)
 
     async def test_ask_claim_loads_exact_current_case_and_rag_context(self) -> None:
         thread_id = uuid4()
@@ -286,7 +307,11 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(raised.exception.status_code, 422)
         self.assertEqual(thread.current_case_state_version_id, state.id)
 
-    async def test_add_case_info_worker_route_does_not_call_rag_or_extraction(self) -> None:
+    async def test_add_case_info_worker_routes_through_mutation_pipeline(self) -> None:
+        from app.services.chat.case_state_mutation import CaseStateDelta
+
+        source_message_id = uuid4()
+        state_id = uuid4()
         claimed = ClaimedChatRun(
             id=uuid4(),
             operation="query",
@@ -296,12 +321,23 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
             original_user_content="A new reported case fact.",
             clarification_exchanges=(),
             followup_root_ordinal=2,
+            request_message_id=source_message_id,
             post_answer_action="add_case_info",
+            case_state_version_id=state_id,
+            case_state_json={"case_summary": "existing"},
         )
         worker = Mock()
         worker.claim_run = AsyncMock(return_value=claimed)
         worker.complete_run = AsyncMock(return_value=True)
-        rag_call = AsyncMock()
+        rag_call = AsyncMock(
+            return_value=QueryResponse(
+                status="completed",
+                retrieval_context_id="retrieval-2",
+                context="fresh context",
+            )
+        )
+        analysis_call = AsyncMock(return_value="Updated overview")
+        delta = CaseStateDelta(changes=[])
 
         with (
             patch(
@@ -312,8 +348,21 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
                 "app.services.chat.chat_worker.ChatRunWorker",
                 return_value=worker,
             ),
+            patch(
+                "app.services.chat.chat_worker.run_case_state_delta_extraction",
+                new=AsyncMock(
+                    return_value=(
+                        delta,
+                        {"status": "candidate", "version": "case_state_delta_v2"},
+                    )
+                ),
+            ),
         ):
-            await process_chat_run(claimed.id, rag_call=rag_call)
+            await process_chat_run(
+                claimed.id,
+                rag_call=rag_call,
+                ask_call=analysis_call,
+            )
 
         rag_call.assert_not_awaited()
         outcome: AssistantOutcome = worker.complete_run.await_args.args[2]
@@ -338,6 +387,8 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
             ],
             "previous_analysis": None,
         }
+        expected_case_state = deepcopy(case_state)
+        expected_analysis_context = deepcopy(analysis_context)
         claimed = ClaimedChatRun(
             id=uuid4(),
             operation="query",
@@ -356,6 +407,7 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
         worker.complete_run = AsyncMock(return_value=True)
         rag_call = AsyncMock()
         ask_inputs: dict[str, object] = {}
+        extraction_call = AsyncMock()
 
         async def ask_call(**kwargs: object) -> str:
             ask_inputs.update(kwargs)
@@ -374,6 +426,10 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
                 "app.services.chat.chat_worker.request_rag",
                 new=AsyncMock(),
             ) as default_rag_call,
+            patch(
+                "app.services.chat.chat_worker.run_validated_case_state_extraction",
+                new=extraction_call,
+            ),
         ):
             await process_chat_run(
                 claimed.id,
@@ -383,12 +439,14 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
 
         rag_call.assert_not_awaited()
         default_rag_call.assert_not_awaited()
+        extraction_call.assert_not_awaited()
         self.assertEqual(ask_inputs["case_state_json"], case_state)
         self.assertEqual(ask_inputs["analysis_context"], analysis_context)
         self.assertEqual(
             ask_inputs["question"],
             "Which host should be investigated next?",
         )
+        self.assertEqual(ask_inputs["mode"], "question_answer")
         outcome: AssistantOutcome = worker.complete_run.await_args.args[2]
         self.assertEqual(
             outcome.content,
@@ -400,8 +458,13 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
             outcome.metadata_json["chat_action"]["retrieval_context_reused"]
         )
         self.assertFalse(outcome.metadata_json["chat_action"]["state_mutated"])
+        self.assertFalse(
+            outcome.metadata_json["chat_action"]["case_state_version_created"]
+        )
         self.assertIsNone(outcome.validated_case_state_json)
         self.assertIsNone(outcome.rag_context_payload)
+        self.assertEqual(case_state, expected_case_state)
+        self.assertEqual(analysis_context, expected_analysis_context)
         outcome.metadata_json["mitre_table"][0]["name"] = "mutated output"
         self.assertEqual(
             analysis_context["mitre_table"][0]["name"],
@@ -431,7 +494,7 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
                 context="bounded context",
             )
         )
-        case_state = {"case_summary": "validated candidate Case State"}
+        case_state = _validated_case_state("validated candidate Case State")
         extraction_metadata = {"status": "candidate", "validation_status": "validated"}
         analysis_call = AsyncMock(return_value="Grounded initial analysis.")
 
@@ -465,8 +528,11 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
             )
 
         extraction_call.assert_awaited_once()
-        rag_call.assert_awaited_once_with(claimed.rag_query)
+        rag_call.assert_awaited_once_with(
+            project_case_state_to_retrieval_query(case_state)
+        )
         analysis_call.assert_awaited_once_with(
+            mode="case_overview",
             case_state_json=case_state,
             analysis_context={
                 "retrieved_context": "bounded context",
@@ -548,7 +614,7 @@ class ChatPhase2RoutingTests(unittest.IsolatedAsyncioTestCase):
                         "app.services.chat.chat_worker.run_validated_case_state_extraction",
                         new=AsyncMock(
                             return_value=(
-                                {"case_summary": "validated case state"},
+                                _validated_case_state("validated case state"),
                                 {"status": "candidate"},
                             )
                         ),

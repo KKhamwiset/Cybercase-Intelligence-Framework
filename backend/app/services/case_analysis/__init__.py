@@ -1,6 +1,7 @@
 """Main Case Analysis service boundary."""
 
 from app.services.case_analysis.service import (
+    AnalysisMode,
     CASE_ANALYSIS_PROMPT_VERSION,
     CaseAnalysisFailure,
     MainCaseAnalysisService,
@@ -9,6 +10,7 @@ from app.services.case_analysis.service import (
 )
 
 __all__ = [
+    "AnalysisMode",
     "CASE_ANALYSIS_PROMPT_VERSION",
     "CaseAnalysisFailure",
     "MainCaseAnalysisService",

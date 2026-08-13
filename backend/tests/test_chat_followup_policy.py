@@ -8,6 +8,9 @@ import httpx
 
 from app.config import settings
 from app.schemas.chat.rag import QueryResponse
+from app.services.chat.case_state_retrieval import (
+    project_case_state_to_retrieval_query,
+)
 from app.services.chat.followup_policy import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
@@ -20,6 +23,27 @@ from app.services.chat.chat_worker import (
     process_chat_run,
     resolve_followup_outcome,
 )
+
+
+def _validated_case_state(
+    exchanges: tuple[ClarificationExchange, ...] = (),
+) -> dict[str, object]:
+    summary = "Reported incident."
+    if exchanges:
+        answers = " ".join(exchange.answer for exchange in exchanges)
+        summary = f"{summary} Reported clarification: {answers}"
+    return {
+        "version": "baseline_extraction_v1",
+        "mode": "single_pass_llm",
+        "status": "candidate",
+        "case_summary": summary,
+        "entities": [],
+        "relationships": [],
+        "evidence": [],
+        "timeline": [],
+        "missing_information": [],
+        "warnings": [],
+    }
 
 
 class _AskPolicy:
@@ -500,7 +524,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
             policy=policy,
         )
 
-        self.assertEqual(settings.chat_followup_max_rounds, 3)
+        self.assertEqual(settings.chat_followup_max_rounds, 8)
         self.assertEqual(policy.calls, [])
         self.assertIsNone(outcome)
 
@@ -669,6 +693,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             )
 
         async def ask_call(**kwargs: object) -> str:
+            self.assertEqual(kwargs["mode"], "case_overview")
             self.assertIsNone(kwargs["question"])
             return "Grounded Main Case Analysis answer"
 
@@ -685,7 +710,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
                 "app.services.chat.chat_worker.run_validated_case_state_extraction",
                 new=AsyncMock(
                     return_value=(
-                        {"case_summary": "Reported incident"},
+                        _validated_case_state(exchanges),
                         {"status": "candidate"},
                     )
                 ),
@@ -798,6 +823,12 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_unavailable_answer_proceeds_without_another_policy_question(self) -> None:
+        exchanges = (
+            ClarificationExchange(
+                question="Which host was affected?",
+                answer="ไม่สามารถระบุได้",
+            ),
+        )
         events, completed, rag_queries = await self._run(
             policy=_EventPolicy(
                 [],
@@ -807,19 +838,16 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
                     reason_code="material_incident_fact_missing",
                 ),
             ),
-            exchanges=(
-                ClarificationExchange(
-                    question="Which host was affected?",
-                    answer="ไม่สามารถระบุได้",
-                ),
-            ),
+            exchanges=exchanges,
         )
 
         self.assertEqual(events, ["rag", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
-        self.assertIn(
-            "<user_answer>\nไม่สามารถระบุได้\n</user_answer>",
+        self.assertEqual(
             rag_queries[0],
+            project_case_state_to_retrieval_query(
+                _validated_case_state(exchanges)
+            ),
         )
         self.assertEqual(
             completed[0].metadata_json["chat_followup"]["reason_code"],
