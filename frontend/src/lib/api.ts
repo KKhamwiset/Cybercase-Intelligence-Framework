@@ -136,33 +136,6 @@ export interface ChatReportRead {
   output_tokens: number | null;
 }
 
-export interface ChatDemoEvidence {
-  evidence_id: string;
-  title: string;
-  description: string;
-  status: "reported";
-  confidence: "low";
-  source_type: "chat_text";
-}
-
-export interface ChatDemoTimelineEvent {
-  event_id: string;
-  timestamp: string | null;
-  event: string;
-  status: "reported";
-  evidence_ids: string[];
-  source_type: "chat_text";
-}
-
-export interface ChatDemoExtraction {
-  version: number;
-  mode: "deterministic_demo";
-  status: "candidate";
-  disclaimer: string;
-  evidence: ChatDemoEvidence[];
-  timeline: ChatDemoTimelineEvent[];
-}
-
 export type ChatExtractionConfidence = "high" | "medium" | "low" | "unknown";
 export type ChatReportedStatus = "reported" | "unknown" | "not_confirmed";
 export type ChatRelationshipStatus =
@@ -261,7 +234,6 @@ export interface ChatBaselineExtractionFailure {
 }
 
 export type ChatExtraction =
-  | ChatDemoExtraction
   | ChatBaselineExtraction
   | ChatBaselineExtractionFailure;
 
@@ -399,42 +371,28 @@ export const generateChatReport = async (
 };
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (!axios.isAxiosError(error)) {
-    return error instanceof Error ? error.message : fallback;
-  }
-  if (error.code === "ECONNABORTED") return "The request timed out.";
-  if (!error.response) return "The backend is unavailable.";
-
-  const responseData: unknown = error.response.data;
-  if (
-    typeof responseData === "object" &&
-    responseData !== null &&
-    "detail" in responseData
-  ) {
-    const detail = responseData.detail;
-    if (
-      typeof detail === "object" &&
-      detail !== null &&
-      "message" in detail &&
-      typeof detail.message === "string"
-    ) {
-      return detail.message;
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (typeof data === "string" && data.trim()) return data.trim();
+    if (data && typeof data === "object" && "detail" in data) {
+      const detail = (data as { detail?: unknown }).detail;
+      if (typeof detail === "string" && detail.trim()) return detail.trim();
+      if (Array.isArray(detail) && detail.length > 0) {
+        const first = detail[0];
+        if (typeof first === "string" && first.trim()) return first.trim();
+        if (
+          first &&
+          typeof first === "object" &&
+          "msg" in first &&
+          typeof first.msg === "string"
+        ) {
+          return first.msg.trim();
+        }
+      }
     }
-    if (typeof detail === "string" && detail.trim()) return detail;
   }
-
-  const statusMessages: Partial<Record<number, string>> = {
-    400: "The backend rejected the request.",
-    401: "Authentication is required for this request.",
-    403: "This request is not authorized.",
-    404: "The requested chat capability is unavailable.",
-    409: "The current chat state cannot be processed.",
-    413: "The submitted message is too large.",
-    422: "The submitted chat message is invalid.",
-    429: "Too many requests were sent. Try again shortly.",
-    502: "The analysis service returned an invalid response.",
-    503: "The analysis service is temporarily unavailable.",
-    504: "The analysis service timed out.",
-  };
-  return statusMessages[error.response.status] ?? fallback;
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return fallback;
 }

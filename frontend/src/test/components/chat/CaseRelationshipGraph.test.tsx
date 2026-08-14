@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CaseRelationshipGraph } from "@/components/chat/CaseRelationshipGraph";
+import { CaseRelationshipGraph } from "@/components/relationships/CaseRelationshipGraph";
 import type {
   ChatBaselineEntity,
   ChatBaselineRelationship,

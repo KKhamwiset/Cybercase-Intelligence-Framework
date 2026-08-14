@@ -24,15 +24,14 @@ import {
   type ChatThreadRead,
   type ThreadStatus,
 } from "@/lib/api";
-import { ChatPanel } from "@/components/chat/ChatPanel";
-import { ChatExtractionView } from "@/components/chat/ChatExtractionView";
-import { ChatRelationshipsView } from "@/components/chat/ChatRelationshipsView";
-import { ChatReportView } from "@/components/chat/ChatReportView";
-import { ChatTimelineView } from "@/components/chat/ChatTimelineView";
-import { DeleteChatDialog } from "@/components/chat/DeleteChatDialog";
-import { EvidenceRouteHeader } from "@/components/chat/RouteHeader";
-import { Icon } from "@/components/chat/icons";
-import { WorkspaceSidebar } from "@/components/chat/WorkspaceSidebar";
+import { ChatPanel } from "@/components/conversation/ChatPanel";
+import { ChatExtractionView } from "@/components/analysis/ChatExtractionView";
+import { ChatRelationshipsView } from "@/components/relationships/ChatRelationshipsView";
+import { ChatReportView } from "@/components/report/ChatReportView";
+import { ChatTimelineView } from "@/components/timeline/ChatTimelineView";
+import { DeleteChatDialog } from "@/components/common/DeleteChatDialog";
+import { Icon } from "@/components/common/icons";
+import { WorkspaceSidebar } from "@/components/layout/WorkspaceSidebar";
 import {
   workspaceViewLabels,
   workspaceViewForRoute,
@@ -40,7 +39,7 @@ import {
   type RunPhase,
   type WorkspaceRouteView,
   type WorkspaceView,
-} from "@/components/chat/types";
+} from "@/components/common/types";
 import {
   activeChatFollowUpForThread,
   chatTranscriptMessages,
@@ -794,7 +793,7 @@ export function ChatWorkspace() {
     latestExtraction?.mode === "single_pass_llm" &&
     latestExtraction.status === "candidate" &&
     latestExtraction.validation_status === "validated";
-  const activeWorkspaceView = workspaceViewForRoute(activeView);
+  const activeWorkspaceView = activeView;
   const activeEvidenceView: EvidenceRouteView =
     activeView === "timeline" || activeView === "relationships"
       ? activeView
@@ -811,7 +810,7 @@ export function ChatWorkspace() {
         onNewChat={() => void handleNewChat()}
         onRequestDelete={setDeleteCandidate}
         deletingThreadId={deletingThreadId}
-        activeView={activeWorkspaceView}
+        activeView={activeView}
         onViewChange={handleViewChange}
       />
 
@@ -831,7 +830,7 @@ export function ChatWorkspace() {
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[#6B6A66]">
                 <span className={`h-1.5 w-1.5 rounded-full ${phase === "error" ? "bg-[#B42318]" : phase === "querying" || phase === "analyzing" ? "bg-[#171717] motion-safe:animate-pulse" : "bg-[#8A8984]"}`} />
-                <span>{workspaceViewLabels[activeWorkspaceView]}</span>
+                <span>{workspaceViewLabels[activeView]}</span>
                 <span aria-hidden="true">·</span>
                 <span>{phaseLabels[phase]}</span>
               </p>
@@ -844,7 +843,7 @@ export function ChatWorkspace() {
             </label>
             <select
               id="mobile-workspace-view"
-              value={activeWorkspaceView}
+              value={activeView}
               onChange={(event) =>
                 handleViewChange(event.target.value as WorkspaceView)
               }
@@ -852,7 +851,9 @@ export function ChatWorkspace() {
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#C9C7BF] bg-white px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
             >
               <option value="chat">Chat</option>
-              <option value="extraction">Case information &amp; timeline</option>
+              <option value="extraction">Case details</option>
+              <option value="timeline">Timeline</option>
+              <option value="relationships">Relationships</option>
               <option value="report">Report generation</option>
             </select>
           </div>
@@ -904,12 +905,6 @@ export function ChatWorkspace() {
 
         <div className="flex min-h-0 flex-1 overflow-hidden bg-[#F7F6F2]">
           <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            {activeWorkspaceView === "extraction" && evidenceThreadId && (
-              <EvidenceRouteHeader
-                threadId={evidenceThreadId}
-                activeView={activeEvidenceView}
-              />
-            )}
             {activeWorkspaceView !== "chat" && queryError && (
               <div
                 role="alert"

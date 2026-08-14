@@ -4,7 +4,7 @@ import type { ChatExtraction } from "@/lib/api";
 import {
   FailedChatExtractionState,
   NoChatExtractionState,
-} from "./ChatEvidenceState";
+} from "@/components/analysis/ChatExtractionState";
 
 interface ChatTimelineViewProps {
   extraction: ChatExtraction | null;
@@ -14,7 +14,7 @@ interface ChatTimelineViewProps {
 function CandidateBadges() {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Timeline labels">
-      {['Candidate', 'User-reported', 'Unverified'].map((label) => (
+      {["Candidate", "User-reported", "Unverified"].map((label) => (
         <span
           key={label}
           className="rounded-full border border-[#C9C7BF] bg-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]"
@@ -33,7 +33,7 @@ export function ChatTimelineView({
   let content;
   if (!extraction) {
     content = <NoChatExtractionState onOpenChat={onOpenChat} />;
-  } else if (extraction.mode === "single_pass_llm" && extraction.status === "failed") {
+  } else if (extraction.status === "failed") {
     content = (
       <FailedChatExtractionState
         extraction={extraction}
@@ -41,46 +41,31 @@ export function ChatTimelineView({
       />
     );
   } else {
-    const timeline = extraction.timeline;
     content = (
       <section
-        aria-label="Candidate incident timeline"
+        aria-label="Reported timeline events"
         className="rounded-2xl border border-[#C9C7BF] bg-[#FCFBF8] p-4 shadow-[0_4px_18px_rgba(23,23,23,0.05)] sm:p-6"
       >
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#DEDCD5] pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DEDCD5] pb-4">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
-              {extraction.mode === "deterministic_demo"
-                ? "Legacy chat-reported candidates"
-                : "Baseline LLM candidates"}
+              Chronological sequence
             </p>
-            <h2 className="mt-1 text-lg font-extrabold tracking-tight text-[#171717]">
+            <h3 className="mt-1 text-base font-extrabold tracking-tight text-[#171717]">
               Reported event sequence
-            </h2>
+            </h3>
           </div>
-          <span className="text-sm font-bold text-[#8A8984]">
-            {timeline.length} {timeline.length === 1 ? "event" : "events"}
-          </span>
+          <CandidateBadges />
         </div>
 
-        {timeline.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-dashed border-[#C9C7BF] bg-[#F4F3EF] p-5">
-            <p className="text-sm font-bold text-[#171717]">
-              No timeline events extracted
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#6B6A66]">
-              The extraction is valid, but it contains no explicit date, time,
-              or sequence marker for this chat.
-            </p>
-            <CandidateBadges />
-          </div>
+        {extraction.timeline.length === 0 ? (
+          <p className="mt-4 text-xs leading-5 text-[#8A8984]">
+            No timestamped or sequenced events were explicitly reported in this chat.
+          </p>
         ) : (
-          <ol className="mt-5 space-y-3">
-            {timeline.map((item, index) => {
-              const baselineEvent = "timestamp_text" in item;
-              const timestamp = baselineEvent
-                ? item.timestamp_text ?? item.timestamp ?? "Timestamp unknown"
-                : item.timestamp ?? "Sequence marker";
+          <ol className="mt-4 space-y-3">
+            {extraction.timeline.map((item, index) => {
+              const timestamp = item.timestamp_text ?? item.timestamp ?? "Timestamp unknown";
               return (
                 <li
                   key={item.event_id}
@@ -98,16 +83,14 @@ export function ChatTimelineView({
                     <p className="text-sm font-bold leading-6 text-[#171717]">
                       {item.event}
                     </p>
-                    {baselineEvent && item.actors.length > 0 && (
+                    {item.actors.length > 0 && (
                       <p className="mt-1 text-xs leading-5 text-[#6B6A66]">
                         Actors: {item.actors.join(", ")}
                       </p>
                     )}
-                    {baselineEvent && (
-                      <p className="mt-1 text-[11px] capitalize text-[#8A8984]">
-                        {item.status} · {item.confidence}
-                      </p>
-                    )}
+                    <p className="mt-1 text-[11px] capitalize text-[#8A8984]">
+                      {item.status} · {item.confidence}
+                    </p>
                     <CandidateBadges />
                   </div>
                 </li>
@@ -121,9 +104,9 @@ export function ChatTimelineView({
 
   return (
     <section
-      id="workspace-extraction-panel"
+      id="workspace-timeline-panel"
       role="tabpanel"
-      aria-label="Evidence timeline"
+      aria-label="Incident timeline"
       className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
     >
       <div className="mx-auto w-full max-w-[1120px]">

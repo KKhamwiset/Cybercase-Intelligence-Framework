@@ -3,6 +3,9 @@ import type { SVGProps } from "react";
 export type IconName =
   | "chat"
   | "evidence"
+  | "details"
+  | "timeline"
+  | "relationships"
   | "plus"
   | "report"
   | "send"
@@ -14,6 +17,28 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="M5 4h14v16H5z" />
       <path d="M8 8h8M8 12h8M8 16h5" />
+    </>
+  ),
+  details: (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M7 8h10M7 12h10M7 16h6" />
+    </>
+  ),
+  timeline: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 15" />
+    </>
+  ),
+  relationships: (
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="18" cy="6" r="2.5" />
+      <circle cx="12" cy="18" r="2.5" />
+      <line x1="8.2" y1="7.2" x2="10.8" y2="15.8" />
+      <line x1="15.8" y1="7.2" x2="13.2" y2="15.8" />
+      <line x1="8.5" y1="6" x2="15.5" y2="6" />
     </>
   ),
   plus: <path d="M12 5v14M5 12h14" />,

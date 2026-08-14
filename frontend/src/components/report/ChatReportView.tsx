@@ -10,7 +10,7 @@ import {
   type ChatStructuredReport,
   type ThreadStatus,
 } from "@/lib/api";
-import { Icon } from "./icons";
+import { Icon } from "@/components/common/icons";
 
 interface ChatReportViewProps {
   threadId: string | null;
@@ -41,87 +41,132 @@ export function ChatReportView({
   useEffect(() => {
     const controller = new AbortController();
 
-    if (!threadId) return () => controller.abort();
+    if (!threadId) {
+      setReports([]);
+      setSelectedReportId(null);
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
 
     void listChatReports(threadId, controller.signal)
-      .then((savedReports) => {
-        if (controller.signal.aborted) return;
-        setReports(savedReports);
-        setSelectedReportId(savedReports[0]?.report_id ?? null);
+      .then((items) => {
+        setReports(items);
+        setSelectedReportId(items[0]?.report_id ?? null);
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setLoadError(
-          getApiErrorMessage(error, "Saved reports could not be loaded."),
+          getApiErrorMessage(
+            error,
+            "Could not load persisted reports for this chat thread.",
+          ),
         );
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+    };
   }, [threadId]);
 
   const selectedReport =
     reports.find((report) => report.report_id === selectedReportId) ??
     reports[0] ??
     null;
+
   const canGenerate =
     Boolean(threadId) &&
     hasMessages &&
-    (threadStatus === "idle" || threadStatus === "answered") &&
     hasValidatedExtraction &&
+    threadStatus !== "processing" &&
+    threadStatus !== "awaiting_followup" &&
+    threadStatus !== "failed" &&
     !isGenerating;
 
-  async function handleGenerate(): Promise<void> {
+  const handleGenerate = async () => {
     if (!threadId || !canGenerate) return;
     setIsGenerating(true);
     setGenerationError(null);
-    setDownloadError(null);
+
     try {
-      const generated = await generateChatReport(threadId, reportRequestKey());
+      const report = await generateChatReport(threadId, reportRequestKey());
       setReports((current) => [
-        generated,
-        ...current.filter((report) => report.report_id !== generated.report_id),
+        report,
+        ...current.filter((item) => item.report_id !== report.report_id),
       ]);
-      setSelectedReportId(generated.report_id);
+      setSelectedReportId(report.report_id);
     } catch (error: unknown) {
       setGenerationError(
-        getApiErrorMessage(error, "The report could not be generated."),
+        getApiErrorMessage(
+          error,
+          "Failed to request report generation. Review backend validation and try again.",
+        ),
       );
     } finally {
       setIsGenerating(false);
     }
-  }
+  };
 
-  async function handleDownloadPdf(report: ChatReportRead): Promise<void> {
-    if (
-      !threadId ||
-      report.persistence_status !== "completed" ||
-      !report.report ||
-      isDownloading
-    ) {
-      return;
-    }
+  const handleDownloadPdf = async (report: ChatReportRead) => {
+    if (!threadId || isDownloading) return;
     setIsDownloading(true);
     setDownloadError(null);
+
     try {
       const blob = await downloadChatReportPdf(threadId, report.report_id);
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `cybercase-report-v${report.version_number}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      downloadLink.href = blobUrl;
+      downloadLink.download = `CyberCase-Report-v${report.version_number}.pdf`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      window.URL.revokeObjectURL(blobUrl);
     } catch (error: unknown) {
       setDownloadError(
-        getApiErrorMessage(error, "The PDF could not be downloaded."),
+        getApiErrorMessage(
+          error,
+          "Failed to download the generated PDF report from the backend.",
+        ),
       );
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  if (!threadId) {
+    return (
+      <section
+        id="workspace-report-panel"
+        role="tabpanel"
+        aria-label="Report generation"
+        className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
+      >
+        <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-[#C9C7BF] bg-[#FCFBF8] p-6 sm:p-8">
+          <h2 className="text-xl font-extrabold tracking-tight text-[#171717]">
+            Select a saved chat
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-[#6B6A66]">
+            Start or open a chat before generating a persistent report.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenChat}
+            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#171717] px-4 text-sm font-bold text-white outline-none transition-colors hover:bg-[#333333] focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2"
+          >
+            Return to Chat
+          </button>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -135,7 +180,7 @@ export function ChatReportView({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#6B6A66]">
-              Evidence &amp; timeline
+              Executive Briefing
             </p>
             <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-[#171717] sm:text-4xl">
               Digital-forensics report
@@ -189,14 +234,14 @@ export function ChatReportView({
         {downloadError && <InlineError message={downloadError} />}
 
         {isLoading ? (
-          <div className="mt-8 rounded-2xl border border-[#DEDCD5] bg-[#FCFBF8] p-6 text-sm text-[#6B6A66]">
-            Loading saved report versions...
+          <div className="mt-8 rounded-2xl border border-[#DEDCD5] bg-white p-6 text-center text-sm font-medium text-[#6B6A66]">
+            Loading saved report history...
           </div>
         ) : reports.length > 0 ? (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <aside className="rounded-2xl border border-[#DEDCD5] bg-[#FCFBF8] p-4">
+          <div className="mt-8 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside aria-label="Report version history" className="space-y-3">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
-                Saved versions
+                Report versions
               </p>
               <div className="mt-3 space-y-2" aria-label="Saved report versions">
                 {reports.map((report) => (
@@ -204,19 +249,21 @@ export function ChatReportView({
                     key={report.report_id}
                     type="button"
                     onClick={() => setSelectedReportId(report.report_id)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] ${report.report_id === selectedReport?.report_id
+                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] ${
+                      report.report_id === selectedReport?.report_id
                         ? "border-[#171717] bg-[#171717] text-white"
                         : "border-[#DEDCD5] bg-white text-[#171717] hover:border-[#171717]"
-                      }`}
+                    }`}
                   >
                     <span className="block text-sm font-extrabold">
                       Version {report.version_number}
                     </span>
                     <span
-                      className={`mt-1 block text-[10px] font-bold uppercase tracking-[0.1em] ${report.report_id === selectedReport?.report_id
+                      className={`mt-1 block text-[10px] font-bold uppercase tracking-[0.1em] ${
+                        report.report_id === selectedReport?.report_id
                           ? "text-white/70"
                           : "text-[#6B6A66]"
-                        }`}
+                      }`}
                     >
                       {report.persistence_status === "completed"
                         ? "Validated output"

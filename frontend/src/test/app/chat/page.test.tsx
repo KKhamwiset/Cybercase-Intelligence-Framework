@@ -15,7 +15,7 @@ import {
   vi,
 } from "vitest";
 
-import { ChatWorkspace } from "@/components/chat/ChatWorkspace";
+import { ChatWorkspace } from "@/components/ChatWorkspace";
 import {
   createChatMessage,
   createChatThread,
@@ -381,7 +381,9 @@ describe("active chat route", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("tab", { name: "Case details & timeline" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Case details" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Timeline" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Relationships" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Report generation" })).toBeInTheDocument();
     expect(
       screen.queryByText(
@@ -406,15 +408,36 @@ describe("active chat route", () => {
           content: "Older assistant extraction.",
           metadata_json: {
             chat_extraction: {
-              mode: "deterministic_demo",
+              version: "baseline_extraction_v1",
+              mode: "single_pass_llm",
+              status: "candidate",
+              prompt_version: "baseline_extraction_prompt_v1",
+              provider: "anthropic",
+              model: "claude-sonnet-4-20250514",
+              validation_status: "validated",
+              latency_ms: 10,
+              input_tokens: 10,
+              output_tokens: 10,
+              source_message_ids: ["message-1"],
+              raw_response: null,
+              case_summary: "Older summary.",
+              entities: [],
+              relationships: [],
               evidence: [
                 {
                   evidence_id: "E-OLD",
                   title: "Older candidate",
                   description: "Older description.",
+                  artifact_type: "log",
+                  status: "reported",
+                  confidence: "low",
+                  source_type: "user_reported",
+                  source_message_ids: ["message-1"],
                 },
               ],
               timeline: [],
+              missing_information: [],
+              warnings: [],
             },
           },
         },
@@ -432,22 +455,48 @@ describe("active chat route", () => {
           content: "Latest assistant extraction.",
           metadata_json: {
             chat_extraction: {
-              mode: "deterministic_demo",
+              version: "baseline_extraction_v1",
+              mode: "single_pass_llm",
+              status: "candidate",
+              prompt_version: "baseline_extraction_prompt_v1",
+              provider: "anthropic",
+              model: "claude-sonnet-4-20250514",
+              validation_status: "validated",
+              latency_ms: 10,
+              input_tokens: 10,
+              output_tokens: 10,
+              source_message_ids: ["message-3"],
+              raw_response: null,
+              case_summary: "Latest summary.",
+              entities: [],
+              relationships: [],
               evidence: [
                 {
                   evidence_id: "E-NEW",
                   title: "Latest candidate",
                   description: "Latest description.",
+                  artifact_type: "log",
+                  status: "reported",
+                  confidence: "high",
+                  source_type: "user_reported",
+                  source_message_ids: ["message-3"],
                 },
               ],
               timeline: [
                 {
                   event_id: "T-NEW",
                   timestamp: "12:30",
+                  timestamp_text: "12:30",
                   event: "Latest event.",
+                  actors: [],
                   evidence_ids: ["E-NEW"],
+                  status: "reported",
+                  confidence: "high",
+                  source_message_ids: ["message-3"],
                 },
               ],
+              missing_information: [],
+              warnings: [],
             },
           },
         },
@@ -463,7 +512,7 @@ describe("active chat route", () => {
       ),
     );
     expect(screen.getByText("Latest assistant extraction.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Case details & timeline" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Case details" }));
 
     expect(
       screen.getByRole("heading", { name: "Reported case details & observables" }),
@@ -473,34 +522,16 @@ describe("active chat route", () => {
     expect(screen.queryByText("Latest assistant extraction.")).not.toBeInTheDocument();
     expect(screen.queryByText("Older candidate")).not.toBeInTheDocument();
 
-    const extractionLink = screen.getByRole("link", { name: "Case information" });
-    expect(extractionLink).toHaveAttribute("aria-current", "page");
-    expect(extractionLink).toHaveAttribute(
-      "href",
-      "/chat/thread-1/extraction",
-    );
-    expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
-      "href",
-      "/chat/thread-1/timeline",
-    );
-    expect(
-      screen.getByRole("link", { name: "Relationships" }),
-    ).toHaveAttribute("href", "/chat/thread-1/relationships");
-
     navigation.pathname = "/chat/thread-1/timeline";
     view.rerender(<ChatWorkspace />);
 
     expect(await screen.findByText("Latest event.")).toBeInTheDocument();
     expect(screen.queryByText("Latest candidate")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
   });
 
   it("shows an empty extraction state for a thread without persisted extraction", async () => {
     await renderLoadedPage();
-    fireEvent.click(screen.getByRole("tab", { name: "Case details & timeline" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Case details" }));
 
     expect(screen.getByText("No extraction for this chat yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
@@ -544,7 +575,7 @@ describe("active chat route", () => {
     },
   );
 
-  it("loads the dedicated relationship route with a large graph and keeps Evidence selected", async () => {
+  it("loads the dedicated relationship route with a large graph and keeps Relationships selected", async () => {
     navigation.pathname = "/chat/thread-1/relationships";
     vi.mocked(getChatThread).mockResolvedValue(makeRelationshipReadyThread());
 
@@ -554,30 +585,22 @@ describe("active chat route", () => {
       await screen.findByRole("heading", { name: "Entity relationship graph" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Relationship canvas")).toBeInTheDocument();
-    const evidenceTab = screen.getByRole("tab", {
-      name: "Case details & timeline",
+    const relationshipsTab = screen.getByRole("tab", {
+      name: "Relationships",
     });
-    expect(evidenceTab).toHaveAttribute("aria-selected", "true");
-    expect(evidenceTab).toHaveAttribute(
+    expect(relationshipsTab).toHaveAttribute("aria-selected", "true");
+    expect(relationshipsTab).toHaveAttribute(
       "aria-controls",
-      "workspace-extraction-panel",
+      "workspace-relationships-panel",
     );
-    expect(document.getElementById("workspace-extraction-panel")).toHaveAttribute(
-      "role",
-      "tabpanel",
-    );
-    expect(screen.getByLabelText("Select workspace")).toHaveValue("extraction");
-    expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByLabelText("Select workspace")).toHaveValue("relationships");
     expect(
       document.querySelector("[data-relationship-graph='true']"),
     ).toHaveClass("h-[420px]", "min-w-[960px]");
   });
 
-  it("shows an explicit unavailable state for legacy relationship data", async () => {
-    const legacyThread: ChatThreadDetail = {
+  it("shows an explicit failed state when baseline extraction fails", async () => {
+    const failedThread: ChatThreadDetail = {
       ...thread,
       status: "idle",
       messages: [
@@ -586,31 +609,43 @@ describe("active chat route", () => {
           ...thread.messages[1],
           metadata_json: {
             chat_extraction: {
-              version: 1,
-              mode: "deterministic_demo",
-              status: "candidate",
-              disclaimer: "Legacy candidate extraction.",
-              evidence: [],
-              timeline: [],
+              version: "baseline_extraction_v1",
+              mode: "single_pass_llm",
+              status: "failed",
+              prompt_version: "baseline_extraction_prompt_v1",
+              provider: "anthropic",
+              model: "claude-sonnet-4-20250514",
+              validation_status: "failed",
+              latency_ms: 10,
+              input_tokens: null,
+              output_tokens: null,
+              source_message_ids: ["message-1"],
+              raw_response: null,
+              failure_code: "extraction_failed",
+              failure_message: "The baseline model failed to extract entities.",
             },
           },
         },
       ],
     };
     navigation.pathname = "/chat/thread-1/relationships";
-    vi.mocked(getChatThread).mockResolvedValue(legacyThread);
+    vi.mocked(getChatThread).mockResolvedValue(failedThread);
 
     await renderLoadedPage();
 
     expect(
-      await screen.findByText("Relationship graph unavailable"),
+      await screen.findByRole("heading", { name: "Extraction failed" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Failure code: extraction_failed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
     expect(screen.queryByText("Relationship canvas")).not.toBeInTheDocument();
   });
 
   it.each([
-    ["timeline", "No timeline events extracted"],
+    [
+      "timeline",
+      "No timestamped or sequenced events were explicitly reported in this chat.",
+    ],
     [
       "relationships",
       "No explicit entity-to-entity relationship was extracted.",

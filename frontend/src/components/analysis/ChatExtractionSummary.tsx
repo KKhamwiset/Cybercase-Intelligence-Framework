@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
 import type {
   ChatBaselineExtraction,
-  ChatDemoExtraction,
   ChatExtraction,
 } from "@/lib/api";
-import { FailedChatExtractionState } from "./ChatEvidenceState";
+import { FailedChatExtractionState } from "./ChatExtractionState";
 
 interface ChatExtractionSummaryProps {
   extraction: ChatExtraction;
@@ -15,9 +14,6 @@ export function ChatExtractionSummary({
   extraction,
   onOpenChat,
 }: ChatExtractionSummaryProps) {
-  if (extraction.mode === "deterministic_demo") {
-    return <LegacyExtractionSummary extraction={extraction} />;
-  }
   if (extraction.status === "failed") {
     return (
       <FailedChatExtractionState
@@ -27,43 +23,6 @@ export function ChatExtractionSummary({
     );
   }
   return <BaselineExtractionSummary extraction={extraction} />;
-}
-
-function LegacyExtractionSummary({
-  extraction,
-}: {
-  extraction: ChatDemoExtraction;
-}) {
-  return (
-    <SummaryShell
-      eyebrow="Chat-reported candidates"
-      title="Case information overview"
-      description={extraction.disclaimer}
-    >
-      <div>
-        <ExtractionList
-          title="Case details"
-          count={extraction.evidence.length}
-          emptyMessage="No case detail found in this chat text yet."
-        >
-          {extraction.evidence.map((item) => (
-            <li key={item.evidence_id} className="rounded-xl bg-white p-3">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-bold text-[#171717]">{item.title}</p>
-                <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.1em] text-[#8A8984]">
-                  {item.evidence_id}
-                </span>
-              </div>
-              <p className="mt-1 text-xs leading-5 text-[#6B6A66]">
-                {item.description}
-              </p>
-              <ItemBadges />
-            </li>
-          ))}
-        </ExtractionList>
-      </div>
-    </SummaryShell>
-  );
 }
 
 function BaselineExtractionSummary({

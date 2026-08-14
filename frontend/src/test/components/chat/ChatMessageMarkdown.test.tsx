@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { ChatMessageMarkdown } from "@/components/chat/ChatMessageMarkdown";
-import { ChatTranscript } from "@/components/chat/ChatTranscript";
+import { ChatMessageMarkdown } from "@/components/conversation/ChatMessageMarkdown";
+import { ChatTranscript } from "@/components/conversation/ChatTranscript";
 import type { PersistedChatMessage } from "@/lib/api";
 
 beforeAll(() => {
@@ -112,9 +112,7 @@ describe("ChatTranscript Markdown vs Plain Text behavior", () => {
     render(
       <ChatTranscript
         messages={messages}
-        threadStatus="idle"
-        phase="idle"
-        error={null}
+        isProcessing={false}
       />
     );
 

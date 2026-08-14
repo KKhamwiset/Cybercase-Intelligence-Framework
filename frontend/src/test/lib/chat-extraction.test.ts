@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PersistedChatMessage } from "@/lib/api";
 import {
   chatBaselineExtractionForMessage,
-  chatDemoExtractionForMessage,
-  latestChatDemoExtractionForMessages,
+  latestChatExtractionForMessages,
 } from "@/lib/chat-extraction";
 
 function message(
@@ -79,88 +78,7 @@ function baselineRelationshipMetadata(
   };
 }
 
-describe("chat demo extraction metadata", () => {
-  it("accepts persisted evidence and timeline candidates", () => {
-    const extraction = chatDemoExtractionForMessage(
-      message({
-        chat_extraction: {
-          version: 1,
-          mode: "deterministic_demo",
-          status: "candidate",
-          disclaimer: "Verify this demo output.",
-          evidence: [
-            {
-              evidence_id: "E-001",
-              title: "Endpoint log",
-              description: "The endpoint log recorded a new process.",
-            },
-          ],
-          timeline: [
-            {
-              event_id: "T-001",
-              timestamp: "12:30",
-              event: "A new process was recorded.",
-              evidence_ids: ["E-001"],
-            },
-          ],
-        },
-      }),
-    );
-
-    expect(extraction).toMatchObject({
-      mode: "deterministic_demo",
-      evidence: [{ evidence_id: "E-001" }],
-      timeline: [{ timestamp: "12:30", evidence_ids: ["E-001"] }],
-    });
-  });
-
-  it("ignores non-demo metadata", () => {
-    expect(
-      chatDemoExtractionForMessage(message({ mitre_table: [] })),
-    ).toBeNull();
-  });
-
-  it("returns the latest assistant extraction by descending ordinal", () => {
-    const older = message(
-      {
-        chat_extraction: {
-          mode: "deterministic_demo",
-          evidence: [
-            {
-              evidence_id: "E-OLD",
-              title: "Older candidate",
-              description: "Older description.",
-            },
-          ],
-          timeline: [],
-        },
-      },
-      2,
-    );
-    const newer = message(
-      {
-        chat_extraction: {
-          mode: "deterministic_demo",
-          evidence: [
-            {
-              evidence_id: "E-NEW",
-              title: "Latest candidate",
-              description: "Latest description.",
-            },
-          ],
-          timeline: [],
-        },
-      },
-      4,
-    );
-
-    expect(
-      latestChatDemoExtractionForMessages([newer, older]),
-    ).toMatchObject({
-      evidence: [{ evidence_id: "E-NEW", title: "Latest candidate" }],
-    });
-  });
-
+describe("chat baseline extraction metadata", () => {
   it("parses the versioned baseline extraction and its provenance fields", () => {
     const extraction = chatBaselineExtractionForMessage(
       message({
@@ -226,6 +144,89 @@ describe("chat demo extraction metadata", () => {
       evidence: [{ source_type: "user_reported" }],
       timeline: [{ timestamp: null, status: "unknown" }],
       relationships: [],
+    });
+  });
+
+  it("returns the latest assistant extraction by descending ordinal", () => {
+    const older = message(
+      {
+        chat_extraction: {
+          version: "baseline_extraction_v1",
+          mode: "single_pass_llm",
+          status: "candidate",
+          prompt_version: "baseline_extraction_prompt_v1",
+          provider: "anthropic",
+          model: "claude-sonnet-4-20250514",
+          validation_status: "validated",
+          latency_ms: 10,
+          input_tokens: 10,
+          output_tokens: 10,
+          source_message_ids: ["message-1"],
+          raw_response: null,
+          case_summary: "Older summary.",
+          entities: [],
+          relationships: [],
+          evidence: [
+            {
+              evidence_id: "E-OLD",
+              title: "Older candidate",
+              description: "Older description.",
+              artifact_type: "log",
+              status: "reported",
+              confidence: "low",
+              source_type: "user_reported",
+              source_message_ids: ["message-1"],
+            },
+          ],
+          timeline: [],
+          missing_information: [],
+          warnings: [],
+        },
+      },
+      2,
+    );
+    const newer = message(
+      {
+        chat_extraction: {
+          version: "baseline_extraction_v1",
+          mode: "single_pass_llm",
+          status: "candidate",
+          prompt_version: "baseline_extraction_prompt_v1",
+          provider: "anthropic",
+          model: "claude-sonnet-4-20250514",
+          validation_status: "validated",
+          latency_ms: 10,
+          input_tokens: 10,
+          output_tokens: 10,
+          source_message_ids: ["message-3"],
+          raw_response: null,
+          case_summary: "Newer summary.",
+          entities: [],
+          relationships: [],
+          evidence: [
+            {
+              evidence_id: "E-NEW",
+              title: "Latest candidate",
+              description: "Latest description.",
+              artifact_type: "log",
+              status: "reported",
+              confidence: "high",
+              source_type: "user_reported",
+              source_message_ids: ["message-3"],
+            },
+          ],
+          timeline: [],
+          missing_information: [],
+          warnings: [],
+        },
+      },
+      4,
+    );
+
+    expect(
+      latestChatExtractionForMessages([newer, older]),
+    ).toMatchObject({
+      evidence: [{ evidence_id: "E-NEW", title: "Latest candidate" }],
     });
   });
 

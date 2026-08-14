@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatExtraction } from "@/lib/api";
-import { NoChatExtractionState } from "./ChatEvidenceState";
+import { NoChatExtractionState } from "./ChatExtractionState";
 import { ChatExtractionSummary } from "./ChatExtractionSummary";
 
 interface ChatExtractionViewProps {

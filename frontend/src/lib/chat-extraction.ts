@@ -6,53 +6,9 @@ import type {
   ChatBaselineMissingInformation,
   ChatBaselineRelationship,
   ChatBaselineTimelineEvent,
-  ChatDemoEvidence,
-  ChatDemoExtraction,
-  ChatDemoTimelineEvent,
   ChatExtraction,
   PersistedChatMessage,
 } from "@/lib/api";
-
-export function chatDemoExtractionForMessage(
-  message: PersistedChatMessage,
-): ChatDemoExtraction | null {
-  if (message.role !== "assistant") return null;
-  const raw = message.metadata_json.chat_extraction;
-  if (!isRecord(raw) || raw.mode !== "deterministic_demo") return null;
-
-  const evidence = Array.isArray(raw.evidence)
-    ? raw.evidence.flatMap(parseDemoEvidence)
-    : [];
-  const timeline = Array.isArray(raw.timeline)
-    ? raw.timeline.flatMap(parseDemoTimeline)
-    : [];
-
-  return {
-    version: typeof raw.version === "number" ? raw.version : 1,
-    mode: "deterministic_demo",
-    status: "candidate",
-    disclaimer:
-      typeof raw.disclaimer === "string"
-        ? raw.disclaimer
-        : "Demo candidates must be verified against the original source.",
-    evidence,
-    timeline,
-  };
-}
-
-export function latestChatDemoExtractionForMessages(
-  messages: PersistedChatMessage[],
-): ChatDemoExtraction | null {
-  const latestMessage = [...messages]
-    .sort((left, right) => right.ordinal - left.ordinal)
-    .find(
-      (message) =>
-        message.role === "assistant" &&
-        chatDemoExtractionForMessage(message) !== null,
-    );
-
-  return latestMessage ? chatDemoExtractionForMessage(latestMessage) : null;
-}
 
 export function chatBaselineExtractionForMessage(
   message: PersistedChatMessage,
@@ -85,6 +41,17 @@ export function chatBaselineExtractionForMessage(
     return null;
   }
 
+  if (
+    (raw.entities !== undefined && !Array.isArray(raw.entities)) ||
+    (raw.evidence !== undefined && !Array.isArray(raw.evidence)) ||
+    (raw.timeline !== undefined && !Array.isArray(raw.timeline)) ||
+    (raw.relationships !== undefined && !Array.isArray(raw.relationships)) ||
+    (raw.missing_information !== undefined &&
+      !Array.isArray(raw.missing_information))
+  ) {
+    return null;
+  }
+
   const entities = Array.isArray(raw.entities)
     ? raw.entities.flatMap(parseBaselineEntity)
     : [];
@@ -98,35 +65,51 @@ export function chatBaselineExtractionForMessage(
     ? raw.missing_information.flatMap(parseBaselineMissingInformation)
     : [];
   const warnings = parseStringArray(raw.warnings);
-  const relationships =
-    raw.relationships === undefined
-      ? []
-      : Array.isArray(raw.relationships)
-        ? raw.relationships.flatMap(parseBaselineRelationship)
-        : null;
+
   if (
     (Array.isArray(raw.entities) && entities.length !== raw.entities.length) ||
     (Array.isArray(raw.evidence) && evidence.length !== raw.evidence.length) ||
     (Array.isArray(raw.timeline) && timeline.length !== raw.timeline.length) ||
     (Array.isArray(raw.missing_information) &&
       missingInformation.length !== raw.missing_information.length) ||
-    relationships === null ||
-    (Array.isArray(raw.relationships) &&
-      relationships.length !== raw.relationships.length) ||
-    (raw.warnings !== undefined && warnings === null)
+    warnings === null
   ) {
     return null;
   }
 
-  const entityIds = new Set(entities.map((entity) => entity.entity_id));
+  const entityIds = new Set<string>();
+  for (const entity of entities) {
+    if (entityIds.has(entity.entity_id)) return null;
+    entityIds.add(entity.entity_id);
+  }
+
+  const evidenceIds = new Set<string>();
+  for (const item of evidence) {
+    if (evidenceIds.has(item.evidence_id)) return null;
+    evidenceIds.add(item.evidence_id);
+  }
+
+  const timelineIds = new Set<string>();
+  for (const event of timeline) {
+    if (timelineIds.has(event.event_id)) return null;
+    if (event.evidence_ids.some((id) => !evidenceIds.has(id))) return null;
+    timelineIds.add(event.event_id);
+  }
+
+  const rawRelationships = Array.isArray(raw.relationships)
+    ? raw.relationships
+    : [];
+  const relationships = rawRelationships.flatMap(parseBaselineRelationship);
+  if (relationships.length !== rawRelationships.length) return null;
+
   const relationshipIds = new Set<string>();
   const semanticEdges = new Set<string>();
   for (const relationship of relationships) {
+    if (relationshipIds.has(relationship.relationship_id)) return null;
     if (
       !entityIds.has(relationship.subject_entity_id) ||
       !entityIds.has(relationship.object_entity_id) ||
-      relationship.subject_entity_id === relationship.object_entity_id ||
-      relationshipIds.has(relationship.relationship_id)
+      relationship.subject_entity_id === relationship.object_entity_id
     ) {
       return null;
     }
@@ -153,10 +136,7 @@ export function chatBaselineExtractionForMessage(
 export function chatExtractionForMessage(
   message: PersistedChatMessage,
 ): ChatExtraction | null {
-  return (
-    chatBaselineExtractionForMessage(message) ??
-    chatDemoExtractionForMessage(message)
-  );
+  return chatBaselineExtractionForMessage(message);
 }
 
 export function latestChatExtractionForMessages(
@@ -166,49 +146,6 @@ export function latestChatExtractionForMessages(
     .sort((left, right) => right.ordinal - left.ordinal)
     .find((message) => chatExtractionForMessage(message) !== null);
   return latestMessage ? chatExtractionForMessage(latestMessage) : null;
-}
-
-function parseDemoEvidence(value: unknown): ChatDemoEvidence[] {
-  if (!isRecord(value)) return [];
-  if (
-    typeof value.evidence_id !== "string" ||
-    typeof value.title !== "string" ||
-    typeof value.description !== "string"
-  ) {
-    return [];
-  }
-  return [
-    {
-      evidence_id: value.evidence_id,
-      title: value.title,
-      description: value.description,
-      status: "reported",
-      confidence: "low",
-      source_type: "chat_text",
-    },
-  ];
-}
-
-function parseDemoTimeline(value: unknown): ChatDemoTimelineEvent[] {
-  if (!isRecord(value)) return [];
-  if (
-    typeof value.event_id !== "string" ||
-    typeof value.event !== "string" ||
-    !Array.isArray(value.evidence_ids) ||
-    !value.evidence_ids.every((item) => typeof item === "string")
-  ) {
-    return [];
-  }
-  return [
-    {
-      event_id: value.event_id,
-      timestamp: typeof value.timestamp === "string" ? value.timestamp : null,
-      event: value.event,
-      status: "reported",
-      evidence_ids: value.evidence_ids,
-      source_type: "chat_text",
-    },
-  ];
 }
 
 function parseBaselineEntity(value: unknown): ChatBaselineEntity[] {

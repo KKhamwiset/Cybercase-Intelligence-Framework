@@ -4,9 +4,8 @@ import type { ChatExtraction } from "@/lib/api";
 import { CaseRelationshipGraph } from "./CaseRelationshipGraph";
 import {
   FailedChatExtractionState,
-  LegacyRelationshipsUnavailableState,
   NoChatExtractionState,
-} from "./ChatEvidenceState";
+} from "@/components/analysis/ChatExtractionState";
 
 interface ChatRelationshipsViewProps {
   extraction: ChatExtraction | null;
@@ -20,10 +19,6 @@ export function ChatRelationshipsView({
   let content;
   if (!extraction) {
     content = <NoChatExtractionState onOpenChat={onOpenChat} />;
-  } else if (extraction.mode === "deterministic_demo") {
-    content = (
-      <LegacyRelationshipsUnavailableState onOpenChat={onOpenChat} />
-    );
   } else if (extraction.status === "failed") {
     content = (
       <FailedChatExtractionState
@@ -42,7 +37,7 @@ export function ChatRelationshipsView({
 
   return (
     <section
-      id="workspace-extraction-panel"
+      id="workspace-relationships-panel"
       role="tabpanel"
       aria-label="Entity relationships"
       className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
