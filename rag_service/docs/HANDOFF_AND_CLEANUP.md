@@ -28,7 +28,9 @@
   `data/incident_draft_campaign.json` (20 campaign จริง เช่น SolarWinds C0024) — ID ต่างกัน รวมเป็น 65 ได้
 
 **งานค้าง (task #6):** รีวิว 20 campaign samples → รวม dataset 65 → faithfulness judge →
-ตัดสิน `MITRE_TABLE_SCORE_THRESHOLD` 0.62→0.70 · integration: verify backend/frontend loop resume
+ตัดสิน `MITRE_TABLE_SCORE_THRESHOLD` (สเกลเปลี่ยนแล้ว — double-sigmoid ใน `reranker.py` ถูกลบ,
+ค่า default 0.62→0.10 ดูคอมเมนต์ใน `config.py`; แผนเดิม 0.62→0.70 ใช้ไม่ได้แล้ว) ·
+integration: verify backend/frontend loop resume
 
 ---
 

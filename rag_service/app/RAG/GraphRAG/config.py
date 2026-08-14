@@ -249,11 +249,23 @@ RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
 # MITRE mapping table sent to the backend: vector hits below this rerank score
 # (sigmoid [0,1] × type weight) are dropped unless the answer cites them.
-# Calibrated against live Qdrant data (2026-07-03): the cross-encoder saturates
-# at sigmoid≈0.500 for no-signal pairs, so after the ×1.2 Technique weight the
-# noise floor sits at 0.600 — irrelevant techniques score 0.600-0.607, genuinely
-# relevant ones 0.65-0.87. 0.62 cuts the floor while keeping real signal.
-MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.62"))
+#
+# History: the 2026-07-03 calibration (threshold 0.62, "noise floor 0.600-0.607,
+# relevant 0.65-0.87") was measured while reranker.py applied sigmoid a second
+# time on top of CrossEncoder.predict()'s own sigmoid, which compressed every
+# score into [0.5, 0.731]. That double sigmoid is now removed, so those numbers
+# no longer apply. Translating the same observations back through the double
+# sigmoid puts the noise floor at ~0.03 and real signal at ~0.20 and up (both
+# after the ×1.2 Technique weight), so the cut belongs somewhere in 0.05-0.15.
+# 0.05 is the conservative end of that range: this is only the secondary noise
+# filter (answer-grounded citation is the primary one), so a false keep shows up
+# as a visible "retrieved_only" row while a false drop silently loses a real
+# technique. NOTE: reranking a Thai query directly scores near-zero across the
+# board (the DUAL_QUERY_RETRIEVAL Thai channel) — entities found only via that
+# channel will not clear any threshold. Re-run the sweep to settle the value:
+#   python -m evaluation.crosslingual_generation_benchmark \
+#       --thresholds 0.03,0.05,0.10,0.15,0.20,0.30
+MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.05"))
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — mmarco reranker (kept for reference / rollback)
