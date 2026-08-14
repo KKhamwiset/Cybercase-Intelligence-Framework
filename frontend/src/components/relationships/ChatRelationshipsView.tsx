@@ -40,17 +40,17 @@ export function ChatRelationshipsView({
       id="workspace-relationships-panel"
       role="tabpanel"
       aria-label="Entity relationships"
-      className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
+      className="min-h-0 flex-1 overflow-y-auto bg-canvas px-4 py-8 sm:px-7 lg:px-10"
     >
       <div className="mx-auto w-full max-w-[1600px]">
         <div className="max-w-3xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#6B6A66]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-secondary">
             Relationships
           </p>
-          <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-[#171717] sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-ink sm:text-4xl">
             Entity relationship graph
           </h1>
-          <p className="mt-4 text-sm leading-6 text-[#6B6A66] sm:text-base sm:leading-7">
+          <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
             Inspect explicit candidate relationships on a dedicated canvas.
             Connections remain user-reported and unverified, not forensic proof.
           </p>

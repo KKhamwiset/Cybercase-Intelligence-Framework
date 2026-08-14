@@ -34,8 +34,6 @@ import { Icon } from "@/components/common/icons";
 import { WorkspaceSidebar } from "@/components/layout/WorkspaceSidebar";
 import {
   workspaceViewLabels,
-  workspaceViewForRoute,
-  type EvidenceRouteView,
   type RunPhase,
   type WorkspaceRouteView,
   type WorkspaceView,
@@ -794,13 +792,8 @@ export function ChatWorkspace() {
     latestExtraction.status === "candidate" &&
     latestExtraction.validation_status === "validated";
   const activeWorkspaceView = activeView;
-  const activeEvidenceView: EvidenceRouteView =
-    activeView === "timeline" || activeView === "relationships"
-      ? activeView
-      : "extraction";
-  const evidenceThreadId = activeThreadId ?? routeThreadId;
   return (
-    <div className="flex h-dvh overflow-hidden bg-[#F7F6F2] text-[#171717]">
+    <div className="flex h-dvh overflow-hidden bg-canvas text-ink">
       <WorkspaceSidebar
         threads={threads}
         activeThreadId={activeThreadId}
@@ -815,12 +808,12 @@ export function ChatWorkspace() {
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-[76px] shrink-0 flex-wrap items-center gap-3 border-b border-[#DEDCD5] bg-[#F7F6F2] px-3 py-3 sm:px-5 md:min-h-[72px] md:flex-nowrap md:px-7">
+        <header className="flex min-h-[76px] shrink-0 flex-wrap items-center gap-3 border-b border-line bg-canvas px-3 py-3 sm:px-5 md:min-h-[72px] md:flex-nowrap md:px-7">
           <div className="flex min-w-0 w-full items-center gap-3 md:flex-1">
             <Link
               href="/"
               aria-label="CyberCase home"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#171717] text-sm font-extrabold text-white outline-none focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 md:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-charcoal text-sm font-extrabold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 md:hidden"
             >
               C
             </Link>
@@ -828,8 +821,8 @@ export function ChatWorkspace() {
               <p className="truncate text-base font-extrabold tracking-[-0.02em] sm:text-lg">
                 {activeThread?.title ?? "New chat"}
               </p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[#6B6A66]">
-                <span className={`h-1.5 w-1.5 rounded-full ${phase === "error" ? "bg-[#B42318]" : phase === "querying" || phase === "analyzing" ? "bg-[#171717] motion-safe:animate-pulse" : "bg-[#8A8984]"}`} />
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+                <span className={`h-1.5 w-1.5 rounded-full ${phase === "error" ? "bg-[#B42318]" : phase === "querying" || phase === "analyzing" ? "bg-charcoal motion-safe:animate-pulse" : "bg-ink-muted"}`} />
                 <span>{workspaceViewLabels[activeView]}</span>
                 <span aria-hidden="true">·</span>
                 <span>{phaseLabels[phase]}</span>
@@ -848,7 +841,7 @@ export function ChatWorkspace() {
                 handleViewChange(event.target.value as WorkspaceView)
               }
               aria-label="Select workspace"
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#C9C7BF] bg-white px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-surface px-3 text-sm font-semibold text-ink outline-none hover:border-charcoal focus-visible:ring-2 focus-visible:ring-charcoal disabled:bg-control-disabled disabled:text-ink-disabled"
             >
               <option value="chat">Chat</option>
               <option value="extraction">Case details</option>
@@ -867,7 +860,7 @@ export function ChatWorkspace() {
                 }
               }}
               aria-label="Select saved chat"
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#C9C7BF] bg-white px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#171717]"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-line-strong bg-surface px-3 text-sm font-semibold text-ink outline-none hover:border-charcoal focus-visible:ring-2 focus-visible:ring-charcoal disabled:bg-control-disabled disabled:text-ink-disabled"
             >
               <option value="">Select chat</option>
               {threads.map((thread) => (
@@ -883,7 +876,7 @@ export function ChatWorkspace() {
               disabled={creatingThread}
               aria-label="New chat"
               title="New chat"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#C9C7BF] bg-white text-[#171717] outline-none transition-colors hover:border-[#171717] hover:bg-[#FCFBF8] focus-visible:ring-2 focus-visible:ring-[#171717] disabled:cursor-wait disabled:text-[#8A8984]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line-strong bg-surface text-ink outline-none transition-colors hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal disabled:cursor-wait disabled:bg-control-disabled disabled:text-ink-disabled"
             >
               <Icon name="plus" className="h-5 w-5" />
             </button>
@@ -895,7 +888,7 @@ export function ChatWorkspace() {
                 disabled={deletingThreadId !== null}
                 aria-label={`Delete ${activeThread.title}`}
                 title={`Delete ${activeThread.title}`}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#C9C7BF] bg-white text-[#6B6A66] outline-none transition-colors hover:border-[#B42318] hover:bg-red-50 hover:text-[#B42318] focus-visible:ring-2 focus-visible:ring-[#B42318] disabled:cursor-wait disabled:text-[#C9C7BF]"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line-strong bg-surface text-ink-secondary outline-none transition-colors hover:border-[#B42318] hover:bg-red-50 hover:text-[#B42318] focus-visible:ring-2 focus-visible:ring-[#B42318] disabled:cursor-wait disabled:bg-control-disabled disabled:text-ink-disabled"
               >
                 <Icon name="trash" className="h-5 w-5" />
               </button>
@@ -903,7 +896,7 @@ export function ChatWorkspace() {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 overflow-hidden bg-[#F7F6F2]">
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-canvas">
           <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {activeWorkspaceView !== "chat" && queryError && (
               <div

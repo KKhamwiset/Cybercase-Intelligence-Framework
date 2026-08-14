@@ -40,17 +40,17 @@ export function DeleteChatDialog({
         event.preventDefault();
         if (!isDeleting) onCancel();
       }}
-      className="m-auto max-w-md rounded-2xl border border-[#DEDCD5] bg-[#FCFBF8] p-6 text-[#171717] shadow-[0_20px_50px_rgba(23,23,23,0.18)] backdrop:bg-black/35 backdrop:backdrop-blur-[1px]"
+      className="m-auto max-w-md rounded-2xl border border-line bg-surface p-6 text-ink shadow-[0_20px_50px_rgba(39,39,39,0.18)] backdrop:bg-charcoal/35 backdrop:backdrop-blur-[1px]"
     >
       <h2 id="delete-chat-title" className="text-lg font-extrabold tracking-tight">
         Delete this chat?
       </h2>
       <p
         id="delete-chat-description"
-        className="mt-3 text-sm leading-6 text-[#6B6A66]"
+        className="mt-3 text-sm leading-6 text-ink-secondary"
       >
         This will permanently remove{" "}
-        <span className="font-bold text-[#171717]">
+        <span className="font-bold text-ink">
           {thread?.title ?? "this chat"}
         </span>
         , its message history, and any saved extractions. This action cannot be
@@ -62,7 +62,7 @@ export function DeleteChatDialog({
           type="button"
           disabled={isDeleting}
           onClick={onCancel}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#C9C7BF] bg-white px-4 text-sm font-bold text-[#171717] outline-none transition-colors hover:border-[#171717] hover:bg-[#FCFBF8] focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-[#8A8984]"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
         >
           Cancel
         </button>
@@ -70,7 +70,7 @@ export function DeleteChatDialog({
           type="button"
           disabled={isDeleting}
           onClick={onConfirm}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B42318] px-4 text-sm font-bold text-white outline-none transition-colors hover:bg-[#912018] focus-visible:ring-2 focus-visible:ring-[#B42318] focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-[#FECDCA]"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#B42318] px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-[#912018] focus-visible:ring-2 focus-visible:ring-[#B42318] focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-[#FECDCA] disabled:text-ink-disabled"
         >
           {isDeleting ? "Deleting..." : "Delete"}
         </button>

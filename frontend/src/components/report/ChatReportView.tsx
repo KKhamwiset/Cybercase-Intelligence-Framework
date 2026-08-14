@@ -39,25 +39,19 @@ export function ChatReportView({
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
-
     if (!threadId) {
-      setReports([]);
-      setSelectedReportId(null);
-      setIsLoading(false);
-      setLoadError(null);
       return;
     }
 
-    setIsLoading(true);
-    setLoadError(null);
+    const controller = new AbortController();
 
-    void listChatReports(threadId, controller.signal)
-      .then((items) => {
+    void (async () => {
+      try {
+        const items = await listChatReports(threadId, controller.signal);
+        if (controller.signal.aborted) return;
         setReports(items);
         setSelectedReportId(items[0]?.report_id ?? null);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (controller.signal.aborted) return;
         setLoadError(
           getApiErrorMessage(
@@ -65,12 +59,12 @@ export function ChatReportView({
             "Could not load persisted reports for this chat thread.",
           ),
         );
-      })
-      .finally(() => {
+      } finally {
         if (!controller.signal.aborted) {
           setIsLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       controller.abort();
@@ -148,19 +142,19 @@ export function ChatReportView({
         id="workspace-report-panel"
         role="tabpanel"
         aria-label="Report generation"
-        className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
+        className="min-h-0 flex-1 overflow-y-auto bg-canvas px-4 py-8 sm:px-7 lg:px-10"
       >
-        <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-[#C9C7BF] bg-[#FCFBF8] p-6 sm:p-8">
-          <h2 className="text-xl font-extrabold tracking-tight text-[#171717]">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-line-strong bg-surface p-6 sm:p-8">
+          <h2 className="text-xl font-extrabold tracking-tight text-ink">
             Select a saved chat
           </h2>
-          <p className="mt-3 text-sm leading-6 text-[#6B6A66]">
+          <p className="mt-3 text-sm leading-6 text-ink-secondary">
             Start or open a chat before generating a persistent report.
           </p>
           <button
             type="button"
             onClick={onOpenChat}
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#171717] px-4 text-sm font-bold text-white outline-none transition-colors hover:bg-[#333333] focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2"
+            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-charcoal px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2"
           >
             Return to Chat
           </button>
@@ -174,24 +168,24 @@ export function ChatReportView({
       id="workspace-report-panel"
       role="tabpanel"
       aria-label="Report generation"
-      className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
+      className="min-h-0 flex-1 overflow-y-auto bg-canvas px-4 py-8 sm:px-7 lg:px-10"
     >
       <div className="mx-auto w-full max-w-[1080px]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#6B6A66]">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-secondary">
               Executive Briefing
             </p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-[#171717] sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-ink sm:text-4xl">
               Digital-forensics report
             </h1>
-            <p className="mt-4 text-sm leading-6 text-[#6B6A66] sm:text-base sm:leading-7">
+            <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
               Generate one durable, backend-validated report from this chat&apos;s
               user-authored case messages, validated extraction, and persisted
               MITRE mapping rows.
             </p>
           </div>
-          <span className="rounded-full border border-[#C9C7BF] bg-white px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#6B6A66]">
+          <span className="rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-secondary">
             Provisional / Unverified
           </span>
         </div>
@@ -201,11 +195,11 @@ export function ChatReportView({
             type="button"
             onClick={() => void handleGenerate()}
             disabled={!canGenerate}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#171717] px-4 text-sm font-bold text-white outline-none transition-colors hover:bg-[#333333] focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#E8E6E0] disabled:text-[#8A8984]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-charcoal px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
           >
             {isGenerating && (
               <span
-                className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                className="h-4 w-4 animate-spin rounded-full border-2 border-ivory/40 border-t-ivory"
                 aria-hidden="true"
               />
             )}
@@ -214,13 +208,13 @@ export function ChatReportView({
           <button
             type="button"
             onClick={onOpenChat}
-            className="inline-flex min-h-11 items-center rounded-xl border border-[#C9C7BF] bg-white px-4 text-sm font-bold text-[#171717] outline-none transition-colors hover:border-[#171717] hover:bg-[#FCFBF8] focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2"
           >
             Return to Chat
           </button>
         </div>
 
-        <div className="mt-5 rounded-xl border border-[#DEDCD5] bg-[#FCFBF8] px-4 py-3 text-sm leading-6 text-[#6B6A66]">
+        <div className="mt-5 rounded-xl border border-line bg-surface px-4 py-3 text-sm leading-6 text-ink-secondary">
           {readinessMessage({
             hasMessages,
             hasValidatedExtraction,
@@ -234,13 +228,13 @@ export function ChatReportView({
         {downloadError && <InlineError message={downloadError} />}
 
         {isLoading ? (
-          <div className="mt-8 rounded-2xl border border-[#DEDCD5] bg-white p-6 text-center text-sm font-medium text-[#6B6A66]">
+          <div className="mt-8 rounded-2xl border border-line bg-surface p-6 text-center text-sm font-medium text-ink-secondary">
             Loading saved report history...
           </div>
         ) : reports.length > 0 ? (
           <div className="mt-8 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
             <aside aria-label="Report version history" className="space-y-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-ink-secondary">
                 Report versions
               </p>
               <div className="mt-3 space-y-2" aria-label="Saved report versions">
@@ -249,10 +243,10 @@ export function ChatReportView({
                     key={report.report_id}
                     type="button"
                     onClick={() => setSelectedReportId(report.report_id)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#171717] ${
+                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-charcoal ${
                       report.report_id === selectedReport?.report_id
-                        ? "border-[#171717] bg-[#171717] text-white"
-                        : "border-[#DEDCD5] bg-white text-[#171717] hover:border-[#171717]"
+                        ? "border-charcoal bg-charcoal text-ivory"
+                        : "border-line bg-surface text-ink hover:border-charcoal hover:bg-surface-hover"
                     }`}
                   >
                     <span className="block text-sm font-extrabold">
@@ -261,8 +255,8 @@ export function ChatReportView({
                     <span
                       className={`mt-1 block text-[10px] font-bold uppercase tracking-[0.1em] ${
                         report.report_id === selectedReport?.report_id
-                          ? "text-white/70"
-                          : "text-[#6B6A66]"
+                          ? "text-ivory/70"
+                          : "text-ink-secondary"
                       }`}
                     >
                       {report.persistence_status === "completed"
@@ -283,14 +277,14 @@ export function ChatReportView({
             )}
           </div>
         ) : (
-          <div className="mt-8 max-w-3xl rounded-2xl border border-dashed border-[#C9C7BF] bg-[#FCFBF8] p-6 sm:p-8">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#171717] text-white shadow-sm">
+          <div className="mt-8 max-w-3xl rounded-2xl border border-dashed border-line-strong bg-surface p-6 sm:p-8">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-charcoal text-ivory shadow-sm">
               <Icon name="report" className="h-6 w-6" />
             </span>
-            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-[#171717]">
+            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-ink">
               No saved report for this chat
             </h2>
-            <p className="mt-3 text-sm leading-6 text-[#6B6A66]">
+            <p className="mt-3 text-sm leading-6 text-ink-secondary">
               Complete the chat and wait for the validated baseline extraction,
               then generate a report. Previous report attempts will remain
               available here as versioned history.
@@ -316,15 +310,15 @@ function PersistedReportCard({
   return (
     <article
       aria-label="Persisted report"
-      className="min-w-0 rounded-2xl border border-[#C9C7BF] bg-[#FCFBF8] p-5 shadow-[0_4px_18px_rgba(23,23,23,0.05)] sm:p-8"
+      className="min-w-0 rounded-2xl border border-line-strong bg-surface p-5 shadow-[0_4px_18px_rgba(39,39,39,0.05)] sm:p-8"
     >
-      <header className="border-b border-[#DEDCD5] pb-5">
+      <header className="border-b border-line pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-ink-secondary">
             Version {report.version_number} · Backend persisted
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[#C9C7BF] bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#6B6A66]">
+            <span className="rounded-full border border-line-strong bg-surface px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-secondary">
               {report.persistence_status === "completed"
                 ? "Provisional / Unverified"
                 : "Generation failed"}
@@ -334,17 +328,17 @@ function PersistedReportCard({
                 type="button"
                 onClick={onDownloadPdf}
                 disabled={isDownloading}
-                className="rounded-full border border-[#171717] bg-[#171717] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#333333] disabled:cursor-wait disabled:opacity-60"
+                className="rounded-full border border-charcoal bg-charcoal px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed disabled:cursor-wait disabled:border-control-disabled disabled:bg-control-disabled disabled:text-ink-disabled"
               >
                 {isDownloading ? "Preparing PDF..." : "Download PDF"}
               </button>
             )}
           </div>
         </div>
-        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] text-[#171717]">
+        <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.03em] text-ink">
           {report.report?.title ?? threadTitle}
         </h2>
-        <p className="mt-2 text-xs text-[#6B6A66]">
+        <p className="mt-2 text-xs text-ink-secondary">
           Extraction {report.extraction_version} · {report.model}
         </p>
       </header>
@@ -361,23 +355,23 @@ function PersistedReportCard({
 function StructuredReportView({ report }: { report: ChatStructuredReport }) {
   return (
     <>
-      <div className="divide-y divide-[#DEDCD5]">
+      <div className="divide-y divide-line">
         {report.sections.map((section) => {
           const claims = report.claims.filter(
             (claim) => claim.section_id === section.section_id,
           );
           return (
             <section key={section.section_id} className="py-6 first:pt-7 last:pb-2">
-              <h3 className="text-lg font-extrabold tracking-tight text-[#171717]">
+              <h3 className="text-lg font-extrabold tracking-tight text-ink">
                 {section.heading}
               </h3>
-              <div className="mt-3 space-y-3 text-sm leading-6 text-[#6B6A66]">
+              <div className="mt-3 space-y-3 text-sm leading-6 text-ink-secondary">
                 {section.paragraphs.map((paragraph, index) => (
                   <p key={`${section.section_id}-paragraph-${index}`}>{paragraph}</p>
                 ))}
               </div>
               {section.items.length > 0 && (
-                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-[#171717]">
+                <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-6 text-ink">
                   {section.items.map((item, index) => (
                     <li key={`${section.section_id}-item-${index}`}>{item}</li>
                   ))}
@@ -388,17 +382,17 @@ function StructuredReportView({ report }: { report: ChatStructuredReport }) {
                   {claims.map((claim) => (
                     <div
                       key={claim.claim_id}
-                      className="rounded-xl border border-[#DEDCD5] bg-white p-3"
+                      className="rounded-xl border border-line bg-surface p-3"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                           {claim.claim_id}
                         </span>
-                        <span className="rounded-full border border-[#DEDCD5] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6B6A66]">
+                        <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-secondary">
                           {claim.support_type.replaceAll("_", " ")}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm leading-6 text-[#171717]">{claim.text}</p>
+                      <p className="mt-2 text-sm leading-6 text-ink">{claim.text}</p>
                     </div>
                   ))}
                 </div>
@@ -408,11 +402,11 @@ function StructuredReportView({ report }: { report: ChatStructuredReport }) {
         })}
       </div>
       {report.limitations.length > 0 && (
-        <div className="mt-6 border-t border-[#DEDCD5] pt-5">
-          <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-[#6B6A66]">
+        <div className="mt-6 border-t border-line pt-5">
+          <h3 className="text-sm font-extrabold uppercase tracking-[0.12em] text-ink-secondary">
             Report limitations
           </h3>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-[#6B6A66]">
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-ink-secondary">
             {report.limitations.map((limitation, index) => (
               <li key={`limitation-${index}`}>{limitation}</li>
             ))}
@@ -429,7 +423,7 @@ function ReportFailure({ report }: { report: ChatReportRead }) {
       <h3 className="text-sm font-extrabold text-[#B42318]">
         Report generation failed
       </h3>
-      <p className="mt-2 text-sm leading-6 text-[#6B6A66]">
+      <p className="mt-2 text-sm leading-6 text-ink-secondary">
         {report.failure_message ?? "The backend did not produce a validated report."}
       </p>
       {report.failure_code && (
@@ -438,13 +432,13 @@ function ReportFailure({ report }: { report: ChatReportRead }) {
         </p>
       )}
       {report.validation_errors.length > 0 && (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5 text-[#6B6A66]">
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5 text-ink-secondary">
           {report.validation_errors.map((error, index) => (
             <li key={`validation-error-${index}`}>{error}</li>
           ))}
         </ul>
       )}
-      <p className="mt-4 text-sm font-semibold text-[#171717]">
+      <p className="mt-4 text-sm font-semibold text-ink">
         Resolve the issue, then generate another version. This failed attempt is
         preserved in report history.
       </p>

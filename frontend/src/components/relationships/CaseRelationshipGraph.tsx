@@ -53,11 +53,11 @@ export function CaseRelationshipGraph({
     return (
       <section
         aria-label="Candidate entity relationships"
-        className="mb-4 min-w-0 max-w-full rounded-xl border border-dashed border-[#C9C7BF] bg-[#F4F3EF] p-4"
+        className="mb-4 min-w-0 max-w-full rounded-xl border border-dashed border-line-strong bg-surface-nested p-4"
       >
         <RelationshipHeader count={0} />
         <RelationshipTrustNotice />
-        <p className="mt-3 text-xs leading-5 text-[#8A8984]">
+        <p className="mt-3 text-xs leading-5 text-ink-secondary">
           No explicit entity-to-entity relationship was extracted.
         </p>
       </section>
@@ -72,7 +72,7 @@ export function CaseRelationshipGraph({
   return (
     <section
       aria-label="Candidate entity relationships"
-      className="mb-4 min-w-0 max-w-full rounded-xl border border-[#DEDCD5] bg-[#F4F3EF] p-3 sm:p-4"
+      className="mb-4 min-w-0 max-w-full rounded-xl border border-line bg-surface-nested p-3 sm:p-4"
     >
       <RelationshipHeader count={relationships.length} />
       <RelationshipTrustNotice />
@@ -88,7 +88,7 @@ export function CaseRelationshipGraph({
 
       <div className="mt-5 grid min-w-0 max-w-full gap-4 lg:grid-cols-12">
         <div className="min-w-0 lg:col-span-5">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-ink-secondary">
             Relationship list
           </p>
           <div className="mt-2 space-y-2">
@@ -107,22 +107,22 @@ export function CaseRelationshipGraph({
                   onClick={() =>
                     setSelectedRelationshipId(relationship.relationship_id)
                   }
-                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#171717] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4F3EF] ${selected
-                      ? "border-[#171717] bg-white shadow-[0_2px_8px_rgba(23,23,23,0.07)]"
-                      : "border-[#DEDCD5] bg-[#FCFBF8] hover:border-[#8A8984]"
+                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-surface-nested ${selected
+                      ? "border-charcoal bg-surface shadow-[0_2px_8px_rgba(39,39,39,0.07)]"
+                      : "border-line bg-surface hover:border-line-strong hover:bg-surface-hover"
                     }`}
                 >
                   <span className="flex items-start justify-between gap-3">
-                    <span className="min-w-0 text-sm font-bold leading-5 text-[#171717] [overflow-wrap:anywhere]">
+                    <span className="min-w-0 text-sm font-bold leading-5 text-ink [overflow-wrap:anywhere]">
                       {subject?.name ?? relationship.subject_entity_id}
                       <span aria-hidden="true"> → </span>
                       {object?.name ?? relationship.object_entity_id}
                     </span>
-                    <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                    <span className="shrink-0 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                       {relationship.relationship_id}
                     </span>
                   </span>
-                  <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#6B6A66]">
+                  <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-secondary">
                     <span className="font-mono [overflow-wrap:anywhere]">
                       {relationship.predicate}
                     </span>
@@ -141,20 +141,20 @@ export function CaseRelationshipGraph({
           <div
             id={detailId}
             aria-live="polite"
-            className="rounded-xl border border-[#DEDCD5] bg-white p-4"
+            className="rounded-xl border border-line bg-surface p-4"
           >
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-ink-secondary">
               Selected relationship detail
             </p>
-            <p className="mt-2 text-sm font-bold leading-6 text-[#171717] [overflow-wrap:anywhere]">
+            <p className="mt-2 text-sm font-bold leading-6 text-ink [overflow-wrap:anywhere]">
               {selectedRelationship.statement}
             </p>
             <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <dt className="font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                <dt className="font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                   Source → target
                 </dt>
-                <dd className="mt-1 leading-5 text-[#171717] [overflow-wrap:anywhere]">
+                <dd className="mt-1 leading-5 text-ink [overflow-wrap:anywhere]">
                   {selectedSubject?.name ??
                     selectedRelationship.subject_entity_id}
                   <span aria-hidden="true"> → </span>
@@ -162,39 +162,39 @@ export function CaseRelationshipGraph({
                 </dd>
               </div>
               <div>
-                <dt className="font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                <dt className="font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                   Status
                 </dt>
-                <dd className="mt-1 inline-flex items-center gap-1.5 font-bold text-[#171717]">
+                <dd className="mt-1 inline-flex items-center gap-1.5 font-bold text-ink">
                   <StatusConnector status={selectedRelationship.status} />
                   {STATUS_LABELS[selectedRelationship.status]}
                 </dd>
               </div>
               <div>
-                <dt className="font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                <dt className="font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                   Confidence
                 </dt>
-                <dd className="mt-1 capitalize text-[#171717]">
+                <dd className="mt-1 capitalize text-ink">
                   {selectedRelationship.confidence}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                <dt className="font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                   Predicate
                 </dt>
-                <dd className="mt-1 font-mono text-[#171717] [overflow-wrap:anywhere]">
+                <dd className="mt-1 font-mono text-ink [overflow-wrap:anywhere]">
                   {selectedRelationship.predicate}
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                <dt className="font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                   Source message IDs
                 </dt>
                 <dd className="mt-1 flex flex-wrap gap-1.5">
                   {selectedRelationship.source_message_ids.map((messageId) => (
                     <span
                       key={messageId}
-                      className="max-w-full rounded border border-[#DEDCD5] bg-[#F4F3EF] px-1.5 py-1 font-mono text-[10px] leading-4 text-[#6B6A66] [overflow-wrap:anywhere]"
+                      className="max-w-full rounded border border-line bg-surface-nested px-1.5 py-1 font-mono text-[10px] leading-4 text-ink-secondary [overflow-wrap:anywhere]"
                     >
                       {messageId}
                     </span>
@@ -213,14 +213,14 @@ function RelationshipHeader({ count }: { count: number }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-ink-secondary">
           Dedicated relationship inspector
         </p>
-        <h4 className="mt-1 text-sm font-extrabold text-[#171717]">
+        <h4 className="mt-1 text-sm font-extrabold text-ink">
           Candidate entity relationships
         </h4>
       </div>
-      <span className="text-xs font-bold text-[#8A8984]">{count}</span>
+      <span className="text-xs font-bold text-ink-secondary">{count}</span>
     </div>
   );
 }
@@ -236,8 +236,8 @@ function CustomGraphNode({
       data-graph-node-id={data.entityId}
       data-selected={data.selected}
       className={`relative min-w-[172px] max-w-[200px] rounded-xl border p-3 text-center transition-all ${data.selected
-          ? "border-[#171717] bg-[#F4F3EF] ring-2 ring-[#171717] shadow-md"
-          : "border-[#8A8984] bg-[#FCFBF8] hover:border-[#171717]"
+          ? "border-charcoal bg-surface-nested ring-2 ring-charcoal shadow-md"
+          : "border-line-strong bg-surface hover:border-charcoal hover:bg-surface-hover"
         }`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
@@ -246,12 +246,12 @@ function CustomGraphNode({
       <Handle type="source" position={Position.Right} id="right" className="!opacity-0" />
 
       <div className="flex h-full flex-col justify-center gap-1">
-        <div className="text-xs font-bold leading-snug text-[#171717]">
+        <div className="text-xs font-bold leading-snug text-ink">
           {lines.map((line, idx) => (
             <div key={`${line}-${idx}`}>{line}</div>
           ))}
         </div>
-        <div className="font-mono text-[9px] font-semibold text-[#8A8984]">
+        <div className="font-mono text-[9px] font-semibold text-ink-secondary">
           {clampGraphLabel(data.entityId, 24)}
         </div>
       </div>
@@ -385,18 +385,18 @@ function RelationshipCanvas({
   }, [selectedEndpointIds, setNodes]);
 
   return (
-    <div className="min-w-0 max-w-full rounded-xl border border-[#DEDCD5] bg-[#FCFBF8] p-3">
+    <div className="min-w-0 max-w-full rounded-xl border border-line bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#6B6A66]">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-ink-secondary">
           Relationship canvas
         </p>
-        <p className="text-[10px] text-[#8A8984]">
+        <p className="text-[10px] text-ink-secondary">
           Drag nodes to reposition · Zoom & Pan enabled · Unverified
         </p>
       </div>
       <div
         data-relationship-graph-scroller="true"
-        className="mt-2 h-[420px] min-w-0 max-w-full overflow-x-auto rounded-lg border border-[#E5E3DC] bg-white overflow-hidden"
+        className="mt-2 h-[420px] min-w-0 max-w-full overflow-x-auto rounded-lg border border-line bg-surface overflow-hidden"
       >
         <ReactFlow
           nodes={nodes}
@@ -408,8 +408,8 @@ function RelationshipCanvas({
           maxZoom={2}
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#E5E3DC" />
-          <Controls className="!border-[#DEDCD5] !bg-white !shadow-sm !rounded-lg" />
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-line)" />
+          <Controls className="!rounded-lg !border-line !bg-surface !shadow-sm" />
 
           <ViewportPortal>
             <svg
@@ -428,7 +428,7 @@ function RelationshipCanvas({
                   orient="auto"
                   markerUnits="strokeWidth"
                 >
-                  <path d="M0,0 L8,4 L0,8 Z" fill="#171717" />
+                  <path d="M0,0 L8,4 L0,8 Z" fill="var(--color-charcoal)" />
                 </marker>
               </defs>
 
@@ -611,13 +611,13 @@ function GraphEdge({
       <path
         d={pathD}
         fill="none"
-        stroke="#171717"
+        stroke="var(--color-charcoal)"
         strokeWidth={strokeWidth}
         strokeDasharray={connectorDashArray(relationship.status)}
         markerEnd={`url(#${markerId})`}
       />
       {relationship.status === "contradicted" && (
-        <g stroke="#171717" strokeWidth={selected ? 3 : 2}>
+        <g stroke="var(--color-charcoal)" strokeWidth={selected ? 3 : 2}>
           <line
             x1={midX - badgeWidth / 2 - 10}
             y1={midY - 5}
@@ -639,8 +639,8 @@ function GraphEdge({
           width={badgeWidth}
           height={badgeHeight}
           rx="9"
-          fill="#FFFFFF"
-          stroke={selected ? "#171717" : "#C9C7BF"}
+          fill="var(--color-ivory)"
+          stroke={selected ? "var(--color-charcoal)" : "var(--color-line-strong)"}
           strokeWidth={selected ? 2 : 1}
         />
         <text
@@ -648,7 +648,7 @@ function GraphEdge({
           x={0}
           y={3.5}
           textAnchor="middle"
-          fill="#171717"
+          fill="var(--color-charcoal)"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
           fontSize={selected ? 10 : 9}
           fontWeight={selected ? 800 : 600}
@@ -792,12 +792,12 @@ function GraphLegend() {
   return (
     <div
       data-graph-legend="true"
-      className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs text-[#6B6A66]"
+      className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 px-1 text-xs text-ink-secondary"
     >
       {statuses.map((status) => (
         <div key={status} className="flex items-center gap-2">
           <StatusConnector status={status} />
-          <span className="font-bold text-[#171717]">
+          <span className="font-bold text-ink">
             {STATUS_LABELS[status]}
           </span>
         </div>
@@ -861,7 +861,7 @@ function RelationshipLabels() {
       ].map((label) => (
         <span
           key={label}
-          className="rounded-full border border-[#C9C7BF] bg-[#F4F3EF] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]"
+          className="rounded-full border border-line-strong bg-surface-nested px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary"
         >
           {label}
         </span>
@@ -874,7 +874,7 @@ function RelationshipTrustNotice() {
   return (
     <>
       <RelationshipLabels />
-      <p className="mt-2 text-xs leading-5 text-[#6B6A66]">
+      <p className="mt-2 text-xs leading-5 text-ink-secondary">
         These source-explicit relationships are candidate, user-reported, and
         unverified. The graph is a visual inspection aid, not forensic proof.
       </p>
