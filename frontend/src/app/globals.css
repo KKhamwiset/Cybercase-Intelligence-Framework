@@ -3,23 +3,34 @@
 @theme {
     --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
-    --color-primary: #171717;
-    --color-secondary: #2b2b2b;
-    --color-neutral: #5f6368;
+    --color-primary: #272727;
+    --color-secondary: #3A3A3A;
+    --color-neutral: #67635B;
 
-    --color-ink: #171717;
-    --color-workspace: #F7F6F2;
-    --color-sidebar: #F4F3EF;
-    --color-line: #DEDCD5;
+    --color-ivory: #F9F8F2;
+    --color-charcoal: #272727;
+    --color-charcoal-hover: #3A3A3A;
+    --color-charcoal-pressed: #1F1F1F;
+    --color-ink: #272727;
+    --color-ink-secondary: #67635B;
+    --color-ink-muted: #858178;
+    --color-ink-disabled: #908B81;
+    --color-workspace: #F9F8F2;
+    --color-sidebar: #F3F1EA;
+    --color-line: #D8D4C8;
+    --color-line-strong: #BBB6A9;
+    --color-surface-nested: #F3F1EA;
+    --color-surface-hover: #ECE9E0;
+    --color-control-disabled: #E5E1D8;
     --color-danger: #B42318;
-    --color-canvas: #f4f4f2;
-    --color-surface: #fbfbf8;
-    --color-subdued: #e8e8e5;
-    --color-muted: #5f6368;
+    --color-canvas: #F9F8F2;
+    --color-surface: #F9F8F2;
+    --color-subdued: #ECE9E0;
+    --color-muted: #67635B;
     --color-accent: #b91c1c;
     --color-accent-strong: #dc2626;
 
-    --color-background: #f4f4f2;
+    --color-background: #F9F8F2;
 }
 
 :root {
@@ -42,7 +53,7 @@ body {
 }
 
 @utility btn-primary {
-    @apply bg-ink px-5 py-2.5 text-sm font-black text-white transition-colors duration-150 hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none;
+    @apply bg-charcoal px-5 py-2.5 text-sm font-black text-ivory transition-colors duration-150 hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled motion-reduce:transition-none;
 }
 
 @utility btn-secondary {
@@ -50,11 +61,11 @@ body {
 }
 
 @utility btn-inverted {
-    @apply bg-white px-5 py-2.5 text-sm font-black text-black transition-colors hover:bg-neutral-100;
+    @apply bg-ivory px-5 py-2.5 text-sm font-black text-charcoal transition-colors hover:bg-surface-hover active:bg-control-disabled;
 }
 
 @utility btn-outlined {
-    @apply border border-black/20 bg-transparent px-5 py-2.5 text-sm font-black text-black transition-colors hover:border-black hover:bg-black/5;
+    @apply border border-charcoal/20 bg-transparent px-5 py-2.5 text-sm font-black text-charcoal transition-colors hover:border-charcoal hover:bg-charcoal/5 active:bg-charcoal/10;
 }
 
 @utility panel {
@@ -67,7 +78,7 @@ body {
 
 ::selection {
     background: #b91c1c;
-    color: #ffffff;
+    color: var(--color-ivory);
 }
 
 :where(a, button, input, select, textarea):focus-visible {

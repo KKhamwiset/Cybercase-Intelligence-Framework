@@ -22,13 +22,13 @@ export function ChatTranscript({
   if (messages.length === 0) {
     return (
       <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EAE8E1] text-lg font-black text-[#171717]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-hover text-lg font-black text-ink">
           CC
         </div>
-        <h3 className="mt-4 text-base font-extrabold text-[#171717]">
+        <h3 className="mt-4 text-base font-extrabold text-ink">
           Investigation Console
         </h3>
-        <p className="mt-2 max-w-md text-xs leading-relaxed text-[#6B6A66]">
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-ink-secondary">
           Describe an incident, paste forensic logs, or query MITRE ATT&amp;CK tactics.
           CyberCase will retrieve graph context and extract candidate observables.
         </p>
@@ -46,19 +46,19 @@ export function ChatTranscript({
             className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
           >
             <div className="flex items-center gap-2 mb-1.5 px-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8A8984]">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-secondary">
                 {isUser ? "Analyst" : "CyberCase AI"}
               </span>
-              <span className="text-[10px] text-[#A8A7A1]">
+              <span className="text-[10px] text-ink-secondary">
                 #{message.ordinal}
               </span>
             </div>
 
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3.5 shadow-[0_1px_3px_rgba(23,23,23,0.04)] sm:px-5 sm:py-4 ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3.5 shadow-[0_1px_3px_rgba(39,39,39,0.04)] sm:px-5 sm:py-4 ${
                 isUser
-                  ? "bg-[#171717] text-white"
-                  : "border border-[#DEDCD5] bg-white text-[#171717]"
+                  ? "bg-charcoal text-ivory"
+                  : "border border-line bg-surface text-ink"
               }`}
             >
               {isUser ? (
@@ -74,8 +74,8 @@ export function ChatTranscript({
       })}
 
       {isProcessing && (
-        <div className="flex items-center gap-3 px-2 text-xs font-semibold text-[#6B6A66]">
-          <span className="flex h-2 w-2 rounded-full bg-[#171717] animate-ping" />
+        <div className="flex items-center gap-3 px-2 text-xs font-semibold text-ink-secondary">
+          <span className="flex h-2 w-2 rounded-full bg-charcoal animate-ping" />
           <span>Analyzing threat telemetry &amp; traversing STIX graph...</span>
         </div>
       )}

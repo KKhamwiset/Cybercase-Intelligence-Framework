@@ -17,7 +17,7 @@ function CandidateBadges() {
       {["Candidate", "User-reported", "Unverified"].map((label) => (
         <span
           key={label}
-          className="rounded-full border border-[#C9C7BF] bg-white px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-[#6B6A66]"
+          className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary"
         >
           {label}
         </span>
@@ -44,14 +44,14 @@ export function ChatTimelineView({
     content = (
       <section
         aria-label="Reported timeline events"
-        className="rounded-2xl border border-[#C9C7BF] bg-[#FCFBF8] p-4 shadow-[0_4px_18px_rgba(23,23,23,0.05)] sm:p-6"
+        className="rounded-2xl border border-line-strong bg-surface p-4 shadow-[0_4px_18px_rgba(39,39,39,0.05)] sm:p-6"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DEDCD5] pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#6B6A66]">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-ink-secondary">
               Chronological sequence
             </p>
-            <h3 className="mt-1 text-base font-extrabold tracking-tight text-[#171717]">
+            <h3 className="mt-1 text-base font-extrabold tracking-tight text-ink">
               Reported event sequence
             </h3>
           </div>
@@ -59,7 +59,7 @@ export function ChatTimelineView({
         </div>
 
         {extraction.timeline.length === 0 ? (
-          <p className="mt-4 text-xs leading-5 text-[#8A8984]">
+          <p className="mt-4 text-xs leading-5 text-ink-secondary">
             No timestamped or sequenced events were explicitly reported in this chat.
           </p>
         ) : (
@@ -69,26 +69,26 @@ export function ChatTimelineView({
               return (
                 <li
                   key={item.event_id}
-                  className="grid gap-3 rounded-xl border border-[#DEDCD5] bg-white p-4 sm:grid-cols-[104px_minmax(0,1fr)] sm:p-5"
+                  className="grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-[104px_minmax(0,1fr)] sm:p-5"
                 >
                   <div>
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[#8A8984]">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
                       Event {index + 1}
                     </p>
-                    <p className="mt-1 text-xs font-bold leading-5 text-[#171717] [overflow-wrap:anywhere]">
+                    <p className="mt-1 text-xs font-bold leading-5 text-ink [overflow-wrap:anywhere]">
                       {timestamp}
                     </p>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold leading-6 text-[#171717]">
+                    <p className="text-sm font-bold leading-6 text-ink">
                       {item.event}
                     </p>
                     {item.actors.length > 0 && (
-                      <p className="mt-1 text-xs leading-5 text-[#6B6A66]">
+                      <p className="mt-1 text-xs leading-5 text-ink-secondary">
                         Actors: {item.actors.join(", ")}
                       </p>
                     )}
-                    <p className="mt-1 text-[11px] capitalize text-[#8A8984]">
+                    <p className="mt-1 text-[11px] capitalize text-ink-secondary">
                       {item.status} · {item.confidence}
                     </p>
                     <CandidateBadges />
@@ -107,17 +107,17 @@ export function ChatTimelineView({
       id="workspace-timeline-panel"
       role="tabpanel"
       aria-label="Incident timeline"
-      className="min-h-0 flex-1 overflow-y-auto bg-[#F7F6F2] px-4 py-8 sm:px-7 lg:px-10"
+      className="min-h-0 flex-1 overflow-y-auto bg-canvas px-4 py-8 sm:px-7 lg:px-10"
     >
       <div className="mx-auto w-full max-w-[1120px]">
         <div className="max-w-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#6B6A66]">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-secondary">
             Timeline
           </p>
-          <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-[#171717] sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-ink sm:text-4xl">
             Incident chronology
           </h1>
-          <p className="mt-4 text-sm leading-6 text-[#6B6A66] sm:text-base sm:leading-7">
+          <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
             Review only the reported event sequence from this thread. Missing
             timestamps remain explicit and no forensic order is inferred.
           </p>

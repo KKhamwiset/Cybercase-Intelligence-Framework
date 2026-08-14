@@ -36,7 +36,7 @@ export function ChatPanel({
   const isProcessing = phase === "querying" || phase === "analyzing";
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#F7F6F2]">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
       {/* Transcript Scroll Area */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ChatTranscript messages={messages} isProcessing={isProcessing} />
@@ -53,11 +53,11 @@ export function ChatPanel({
       )}
 
       {/* Input Area */}
-      <div className="border-t border-[#DEDCD5] bg-[#FCFBF8] p-4 sm:p-6">
+      <div className="border-t border-line bg-surface p-4 sm:p-6">
         <div className="mx-auto max-w-3xl">
           {threadStatus === "answered" && (
             <div className="mb-3 flex items-center gap-2">
-              <span className="text-[11px] font-bold text-[#6B6A66]">
+              <span className="text-[11px] font-bold text-ink-secondary">
                 Next action:
               </span>
               <button
@@ -65,8 +65,8 @@ export function ChatPanel({
                 onClick={() => onPostAnswerActionChange("ask")}
                 className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
                   postAnswerAction === "ask"
-                    ? "border-[#171717] bg-[#171717] text-white"
-                    : "border-[#C9C7BF] bg-white text-[#6B6A66] hover:bg-[#F4F3EF]"
+                    ? "border-charcoal bg-charcoal text-ivory"
+                    : "border-line-strong bg-surface text-ink-secondary hover:bg-surface-hover"
                 }`}
               >
                 Ask question
@@ -76,8 +76,8 @@ export function ChatPanel({
                 onClick={() => onPostAnswerActionChange("add_case_info")}
                 className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
                   postAnswerAction === "add_case_info"
-                    ? "border-[#171717] bg-[#171717] text-white"
-                    : "border-[#C9C7BF] bg-white text-[#6B6A66] hover:bg-[#F4F3EF]"
+                    ? "border-charcoal bg-charcoal text-ivory"
+                    : "border-line-strong bg-surface text-ink-secondary hover:bg-surface-hover"
                 }`}
               >
                 Add case info

@@ -46,11 +46,15 @@ powershell.exe -ExecutionPolicy Bypass
     expect(screen.getByRole("heading", { level: 6, name: "Heading 6" })).toBeInTheDocument();
 
     expect(screen.getByText("bold paragraph")).toBeInTheDocument();
-    expect(screen.getByText("inline code")).toHaveClass("rounded bg-[#E8E8E5]");
+    expect(screen.getByText("inline code")).toHaveClass("rounded", "bg-surface-hover", "text-ink");
     expect(screen.getByText("Item 1")).toBeInTheDocument();
     expect(screen.getByText("First")).toBeInTheDocument();
     expect(screen.getByText("This is a blockquote")).toBeInTheDocument();
     expect(screen.getByText("powershell.exe -ExecutionPolicy Bypass")).toBeInTheDocument();
+    expect(screen.getByText("powershell.exe -ExecutionPolicy Bypass").closest("pre")).toHaveClass(
+      "bg-charcoal",
+      "text-ivory",
+    );
   });
 
   it("renders GFM tables with responsive scroll container", () => {
@@ -69,6 +73,7 @@ powershell.exe -ExecutionPolicy Bypass
 
     const tableWrapper = container.querySelector(".overflow-x-auto");
     expect(tableWrapper).not.toBeNull();
+    expect(tableWrapper).toHaveClass("bg-surface", "border-line");
   });
 
   it("does not render raw HTML elements or dangerouslySetInnerHTML", () => {
@@ -125,5 +130,14 @@ describe("ChatTranscript Markdown vs Plain Text behavior", () => {
     const boldElement = screen.getByText("assistant response");
     expect(boldElement).toHaveClass("font-extrabold");
     expect(boldElement.tagName).toBe("STRONG");
+
+    expect(screen.getByText("Check this **user message** with `code`.").parentElement).toHaveClass(
+      "bg-charcoal",
+      "text-ivory",
+    );
+    expect(boldElement.closest(".rounded-2xl")).toHaveClass(
+      "bg-surface",
+      "text-ink",
+    );
   });
 });
