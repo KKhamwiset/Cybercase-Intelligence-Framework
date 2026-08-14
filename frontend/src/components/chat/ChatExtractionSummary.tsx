@@ -37,14 +37,14 @@ function LegacyExtractionSummary({
   return (
     <SummaryShell
       eyebrow="Chat-reported candidates"
-      title="Evidence overview"
+      title="Case information overview"
       description={extraction.disclaimer}
     >
       <div>
         <ExtractionList
-          title="Evidence"
+          title="Case details"
           count={extraction.evidence.length}
-          emptyMessage="No evidence-like detail found in this chat text yet."
+          emptyMessage="No case detail found in this chat text yet."
         >
           {extraction.evidence.map((item) => (
             <li key={item.evidence_id} className="rounded-xl bg-white p-3">
@@ -61,7 +61,6 @@ function LegacyExtractionSummary({
             </li>
           ))}
         </ExtractionList>
-
       </div>
     </SummaryShell>
   );
@@ -117,9 +116,9 @@ function BaselineExtractionSummary({
         </ExtractionList>
 
         <ExtractionList
-          title="Evidence candidates"
+          title="Case details"
           count={extraction.evidence.length}
-          emptyMessage="No user-reported evidence candidate was extracted."
+          emptyMessage="No user-reported case detail was extracted."
         >
           {extraction.evidence.map((item) => (
             <li key={item.evidence_id} className="rounded-xl bg-white p-3">

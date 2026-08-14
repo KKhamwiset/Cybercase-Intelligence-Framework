@@ -58,7 +58,7 @@ export function FailedChatExtractionState({
       </p>
       <p className="mt-2 text-xs leading-5 text-[#6B6A66]">
         The terminal assistant answer was preserved. No fallback candidate is
-        shown on this evidence route.
+        shown on this case details route.
       </p>
       <ReturnToChatButton onOpenChat={onOpenChat} />
     </section>
@@ -77,7 +77,7 @@ export function LegacyRelationshipsUnavailableState({
         Relationship graph unavailable
       </h2>
       <p className="mt-3 text-sm leading-6 text-[#6B6A66]">
-        This saved extraction predates typed entity relationships. Its evidence
+        This saved extraction predates typed entity relationships. Its case details
         and timeline remain available, but no relationship graph can be derived
         without inventing connections.
       </p>

@@ -381,7 +381,7 @@ describe("active chat route", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("tab", { name: "Evidence & timeline" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Case details & timeline" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Report generation" })).toBeInTheDocument();
     expect(
       screen.queryByText(
@@ -463,17 +463,17 @@ describe("active chat route", () => {
       ),
     );
     expect(screen.getByText("Latest assistant extraction.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Evidence & timeline" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Case details & timeline" }));
 
     expect(
-      screen.getByRole("heading", { name: "Chat-reported candidates" }),
+      screen.getByRole("heading", { name: "Reported case details & observables" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Latest candidate")).toBeInTheDocument();
     expect(screen.queryByText("Latest event.")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest assistant extraction.")).not.toBeInTheDocument();
     expect(screen.queryByText("Older candidate")).not.toBeInTheDocument();
 
-    const extractionLink = screen.getByRole("link", { name: "Extraction" });
+    const extractionLink = screen.getByRole("link", { name: "Case information" });
     expect(extractionLink).toHaveAttribute("aria-current", "page");
     expect(extractionLink).toHaveAttribute(
       "href",
@@ -500,7 +500,7 @@ describe("active chat route", () => {
 
   it("shows an empty extraction state for a thread without persisted extraction", async () => {
     await renderLoadedPage();
-    fireEvent.click(screen.getByRole("tab", { name: "Evidence & timeline" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Case details & timeline" }));
 
     expect(screen.getByText("No extraction for this chat yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Return to Chat" })).toBeInTheDocument();
@@ -555,7 +555,7 @@ describe("active chat route", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Relationship canvas")).toBeInTheDocument();
     const evidenceTab = screen.getByRole("tab", {
-      name: "Evidence & timeline",
+      name: "Case details & timeline",
     });
     expect(evidenceTab).toHaveAttribute("aria-selected", "true");
     expect(evidenceTab).toHaveAttribute(

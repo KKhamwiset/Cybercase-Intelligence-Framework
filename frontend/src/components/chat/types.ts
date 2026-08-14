@@ -22,6 +22,6 @@ export function workspaceViewForRoute(
 
 export const workspaceViewLabels: Record<WorkspaceView, string> = {
   chat: "Chat",
-  extraction: "Evidence & timeline",
+  extraction: "Case details & timeline",
   report: "Report generation",
 };
