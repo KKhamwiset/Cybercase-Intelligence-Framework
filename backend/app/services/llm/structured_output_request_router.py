@@ -7,10 +7,18 @@ from typing import Literal
 from app.services.llm.core_llm import CoreLlmProvider
 
 
-StructuredOutputFeature = Literal["followup", "extraction", "report"]
+StructuredOutputFeature = Literal[
+    "gap_analysis",
+    "followup",
+    "extraction",
+    "report",
+]
 
-_STRUCTURED_OUTPUT_FEATURES = frozenset({"followup", "extraction", "report"})
+_STRUCTURED_OUTPUT_FEATURES = frozenset(
+    {"gap_analysis", "followup", "extraction", "report"}
+)
 _OPENROUTER_OUTPUT_TOKEN_FLOORS: dict[StructuredOutputFeature, int] = {
+    "gap_analysis": 2_048,
     "followup": 2_048,
     "extraction": 16_384,
     "report": 16_384,

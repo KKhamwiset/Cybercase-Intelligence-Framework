@@ -1,10 +1,10 @@
-"""Compatibility imports for the split gap-analysis/follow-up package.
+"""Separate analytical gap detection from user-facing follow-up decisions."""
 
-New code should import from ``app.services.chat.gap_and_followup``. This
-module remains so persisted-chat and external in-process callers can migrate
-without a flag day.
-"""
-
+from app.services.chat.gap_and_followup.gap_analysis import (
+    AnthropicGapAnalysis,
+    GAP_ANALYSIS_PROMPT_VERSION,
+    GAP_ANALYSIS_VERSION,
+)
 from app.services.chat.gap_and_followup.followup_policy import (
     AnthropicFollowUpPolicy,
     FOLLOWUP_POLICY_PROVIDER,
@@ -12,12 +12,14 @@ from app.services.chat.gap_and_followup.followup_policy import (
     FOLLOWUP_PROMPT_VERSION,
     build_clarified_query,
 )
-from app.services.chat.gap_and_followup.prompts import (
-    FOLLOWUP_POLICY_SCHEMA,
-    FOLLOWUP_POLICY_SYSTEM,
-)
 from app.services.chat.gap_and_followup.schemas import (
     ClarificationExchange,
+    GapAnalysis,
+    GapAnalysisResult,
+    GapAnalyzer,
+    GapItem,
+    GapPriority,
+    GapStatus,
     FollowUpDecision,
     FollowUpPolicy,
     FollowUpPolicyResult,
@@ -26,12 +28,19 @@ from app.services.chat.gap_and_followup.schemas import (
 
 __all__ = [
     "AnthropicFollowUpPolicy",
+    "AnthropicGapAnalysis",
     "ClarificationExchange",
     "FOLLOWUP_POLICY_PROVIDER",
-    "FOLLOWUP_POLICY_SCHEMA",
-    "FOLLOWUP_POLICY_SYSTEM",
     "FOLLOWUP_POLICY_VERSION",
     "FOLLOWUP_PROMPT_VERSION",
+    "GAP_ANALYSIS_PROMPT_VERSION",
+    "GAP_ANALYSIS_VERSION",
+    "GapAnalysis",
+    "GapAnalysisResult",
+    "GapAnalyzer",
+    "GapItem",
+    "GapPriority",
+    "GapStatus",
     "FollowUpDecision",
     "FollowUpPolicy",
     "FollowUpPolicyResult",

@@ -10,6 +10,7 @@ import re
 import time
 import unicodedata
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from typing import Any, Sequence
 from uuid import UUID
@@ -17,11 +18,22 @@ from uuid import UUID
 import httpx
 
 from app.config import settings
-from app.services.chat.followup_policy import (
+from app.services.chat.gap_and_followup.gap_analysis import AnthropicGapAnalysis
+from app.services.chat.gap_and_followup.followup_policy import (
     AnthropicFollowUpPolicy,
-    ClarificationExchange,
+)
+from app.services.chat.gap_and_followup.prompts import (
     FOLLOWUP_POLICY_VERSION,
     FOLLOWUP_PROMPT_VERSION,
+    GAP_ANALYSIS_PROMPT_VERSION,
+    GAP_ANALYSIS_VERSION,
+)
+from app.services.chat.gap_and_followup.schemas import (
+    ClarificationExchange,
+    GapAnalysis,
+    GapAnalysisResult,
+    GapAnalyzer,
+    GapItem,
     FollowUpDecision,
     FollowUpPolicy,
     FollowUpPolicyResult,
@@ -98,16 +110,23 @@ async def evaluate_followup_outcome(
     followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
+    gap_analyzer: GapAnalyzer | None = None,
     case_state: Mapping[str, object] | None = None,
     analysis_answer: str | None = None,
     analysis_context: Mapping[str, object] | None = None,
 ) -> FollowUpResolution:
-    """Run the post-analysis completeness gate and return an audit record."""
+    """Run Gap Analysis, then the separate post-analysis follow-up policy."""
 
     round_number = len(clarification_exchanges) + 1
     prior_exchange_count = len(clarification_exchanges)
+    gap_trace = _empty_gap_analysis_trace()
 
-    if not settings.chat_followup_policy_enabled:
+    def proceed_resolution(
+        *,
+        reason_code: str,
+        stop_reason: str,
+        **metadata_kwargs: Any,
+    ) -> FollowUpResolution:
         return FollowUpResolution(
             outcome=None,
             metadata_json=_followup_metadata(
@@ -117,47 +136,93 @@ async def evaluate_followup_outcome(
                 prior_exchange_count=prior_exchange_count,
                 action="proceed",
                 question="",
-                reason_code="followup_policy_disabled",
-                stop_reason="policy_disabled",
+                reason_code=reason_code,
+                stop_reason=stop_reason,
+                gap_analysis=gap_trace,
+                **metadata_kwargs,
             ),
         )
+
+    if not settings.chat_followup_policy_enabled:
+        return proceed_resolution(
+            reason_code="followup_policy_disabled",
+            stop_reason="policy_disabled",
+        )
     if len(clarification_exchanges) >= settings.chat_followup_max_rounds:
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="max_rounds_reached",
-                stop_reason="max_rounds_reached",
-            ),
+        return proceed_resolution(
+            reason_code="max_rounds_reached",
+            stop_reason="max_rounds_reached",
         )
     if clarification_exchanges and _answer_indicates_unavailable(
         clarification_exchanges[-1].answer
     ):
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="answer_unavailable",
-                stop_reason="answer_unavailable",
-            ),
+        return proceed_resolution(
+            reason_code="answer_unavailable",
+            stop_reason="answer_unavailable",
         )
+
+    # A custom policy without a matching analyzer is retained as a compatibility
+    # seam for old in-process callers and tests. The production default always
+    # runs the provider-backed analyzer before the policy.
+    compatibility_gap_analysis = gap_analyzer is None and policy is not None
+    if compatibility_gap_analysis:
+        gap_result = GapAnalysisResult(analysis=GapAnalysis(gaps=[]))
+        gap_trace = _empty_gap_analysis_trace(status="compatibility_skipped")
+    else:
+        gap_started = time.perf_counter()
+        try:
+            active_gap_analyzer = (
+                gap_analyzer()
+                if isinstance(gap_analyzer, type)
+                else (gap_analyzer or AnthropicGapAnalysis())
+            )
+            gap_kwargs = {
+                "original_user_content": original_user_content,
+                "clarification_exchanges": clarification_exchanges,
+                "case_state": case_state,
+                "analysis_answer": analysis_answer,
+                "analysis_context": analysis_context,
+            }
+            raw_gap_result = await _invoke_policy_method(
+                active_gap_analyzer.analyze,
+                gap_kwargs,
+            )
+            gap_result = _coerce_gap_analysis_result(
+                raw_gap_result,
+                elapsed_ms=round((time.perf_counter() - gap_started) * 1000, 3),
+            )
+            gap_trace = _gap_analysis_trace(gap_result)
+        except Exception as exc:
+            elapsed_ms = round((time.perf_counter() - gap_started) * 1000, 3)
+            failure_code = _followup_failure_code(exc)
+            gap_trace = _empty_gap_analysis_trace(
+                status="failed",
+                latency_ms=elapsed_ms,
+                failure_code=failure_code,
+            )
+            logger.warning(
+                "Chat gap analysis failed open source_run_id=%s failure_code=%s",
+                source_run_id,
+                failure_code,
+            )
+            return proceed_resolution(
+                reason_code="gap_analysis_failed_open",
+                stop_reason="gap_analysis_failed_open",
+                latency_ms=elapsed_ms,
+                failure_code=failure_code,
+            )
 
     started = time.perf_counter()
     try:
-        active_policy = policy() if isinstance(policy, type) else (policy or AnthropicFollowUpPolicy())
+        active_policy = (
+            policy()
+            if isinstance(policy, type)
+            else (policy or AnthropicFollowUpPolicy())
+        )
         policy_kwargs = {
             "original_user_content": original_user_content,
             "clarification_exchanges": clarification_exchanges,
+            "gap_analysis": gap_result.analysis,
             "case_state": case_state,
             "analysis_answer": analysis_answer,
             "analysis_context": analysis_context,
@@ -185,40 +250,46 @@ async def evaluate_followup_outcome(
             source_run_id,
             failure_code,
         )
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="policy_failed_open",
-                stop_reason="policy_failed_open",
-                latency_ms=elapsed_ms,
-                failure_code=failure_code,
-            ),
+        return proceed_resolution(
+            reason_code="policy_failed_open",
+            stop_reason="policy_failed_open",
+            latency_ms=elapsed_ms,
+            failure_code=failure_code,
         )
 
-    if decision.action == "proceed":
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action=decision.action,
-                question=decision.question,
-                reason_code=decision.reason_code,
-                stop_reason="policy_proceed",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-            ),
+    if decision.decision == "proceed":
+        reason_code = decision.reason_code or (
+            "unresolved_gaps_recorded"
+            if gap_result.analysis.gaps
+            else "sufficient_case_context"
+        )
+        return proceed_resolution(
+            reason_code=reason_code,
+            stop_reason="policy_proceed",
+            decision=decision.decision,
+            latency_ms=result.latency_ms,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            provider=result.provider,
+            model=result.model,
+        )
+
+    selected_gap = _selected_askable_gap(
+        gap_result.analysis,
+        decision.selected_gap,
+        compatibility=compatibility_gap_analysis,
+    )
+    if selected_gap is None:
+        return proceed_resolution(
+            reason_code="policy_invalid_selection",
+            stop_reason="policy_invalid_selection",
+            decision="proceed",
+            requested_selected_gap=decision.selected_gap,
+            latency_ms=result.latency_ms,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            provider=result.provider,
+            model=result.model,
         )
 
     normalized_question = _normalized_question(decision.question)
@@ -226,44 +297,43 @@ async def evaluate_followup_outcome(
         _normalized_question(exchange.question) == normalized_question
         for exchange in clarification_exchanges
     ):
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="duplicate_question",
-                stop_reason="duplicate_question",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-            ),
+        return proceed_resolution(
+            reason_code="duplicate_question",
+            stop_reason="duplicate_question",
+            decision="proceed",
+            selected_gap=selected_gap.topic,
+            latency_ms=result.latency_ms,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            provider=result.provider,
+            model=result.model,
         )
+
+    reason_code = decision.reason_code or _gap_reason_code(selected_gap)
+    metadata = _followup_metadata(
+        source_run_id=source_run_id,
+        followup_root_ordinal=followup_root_ordinal,
+        round_number=round_number,
+        prior_exchange_count=prior_exchange_count,
+        action="ask_followup",
+        question=decision.question,
+        reason_code=reason_code,
+        stop_reason="ask_followup",
+        decision=decision.decision,
+        selected_gap=selected_gap.topic,
+        gap_analysis=gap_trace,
+        latency_ms=result.latency_ms,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        provider=result.provider,
+        model=result.model,
+        rag_skipped=True,
+    )
     return FollowUpResolution(
         outcome=AssistantOutcome(
             content=decision.question,
             retrieval_context_id=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action=decision.action,
-                question=decision.question,
-                reason_code=decision.reason_code,
-                stop_reason="ask_followup",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-                rag_skipped=True,
-            ),
+            metadata_json=metadata,
             thread_status="awaiting_followup",
             active_rag_session_id=None,
         ),
@@ -278,6 +348,7 @@ async def resolve_followup_outcome(
     followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
+    gap_analyzer: GapAnalyzer | None = None,
     case_state: Mapping[str, object] | None = None,
     analysis_answer: str | None = None,
     analysis_context: Mapping[str, object] | None = None,
@@ -290,6 +361,7 @@ async def resolve_followup_outcome(
         followup_root_ordinal=followup_root_ordinal,
         source_run_id=source_run_id,
         policy=policy,
+        gap_analyzer=gap_analyzer,
         case_state=case_state,
         analysis_answer=analysis_answer,
         analysis_context=analysis_context,
@@ -314,6 +386,120 @@ async def _invoke_policy_method(
     if not accepts_kwargs and parameters:
         kwargs = {key: value for key, value in kwargs.items() if key in parameters}
     return await method(**kwargs)
+
+
+def _coerce_gap_analysis_result(
+    raw_result: object,
+    *,
+    elapsed_ms: float,
+) -> GapAnalysisResult:
+    if isinstance(raw_result, GapAnalysisResult):
+        return GapAnalysisResult(
+            analysis=GapAnalysis.model_validate(raw_result.analysis),
+            latency_ms=(
+                raw_result.latency_ms
+                if raw_result.latency_ms is not None
+                else elapsed_ms
+            ),
+            input_tokens=_safe_token_count(raw_result.input_tokens),
+            output_tokens=_safe_token_count(raw_result.output_tokens),
+            provider=raw_result.provider,
+            model=raw_result.model,
+        )
+    return GapAnalysisResult(
+        analysis=GapAnalysis.model_validate(raw_result),
+        latency_ms=elapsed_ms,
+    )
+
+
+def _empty_gap_analysis_trace(
+    *,
+    status: str = "not_run",
+    latency_ms: float | None = None,
+    failure_code: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "version": GAP_ANALYSIS_VERSION,
+        "prompt_version": GAP_ANALYSIS_PROMPT_VERSION,
+        "gaps": [],
+        "latency_ms": latency_ms,
+        "input_tokens": None,
+        "output_tokens": None,
+        "provider": None,
+        "model": None,
+        "failure_code": failure_code,
+    }
+
+
+def _gap_analysis_trace(result: GapAnalysisResult) -> dict[str, Any]:
+    return {
+        "status": "completed",
+        "version": GAP_ANALYSIS_VERSION,
+        "prompt_version": GAP_ANALYSIS_PROMPT_VERSION,
+        "gaps": [gap.model_dump(mode="json") for gap in result.analysis.gaps],
+        "latency_ms": result.latency_ms,
+        "input_tokens": result.input_tokens,
+        "output_tokens": result.output_tokens,
+        "provider": result.provider,
+        "model": result.model,
+        "failure_code": None,
+    }
+
+
+def _selected_askable_gap(
+    analysis: GapAnalysis,
+    selected_gap: str | None,
+    *,
+    compatibility: bool,
+) -> GapItem | None:
+    if not isinstance(selected_gap, str) or not selected_gap.strip():
+        return None
+    if compatibility:
+        return GapItem(
+            topic=selected_gap,
+            status="NOT_PROVIDED",
+            description="Legacy policy supplied a selected follow-up topic.",
+            affects="The legacy follow-up policy contract.",
+            reason="Retained only for compatibility with injected policies.",
+            priority="high",
+            askable=True,
+        )
+    normalized = _normalized_question(selected_gap)
+    eligible_gaps = [
+        gap
+        for gap in analysis.gaps
+        if (
+            gap.priority in ("high", "medium")
+            and gap.askable
+            and gap.status != "EXPLICITLY_UNKNOWN"
+        )
+    ]
+    if not eligible_gaps:
+        return None
+    priority_rank = {"high": 2, "medium": 1}
+    highest_priority = max(priority_rank[gap.priority] for gap in eligible_gaps)
+    for gap in analysis.gaps:
+        if _normalized_question(gap.topic) != normalized:
+            continue
+        if (
+            gap.priority not in ("high", "medium")
+            or not gap.askable
+            or gap.status == "EXPLICITLY_UNKNOWN"
+            or priority_rank[gap.priority] != highest_priority
+        ):
+            return None
+        return gap
+    return None
+
+
+def _gap_reason_code(gap: GapItem) -> str:
+    return {
+        "NOT_PROVIDED": "material_incident_fact_missing",
+        "AMBIGUOUS": "material_incident_fact_ambiguous",
+        "CONFLICTING": "material_incident_fact_conflicting",
+        "EXPLICITLY_UNKNOWN": "unresolved_gaps_recorded",
+    }[gap.status]
 
 
 def _coerce_policy_result(
@@ -370,6 +556,10 @@ def _followup_metadata(
     provider: str | None = None,
     model: str | None = None,
     failure_code: str | None = None,
+    decision: str | None = None,
+    selected_gap: str | None = None,
+    requested_selected_gap: str | None = None,
+    gap_analysis: dict[str, Any] | None = None,
     rag_skipped: bool = True,
     rag_invoked: bool = False,
 ) -> dict[str, Any]:
@@ -385,7 +575,10 @@ def _followup_metadata(
             "provider": provider or target.provider,
             "model": model or target.model,
             "action": action,
+            "decision": decision or action,
             "question": question,
+            "selected_gap": selected_gap,
+            "requested_selected_gap": requested_selected_gap,
             "reason_code": reason_code,
             "source_run_id": str(source_run_id),
             "root_ordinal": followup_root_ordinal,
@@ -396,6 +589,9 @@ def _followup_metadata(
             "output_tokens": output_tokens,
             "failure_code": failure_code,
             "stop_reason": stop_reason,
+            "gap_analysis": deepcopy(
+                gap_analysis or _empty_gap_analysis_trace()
+            ),
             "rag_skipped": rag_skipped,
             "rag_invoked": rag_invoked,
         }

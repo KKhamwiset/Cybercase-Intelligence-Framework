@@ -12,7 +12,7 @@ from app.services.chat.chat_worker import (
     attach_llm_extraction,
     process_chat_run,
 )
-from app.services.chat.followup_policy import FollowUpDecision
+from app.services.chat.gap_and_followup import FollowUpDecision
 from app.services.extraction.llm_extraction import (
     ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
     BASELINE_EXTRACTION_PROMPT_VERSION,
@@ -67,9 +67,9 @@ class FakeExtractionAdapter:
 class AnswerPolicy:
     async def decide(self, **_: object) -> FollowUpDecision:
         return FollowUpDecision(
-            action="proceed",
+            decision="proceed",
+            selected_gap=None,
             question="",
-            reason_code="sufficient_case_context",
         )
 
 

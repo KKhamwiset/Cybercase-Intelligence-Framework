@@ -47,14 +47,15 @@ from app.services.chat.clarification_gate import (
     evaluate_followup_outcome,
     resolve_followup_outcome,
 )
+from app.services.chat.gap_and_followup.schemas import (
+    ClarificationExchange,
+    FollowUpPolicy,
+    GapAnalyzer,
+)
 from app.services.chat.extraction_stage import (
     ExtractionStageFailure,
     attach_llm_extraction,
     run_validated_case_state_extraction,
-)
-from app.services.chat.followup_policy import (
-    ClarificationExchange,
-    FollowUpPolicy,
 )
 from app.services.chat.outcome_mapper import (
     AssistantOutcome,
@@ -652,6 +653,7 @@ async def process_chat_run(
     run_id: UUID,
     *,
     policy: FollowUpPolicy | None = None,
+    gap_analyzer: GapAnalyzer | None = None,
     rag_call: Callable[[str], Awaitable[QueryResponse]] | None = None,
     ask_call: Callable[..., Awaitable[str]] | None = None,
     extraction_adapter: ExtractionModelAdapter | None = None,
@@ -774,6 +776,7 @@ async def process_chat_run(
                     followup_root_ordinal=claimed_run.followup_root_ordinal,
                     source_run_id=claimed_run.id,
                     policy=policy,
+                    gap_analyzer=gap_analyzer,
                     case_state=merged_case_state_json,
                     analysis_answer=answer.strip(),
                     analysis_context=analysis_context,
@@ -915,6 +918,7 @@ async def process_chat_run(
             followup_root_ordinal=claimed_run.followup_root_ordinal,
             source_run_id=claimed_run.id,
             policy=policy,
+            gap_analyzer=gap_analyzer,
             case_state=validated_case_state_json,
             analysis_answer=answer.strip(),
             analysis_context=analysis_context,

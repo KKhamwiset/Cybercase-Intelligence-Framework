@@ -11,13 +11,18 @@ from app.schemas.chat.rag import QueryResponse
 from app.services.chat.case_state_retrieval import (
     project_case_state_to_retrieval_query,
 )
-from app.services.chat.followup_policy import (
+from app.services.chat.gap_and_followup import (
     AnthropicFollowUpPolicy,
     ClarificationExchange,
+    GapAnalysis,
+    GapAnalysisResult,
+    GapItem,
     FollowUpDecision,
     FollowUpPolicyResult,
     build_clarified_query,
 )
+from app.services.chat.gap_and_followup.gap_analysis import AnthropicGapAnalysis
+from app.services.chat.gap_and_followup.prompts import GAP_ANALYSIS_SCHEMA
 from app.services.chat.chat_worker import (
     ClaimedChatRun,
     process_chat_run,
@@ -156,6 +161,53 @@ class _CaptureProceedPolicy:
         )
 
 
+class _RecordingGapAnalyzer:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+        self.analysis = GapAnalysis(
+            gaps=[
+                GapItem(
+                    topic="affected host",
+                    status="NOT_PROVIDED",
+                    description="The host is not identified.",
+                    affects="Host-scoped interpretation",
+                    reason="It limits the incident conclusion.",
+                    priority="high",
+                    askable=True,
+                )
+            ]
+        )
+
+    async def analyze(self, **kwargs: object) -> GapAnalysisResult:
+        self.calls.append(kwargs)
+        return GapAnalysisResult(
+            analysis=self.analysis,
+            latency_ms=3.5,
+            input_tokens=12,
+            output_tokens=7,
+            provider="test",
+            model="test-gap-model",
+        )
+
+
+class _GapAwarePolicy:
+    def __init__(self) -> None:
+        self.gap_analyses: list[GapAnalysis] = []
+
+    async def decide(
+        self,
+        *,
+        gap_analysis: GapAnalysis,
+        **_: object,
+    ) -> FollowUpDecision:
+        self.gap_analyses.append(gap_analysis)
+        return FollowUpDecision(
+            decision="ask_followup",
+            selected_gap="affected host",
+            question="Which host was affected?",
+        )
+
+
 class _MetricsProceedPolicy(_CaptureProceedPolicy):
     async def decide_with_metadata(
         self,
@@ -198,9 +250,9 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
                             "type": "text",
                             "text": json.dumps(
                                 {
-                                    "action": "ask_followup",
+                                    "decision": "ask_followup",
+                                    "selected_gap": "affected host",
                                     "question": "Which host was affected?",
-                                    "reason_code": "material_incident_fact_missing",
                                 }
                             ),
                         }
@@ -227,12 +279,26 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
                         )
                         for index in range(1, 4)
                     ),
+                    gap_analysis=GapAnalysis(
+                        gaps=[
+                            GapItem(
+                                topic="affected host",
+                                status="NOT_PROVIDED",
+                                description="The host is not identified.",
+                                affects="Host-scoped interpretation",
+                                reason="It limits the incident conclusion.",
+                                priority="high",
+                                askable=True,
+                            )
+                        ]
+                    ),
                     client=client,
                 )
         finally:
             settings.anthropic_api_key = original_key
 
-        self.assertEqual(decision.action, "ask_followup")
+        self.assertEqual(decision.decision, "ask_followup")
+        self.assertEqual(decision.selected_gap, "affected host")
         self.assertEqual(decision.question, "Which host was affected?")
         self.assertIn("KNOWN", str(captured["system"]))
         self.assertIn("EXPLICITLY_UNKNOWN", str(captured["system"]))
@@ -245,22 +311,14 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
             {
                 "type": "object",
                 "properties": {
-                    "action": {
+                    "decision": {
                         "type": "string",
-                        "enum": ["proceed", "ask_followup"],
+                        "enum": ["ask_followup", "proceed"],
                     },
+                    "selected_gap": {"type": ["string", "null"]},
                     "question": {"type": "string"},
-                    "reason_code": {
-                        "type": "string",
-                        "enum": [
-                            "sufficient_case_context",
-                            "material_incident_fact_missing",
-                            "material_incident_fact_ambiguous",
-                            "material_incident_fact_conflicting",
-                        ],
-                    },
                 },
-                "required": ["action", "question", "reason_code"],
+                "required": ["decision", "selected_gap", "question"],
                 "additionalProperties": False,
             },
         )
@@ -272,7 +330,12 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
             )[0]
         )
         self.assertEqual(
-            set(supplied), {"original_user_content", "clarification_exchanges"}
+            set(supplied),
+            {"original_user_content", "clarification_exchanges", "gap_analysis"},
+        )
+        self.assertEqual(
+            supplied["gap_analysis"]["gaps"][0]["topic"],
+            "affected host",
         )
         self.assertLessEqual(
             len(supplied["original_user_content"]),
@@ -309,8 +372,8 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
                         {
                             "type": "text",
                             "text": (
-                                '{"action":"proceed","question":"",'
-                                '"reason_code":"sufficient_case_context"}'
+                                '{"decision":"proceed","selected_gap":null,'
+                                '"question":""}'
                             ),
                         }
                     ],
@@ -332,12 +395,148 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             decision,
             FollowUpDecision(
-                action="proceed",
+                decision="proceed",
+                selected_gap=None,
                 question="",
-                reason_code="sufficient_case_context",
             ),
         )
         self.assertNotIn("rag_answer", inspect.signature(AnthropicFollowUpPolicy.decide).parameters)
+
+    async def test_gap_analysis_provider_returns_all_structured_gaps(self) -> None:
+        original_key = settings.anthropic_api_key
+        settings.anthropic_api_key = "test-key"
+        captured: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.update(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "stop_reason": "end_turn",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "gaps": [
+                                        {
+                                            "topic": "affected host",
+                                            "status": "NOT_PROVIDED",
+                                            "description": "The host is not identified.",
+                                            "affects": "Actor and action relationship",
+                                            "reason": "It limits host-scoped interpretation.",
+                                            "priority": "high",
+                                            "askable": True,
+                                        },
+                                        {
+                                            "topic": "event time",
+                                            "status": "EXPLICITLY_UNKNOWN",
+                                            "description": "The event time is unavailable.",
+                                            "affects": "Chronology",
+                                            "reason": "It limits temporal ordering.",
+                                            "priority": "medium",
+                                            "askable": False,
+                                        },
+                                    ]
+                                }
+                            ),
+                        }
+                    ],
+                },
+            )
+
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(handler)
+            ) as client:
+                result = await AnthropicGapAnalysis().analyze(
+                    original_user_content="Investigate the reported sign-in.",
+                    clarification_exchanges=(),
+                    case_state={"case_summary": "A sign-in was reported."},
+                    analysis_answer="The actor is not yet established.",
+                    analysis_context={"mitre_context": "Technique context"},
+                    client=client,
+                )
+        finally:
+            settings.anthropic_api_key = original_key
+
+        self.assertIsInstance(result, GapAnalysisResult)
+        self.assertEqual(
+            [gap.topic for gap in result.analysis.gaps],
+            ["affected host", "event time"],
+        )
+        self.assertEqual(result.analysis.gaps[0].status, "NOT_PROVIDED")
+        self.assertFalse(result.analysis.gaps[1].askable)
+        self.assertEqual(
+            captured["output_config"]["format"]["schema"],  # type: ignore[index]
+            GAP_ANALYSIS_SCHEMA,
+        )
+
+    async def test_policy_consumes_gap_analysis_as_separate_input(self) -> None:
+        original_key = settings.anthropic_api_key
+        settings.anthropic_api_key = "test-key"
+        gap_analysis = GapAnalysis(
+            gaps=[
+                GapItem(
+                    topic="affected host",
+                    status="NOT_PROVIDED",
+                    description="The host is not identified.",
+                    affects="Host-scoped interpretation",
+                    reason="It limits the incident conclusion.",
+                    priority="high",
+                    askable=True,
+                )
+            ]
+        )
+        captured: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.update(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "stop_reason": "end_turn",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                '{"decision":"ask_followup",'
+                                '"selected_gap":"affected host",'
+                                '"question":"Which host was affected?"}'
+                            ),
+                        }
+                    ],
+                },
+            )
+
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(handler)
+            ) as client:
+                decision = await AnthropicFollowUpPolicy().decide(
+                    original_user_content="Investigate the reported sign-in.",
+                    clarification_exchanges=(),
+                    gap_analysis=gap_analysis,
+                    case_state={"case_summary": "A sign-in was reported."},
+                    analysis_answer="The actor is not yet established.",
+                    analysis_context={"mitre_context": "Technique context"},
+                    client=client,
+                )
+        finally:
+            settings.anthropic_api_key = original_key
+
+        self.assertEqual(decision.selected_gap, "affected host")
+        policy_message = str(captured["messages"][0]["content"])  # type: ignore[index]
+        supplied = json.loads(
+            policy_message.split("<case_data_json>\n", 1)[1].rsplit(
+                "\n</case_data_json>",
+                1,
+            )[0]
+        )
+        self.assertEqual(
+            supplied["gap_analysis"]["gaps"][0]["topic"],
+            "affected host",
+        )
 
     async def test_prompt_injection_stays_in_untrusted_policy_input(self) -> None:
         original_key = settings.anthropic_api_key
@@ -355,8 +554,8 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
                         {
                             "type": "text",
                             "text": (
-                                '{"action":"proceed","question":"",'
-                                '"reason_code":"sufficient_case_context"}'
+                                '{"decision":"proceed","selected_gap":null,'
+                                '"question":""}'
                             ),
                         }
                     ],
@@ -381,6 +580,76 @@ class FollowUpPolicyHttpTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("untrusted", str(captured["messages"]))
 
 class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_gap_analysis_runs_before_policy_and_policy_receives_its_output(
+        self,
+    ) -> None:
+        analyzer = _RecordingGapAnalyzer()
+        policy = _GapAwarePolicy()
+        outcome = await resolve_followup_outcome(
+            original_user_content="Investigate this event",
+            clarification_exchanges=(),
+            followup_root_ordinal=4,
+            source_run_id=uuid4(),
+            gap_analyzer=analyzer,
+            policy=policy,
+            case_state={"case_summary": "A sign-in was reported."},
+            analysis_answer="The affected host is not established.",
+            analysis_context={"mitre_context": "Technique context"},
+        )
+
+        self.assertIsNotNone(outcome)
+        self.assertEqual(len(analyzer.calls), 1)
+        self.assertEqual(len(policy.gap_analyses), 1)
+        self.assertEqual(
+            policy.gap_analyses[0].model_dump(mode="json"),
+            analyzer.analysis.model_dump(mode="json"),
+        )
+        assert outcome is not None
+        trace = outcome.metadata_json["chat_followup"]
+        self.assertEqual(trace["decision"], "ask_followup")
+        self.assertEqual(trace["selected_gap"], "affected host")
+        self.assertEqual(trace["gap_analysis"]["status"], "completed")
+        self.assertEqual(
+            trace["gap_analysis"]["gaps"][0]["topic"],
+            "affected host",
+        )
+
+    async def test_policy_cannot_select_a_lower_priority_askable_gap(self) -> None:
+        analyzer = _RecordingGapAnalyzer()
+        analyzer.analysis = GapAnalysis(
+            gaps=[
+                *analyzer.analysis.gaps,
+                GapItem(
+                    topic="event time",
+                    status="NOT_PROVIDED",
+                    description="The event time is not identified.",
+                    affects="Chronology",
+                    reason="It limits temporal ordering.",
+                    priority="medium",
+                    askable=True,
+                ),
+            ]
+        )
+
+        class LowerPriorityPolicy:
+            async def decide(self, **_: object) -> FollowUpDecision:
+                return FollowUpDecision(
+                    decision="ask_followup",
+                    selected_gap="event time",
+                    question="When did the event occur?",
+                )
+
+        outcome = await resolve_followup_outcome(
+            original_user_content="Investigate this event",
+            clarification_exchanges=(),
+            followup_root_ordinal=4,
+            source_run_id=uuid4(),
+            gap_analyzer=analyzer,
+            policy=LowerPriorityPolicy(),
+        )
+
+        self.assertIsNone(outcome)
+
     async def test_policy_question_becomes_only_assistant_outcome(self) -> None:
         source_run_id = uuid4()
         outcome = await resolve_followup_outcome(
@@ -413,7 +682,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             outcome.metadata_json["chat_followup"]["policy_version"],
-            "analysis_aware_completeness_v2",
+            "analysis_aware_followup_v3",
         )
         self.assertEqual(
             outcome.metadata_json["chat_followup"]["reason_code"],
@@ -650,16 +919,42 @@ class _EventPolicy:
         return self.decision
 
 
+class _EventGapAnalyzer:
+    def __init__(self) -> None:
+        self.events: list[str] = []
+
+    async def analyze(self, **_: object) -> GapAnalysisResult:
+        self.events.append("gap")
+        return GapAnalysisResult(
+            analysis=GapAnalysis(
+                gaps=[
+                    GapItem(
+                        topic="affected host",
+                        status="NOT_PROVIDED",
+                        description="The host is not identified.",
+                        affects="Host-scoped interpretation",
+                        reason="It limits the incident conclusion.",
+                        priority="high",
+                        askable=True,
+                    )
+                ]
+            )
+        )
+
+
 class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
     async def _run(
         self,
         *,
         policy: object,
         exchanges: tuple[ClarificationExchange, ...] = (),
+        gap_analyzer: object | None = None,
     ) -> tuple[list[str], list[object], list[str]]:
         events: list[str] = []
         if isinstance(policy, _EventPolicy):
             policy.events = events
+        if isinstance(gap_analyzer, _EventGapAnalyzer):
+            gap_analyzer.events = events
         completed: list[object] = []
         rag_queries: list[str] = []
         claimed = ClaimedChatRun(
@@ -722,10 +1017,35 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             await process_chat_run(
                 claimed.id,
                 policy=policy,
+                gap_analyzer=gap_analyzer,
                 rag_call=rag_call,
                 ask_call=ask_call,
             )
         return events, completed, rag_queries
+
+    async def test_worker_runs_gap_analysis_before_followup_policy(self) -> None:
+        events, completed, rag_queries = await self._run(
+            gap_analyzer=_EventGapAnalyzer(),
+            policy=_EventPolicy(
+                [],
+                FollowUpDecision(
+                    decision="ask_followup",
+                    selected_gap="affected host",
+                    question="Which host was affected?",
+                ),
+            ),
+        )
+
+        self.assertEqual(
+            events,
+            ["extraction", "rag", "gap", "policy", "complete:awaiting_followup"],
+        )
+        self.assertEqual(len(rag_queries), 1)
+        self.assertEqual(completed[0].content, "Which host was affected?")
+        self.assertEqual(
+            completed[0].metadata_json["chat_followup"]["gap_analysis"]["status"],
+            "completed",
+        )
 
     async def test_analysis_runs_before_policy_and_ask_persists_grounding(self) -> None:
         events, completed, rag_queries = await self._run(

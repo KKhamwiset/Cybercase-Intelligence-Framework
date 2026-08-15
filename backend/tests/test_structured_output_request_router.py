@@ -11,7 +11,7 @@ from app.services.llm.structured_output_request_router import (
     StructuredOutputFeature,
     structured_output_request_options,
 )
-from app.services.chat.followup_policy import AnthropicFollowUpPolicy
+from app.services.chat.gap_and_followup import AnthropicFollowUpPolicy
 from app.services.extraction.llm_extraction import (
     AnthropicExtractionAdapter,
     ExtractionFailure,
@@ -61,9 +61,9 @@ def _followup_response() -> dict[str, object]:
     return _text_response(
         json.dumps(
             {
-                "action": "proceed",
+                "decision": "proceed",
+                "selected_gap": None,
                 "question": "",
-                "reason_code": "sufficient_case_context",
             }
         )
     )
@@ -117,6 +117,14 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
     def test_openrouter_applies_feature_floors_and_omits_temperature(
         self,
     ) -> None:
+        self.assertEqual(
+            structured_output_request_options(
+                provider="openrouter",
+                feature="gap_analysis",
+                configured_max_tokens=128,
+            ),
+            {"max_tokens": 2_048},
+        )
         self.assertEqual(
             structured_output_request_options(
                 provider="openrouter",

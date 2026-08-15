@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.case_state import CaseStateVersion
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat import ChatMessageCreate, ChatMessageRead
-from app.services.chat.followup_policy import (
+from app.services.chat.gap_and_followup.followup_policy import (
     ClarificationExchange,
     build_clarified_query,
 )

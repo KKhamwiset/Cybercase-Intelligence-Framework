@@ -92,6 +92,7 @@ class Settings(BaseSettings):
     chat_followup_policy_enabled: bool = True
     chat_followup_policy_model: str = "openai/gpt-5.6-luna"
     chat_followup_policy_timeout_seconds: float = 15.0
+    chat_gap_analysis_max_output_tokens: int = 2_048
     chat_followup_policy_max_output_tokens: int = 128
     chat_followup_policy_max_user_chars: int = 4_000
     chat_followup_question_max_chars: int = 300
