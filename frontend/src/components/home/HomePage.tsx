@@ -19,7 +19,7 @@ const pillars: Array<{
     number: "02",
     title: "Clarify",
     description:
-      "Work through missing context with focused, backend-managed follow-up questions.",
+      "Work through missing context with focused, guided follow-up questions.",
     label: "Guided context",
     type: "grid",
   },
@@ -398,7 +398,7 @@ export default function HomePage() {
                 ],
                 [
                   "Clear handoff",
-                  "Keep questions, answers, and backend responses together.",
+                  "Keep questions, answers, and analysis together.",
                 ],
               ].map(([title, description], index) => (
                 <article

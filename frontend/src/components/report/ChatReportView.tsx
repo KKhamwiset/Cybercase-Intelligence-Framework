@@ -101,7 +101,7 @@ export function ChatReportView({
       setGenerationError(
         getApiErrorMessage(
           error,
-          "Failed to request report generation. Review backend validation and try again.",
+          "Failed to generate report. Please review the case details and try again.",
         ),
       );
     } finally {
@@ -113,7 +113,6 @@ export function ChatReportView({
     if (!threadId || isDownloading) return;
     setIsDownloading(true);
     setDownloadError(null);
-
     try {
       const blob = await downloadChatReportPdf(threadId, report.report_id);
       const blobUrl = window.URL.createObjectURL(blob);
@@ -122,13 +121,13 @@ export function ChatReportView({
       downloadLink.download = `CyberCase-Report-v${report.version_number}.pdf`;
       document.body.appendChild(downloadLink);
       downloadLink.click();
-      document.body.removeChild(downloadLink);
+      downloadLink.removeChild(downloadLink);
       window.URL.revokeObjectURL(blobUrl);
     } catch (error: unknown) {
       setDownloadError(
         getApiErrorMessage(
           error,
-          "Failed to download the generated PDF report from the backend.",
+          "Failed to download the PDF report. Please try again.",
         ),
       );
     } finally {
@@ -180,9 +179,8 @@ export function ChatReportView({
               Digital-forensics report
             </h1>
             <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
-              Generate one durable, backend-validated report from this chat&apos;s
-              user-authored case messages, validated extraction, and persisted
-              MITRE mapping rows.
+              Generate a structured intelligence report from this chat&apos;s
+              case details, extracted evidence, and MITRE mapping findings.
             </p>
           </div>
           <span className="rounded-full border border-line-strong bg-surface px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-secondary">
@@ -315,7 +313,7 @@ function PersistedReportCard({
       <header className="border-b border-line pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-ink-secondary">
-            Version {report.version_number} · Backend persisted
+            Version {report.version_number} · Saved
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-line-strong bg-surface px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ink-secondary">
@@ -466,10 +464,10 @@ function readinessMessage({
   threadStatus: ThreadStatus | null;
 }): string {
   if (!threadId || !hasMessages) {
-    return "A persisted chat message is required before a report can be generated.";
+    return "A chat investigation is required before a report can be generated.";
   }
   if (threadStatus === "processing") {
-    return "The chat is still processing. Wait for the terminal answer before generating a report.";
+    return "The investigation is still processing. Please wait for completion before generating a report.";
   }
   if (threadStatus === "awaiting_followup") {
     return "Answer the pending clarification in Chat before generating a report.";
@@ -478,9 +476,9 @@ function readinessMessage({
     return "The latest chat response failed. Resolve it before generating a report.";
   }
   if (!hasValidatedExtraction) {
-    return "A validated baseline extraction is not available yet. Complete a terminal chat answer first.";
+    return "A validated case analysis is not available yet. Complete the chat investigation first.";
   }
-  return "Ready. The backend will freeze this thread snapshot and persist the validated report version.";
+  return "Ready. Generate a structured intelligence report from this case snapshot.";
 }
 
 function reportRequestKey(): string | undefined {

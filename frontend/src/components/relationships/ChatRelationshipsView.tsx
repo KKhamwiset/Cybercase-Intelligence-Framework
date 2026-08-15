@@ -51,8 +51,7 @@ export function ChatRelationshipsView({
             Entity relationship graph
           </h1>
           <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
-            Inspect explicit candidate relationships on a dedicated canvas.
-            Connections remain user-reported and unverified, not forensic proof.
+            Interactive map of identified entities, systems, and connection points found in this case.
           </p>
         </div>
         <div className="mt-8">{content}</div>

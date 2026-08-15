@@ -11,21 +11,6 @@ interface ChatTimelineViewProps {
   onOpenChat: () => void;
 }
 
-function CandidateBadges() {
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Timeline labels">
-      {["Candidate", "User-reported", "Unverified"].map((label) => (
-        <span
-          key={label}
-          className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function ChatTimelineView({
   extraction,
   onOpenChat,
@@ -55,7 +40,6 @@ export function ChatTimelineView({
               Reported event sequence
             </h3>
           </div>
-          <CandidateBadges />
         </div>
 
         {extraction.timeline.length === 0 ? (
@@ -91,7 +75,6 @@ export function ChatTimelineView({
                     <p className="mt-1 text-[11px] capitalize text-ink-secondary">
                       {item.status} · {item.confidence}
                     </p>
-                    <CandidateBadges />
                   </div>
                 </li>
               );

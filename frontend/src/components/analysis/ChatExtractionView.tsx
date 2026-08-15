@@ -23,15 +23,13 @@ export function ChatExtractionView({
       <div className="mx-auto w-full max-w-[1120px]">
         <div className="max-w-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-ink-secondary">
-            Case information overview
+            Case information
           </p>
           <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.035em] text-ink sm:text-4xl">
             Reported case details &amp; observables
           </h1>
           <p className="mt-4 text-sm leading-6 text-ink-secondary sm:text-base sm:leading-7">
-            This view is scoped to the selected thread and shows only its latest
-            assistant extraction. These are user-reported, unverified case statements
-            and observables, not finalized forensic findings.
+            Summary of structured case information, identified systems, indicators, and timeline events from this investigation.
           </p>
         </div>
 

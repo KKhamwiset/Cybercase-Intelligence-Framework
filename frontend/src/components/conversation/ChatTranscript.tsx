@@ -30,8 +30,8 @@ export function ChatTranscript({
             Investigation Console
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
-            Describe an incident, paste forensic logs, or query MITRE ATT&amp;CK tactics.
-            CyberCase will retrieve graph context and extract candidate observables.
+            Describe an incident, paste security logs, or ask about threat techniques.
+            CyberCase will analyze the details and identify relevant MITRE ATT&amp;CK tactics.
           </p>
         </div>
       </div>
@@ -78,7 +78,7 @@ export function ChatTranscript({
       {isProcessing && (
         <div className="flex items-center gap-3 px-2 text-xs font-semibold text-ink-secondary">
           <span className="flex h-2 w-2 rounded-full bg-charcoal animate-ping" />
-          <span>Analyzing threat telemetry &amp; traversing STIX graph...</span>
+          <span>Analyzing incident details &amp; mapping MITRE intelligence...</span>
         </div>
       )}
 

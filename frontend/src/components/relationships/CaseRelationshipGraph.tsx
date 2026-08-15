@@ -391,7 +391,7 @@ function RelationshipCanvas({
           Relationship canvas
         </p>
         <p className="text-[10px] text-ink-secondary">
-          Drag nodes to reposition · Zoom & Pan enabled · Unverified
+          Drag nodes to reposition · Zoom & Pan enabled
         </p>
       </div>
       <div

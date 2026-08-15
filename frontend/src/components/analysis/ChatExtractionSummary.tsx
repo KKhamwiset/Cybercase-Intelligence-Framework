@@ -41,7 +41,6 @@ function BaselineExtractionSummary({
           <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-ink-secondary">
             Case summary
           </h4>
-          <ItemBadges />
         </div>
         <p className="mt-2 text-sm leading-6 text-ink">
           {extraction.case_summary}
@@ -69,7 +68,6 @@ function BaselineExtractionSummary({
                 </span>
               </div>
               <ConfidenceLine confidence={item.confidence} />
-              <ItemBadges />
             </li>
           ))}
         </ExtractionList>
@@ -93,7 +91,6 @@ function BaselineExtractionSummary({
               <p className="mt-1 text-[11px] text-ink-secondary">
                 {item.artifact_type} · {item.status} · {item.confidence}
               </p>
-              <ItemBadges />
             </li>
           ))}
         </ExtractionList>
@@ -113,7 +110,6 @@ function BaselineExtractionSummary({
                   {item.importance}
                 </span>
               </div>
-              <ItemBadges />
             </li>
           ))}
         </ExtractionList>
@@ -157,7 +153,7 @@ function SummaryShell({
 }) {
   return (
     <section
-      aria-label="Unverified chat-reported candidates"
+      aria-label="Extraction summary"
       className="w-full rounded-2xl border border-line-strong bg-surface p-4 shadow-[0_4px_18px_rgba(39,39,39,0.05)] sm:p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
@@ -169,27 +165,10 @@ function SummaryShell({
             {title}
           </h3>
         </div>
-        <ItemBadges />
       </div>
       <p className="mt-3 text-xs leading-5 text-ink-secondary">{description}</p>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function ItemBadges() {
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Extraction labels">
-      <span className="rounded-full border border-line-strong bg-surface-nested px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
-        Candidate
-      </span>
-      <span className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
-        User-reported
-      </span>
-      <span className="rounded-full border border-line-strong bg-surface px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.1em] text-ink-secondary">
-        Unverified
-      </span>
-    </div>
   );
 }
 

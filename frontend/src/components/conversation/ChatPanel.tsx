@@ -93,7 +93,7 @@ export function ChatPanel({
             onSubmit={onSubmit}
           />
           <p className="mt-1.5 text-center text-[9.5px] text-ink-muted">
-            CyberCase maps threat telemetry to MITRE ATT&amp;CK STIX 2.1 intelligence.
+            CyberCase maps security events to MITRE ATT&amp;CK intelligence.
           </p>
         </div>
       </div>
