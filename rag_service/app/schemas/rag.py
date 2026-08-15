@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +30,3 @@ class RetrievalContextSnapshot(BaseModel):
     rag_result: dict[str, Any] = Field(default_factory=dict)
     answer: str = ""
     mitre_table: list[MitreTableRow] = Field(default_factory=list)
-
-
-class ReviewStatusRequest(BaseModel):
-    review_status: Literal["draft", "ai_generated", "reviewed", "approved"]

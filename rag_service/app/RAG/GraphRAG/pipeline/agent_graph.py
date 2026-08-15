@@ -622,7 +622,6 @@ class GraphRAGAgent:
         verbose = state.get("verbose", True)
         strategy = state.get("strategy", "")
         ack_message = state.get("acknowledgement_message", "")
-        gap_warning = state.get("gap_warning", "")
 
         if not self.reasoning_llm:
             return {
@@ -735,8 +734,13 @@ class GraphRAGAgent:
         user — the only remaining recovery is the agent's own BROADEN_SEARCH
         rewrite. Once the budget is spent, or the evaluator gives no usable
         rewrite (looping on the same queries would change nothing), we answer
-        with the best available context; PARTIAL_ANSWER / ACKNOWLEDGE_LIMIT are
-        then honoured downstream in ``_node_reasoning``.
+        with the best available context; ACKNOWLEDGE_LIMIT is then honoured
+        downstream in ``_node_reasoning``.
+
+        PARTIAL_ANSWER is NOT honoured: the evaluator can return it, and its
+        ``gap_warning`` is carried into state, but nothing reads it, so the
+        answer goes out without the caveat the evaluator asked for. Wiring it
+        up is a feature, not cleanup — left as-is deliberately.
         """
         evaluation: EvaluationResult = state.get("evaluation")  # type: ignore[assignment]
         broaden_count = state.get("broaden_count", 0)

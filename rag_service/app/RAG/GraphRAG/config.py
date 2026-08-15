@@ -86,17 +86,6 @@ QDRANT_COLLECTION_RELATIONSHIPS = os.getenv(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LEGACY — ChromaDB Configuration (kept for reference / rollback)
-# ──────────────────────────────────────────────────────────────────────────────
-CHROMA_DIR = _SCRIPT_DIR / "chroma_db"
-CHROMA_HOST = os.getenv("CHROMA_HOST")
-CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
-CHROMA_SSL = os.getenv("CHROMA_SSL", "False").lower() == "true"
-CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
-CHROMA_COLLECTION_ENTITIES = "mitre_entities"
-CHROMA_COLLECTION_RELATIONSHIPS = "mitre_relationships"
-
-# ──────────────────────────────────────────────────────────────────────────────
 # HYBRID RETRIEVAL — RRF (Reciprocal Rank Fusion)
 # ──────────────────────────────────────────────────────────────────────────────
 RRF_K = 60  # Standard RRF constant: score = 1 / (k + rank)
@@ -224,7 +213,6 @@ LOCAL_NUM_CTX = int(os.getenv("LOCAL_NUM_CTX", "8192"))
 # RETRIEVAL
 # ──────────────────────────────────────────────────────────────────────────────
 VECTOR_TOP_K = 10  # Initial vector retrieval count
-GRAPH_EXPANSION_DEPTH = 2  # How many hops to expand in graph
 FINAL_TOP_K = 5  # After reranking
 
 # Restrict entity vector search to one ATT&CK domain. The corpus is ingested with
@@ -295,5 +283,3 @@ def sep(title=""):
         print("\n" + "─" * pad + f" {title} " + "─" * pad)
     else:
         print("\n" + "─" * width)
-
-print(ATTACK_DOMAINS.items())
