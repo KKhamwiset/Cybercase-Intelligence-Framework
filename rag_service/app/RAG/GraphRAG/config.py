@@ -192,18 +192,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ──────────────────────────────────────────────────────────────────────────────
-# THANOY — Thai legal AI (iApp) for the report's "legal advice" section.
-# A SEPARATE specialist from the MITRE pipeline: our pipeline explains the
-# technical incident, Thanoy maps it to Thai law (Computer Crime Act, Cybersecurity
-# Act, Criminal Code …). OPTIONAL — if THANOY_API_KEY is unset, the legal section
-# is simply skipped (the report still renders). Docs: iapp.co.th/docs/llm/thanoy-legal
-# ──────────────────────────────────────────────────────────────────────────────
-THANOY_API_KEY = os.getenv("THANOY_API_KEY", "")
-THANOY_API_URL = os.getenv("THANOY_API_URL", "https://api.iapp.co.th/thanoy")
-THANOY_TIMEOUT = float(os.getenv("THANOY_TIMEOUT", "30"))
-THANOY_ENABLED = bool(THANOY_API_KEY)
-
-# ──────────────────────────────────────────────────────────────────────────────
 # LOCAL MODELS (Ollama) — used when --local flag is passed
 # Install: https://ollama.com  |  pip install langchain-ollama
 # Pull   : ollama pull qwen2.5:7b && ollama pull gemma3:4b
