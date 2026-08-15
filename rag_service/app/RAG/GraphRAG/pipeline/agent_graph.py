@@ -1,7 +1,7 @@
 """
 LangGraph Agentic RAG Pipeline
 ================================
-Replaces the linear LCEL chain with a stateful graph that supports:
+The only pipeline serving ``POST /query``. A stateful graph that supports:
 
    1. **Decomposed Multi-Query Retrieval** — the incident is broken into atomic
       per-technique sub-queries (in the incident's own language; no English
@@ -82,8 +82,11 @@ class AgentState(TypedDict, total=False):
     # ── Routing ───────────────────────────────────────────────────────────
     route: str  # GENERAL_EXPLANATION | INCIDENT_ANALYSIS
 
-    # ── Translation ───────────────────────────────────────────────────────
-    english_query: str  # Translated (or original if already English)
+    # ── Language ──────────────────────────────────────────────────────────
+    # Nothing translates the input any more. english_query is kept only so the
+    # evaluator and reasoning nodes have a stable handle; it mirrors the
+    # original query verbatim. Renaming it would touch the evaluator contract.
+    english_query: str
     respond_in_thai: bool
     answer_is_final: bool  # single-call generation already produced Thai
 
@@ -138,8 +141,8 @@ MAX_BROADEN_RETRIES = 2  # Broaden iterations before answering with what we have
 class GraphRAGAgent:
     """Agentic RAG pipeline built on LangGraph.
 
-    Drop-in companion for ``GraphRAGChain`` — offers the same ``.query()``
-    interface but with query decomposition and a self-reflection loop.
+    Adds query decomposition and a self-reflection loop on top of plain
+    retrieve-then-generate.
     """
 
     def __init__(
@@ -618,7 +621,12 @@ class GraphRAGAgent:
         }
 
     def _node_reasoning(self, state: AgentState) -> dict:
-        """Stage 2: Reasoning LLM — synthesize context into an English answer."""
+        """Reasoning LLM — synthesize the retrieved context into the answer.
+
+        For a Thai query this writes the final Thai directly (single-call) and
+        the translate node is skipped. English queries, and the whole path when
+        SINGLE_CALL_GENERATION is off, produce English for translate_output.
+        """
         verbose = state.get("verbose", True)
         strategy = state.get("strategy", "")
         ack_message = state.get("acknowledgement_message", "")

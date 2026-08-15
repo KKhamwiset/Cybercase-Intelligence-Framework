@@ -1,5 +1,11 @@
 # RAG Module — Technical Documentation
 
+> ⚠️ **ล้าสมัยบางส่วน — ตรวจเมื่อ 2026-08-15 (branch `chore/rag-service-cleanup`)**
+> จุดที่ไม่ตรงกับโค้ดแล้ว: `use_local`/Ollama ถูกถอดออกจาก pipeline ที่ให้บริการ
+> (เหลือใช้เฉพาะ `evaluation/`) · `GraphRAGChain` เป็น evaluation-only, `POST /query`
+> เข้า `GraphRAGAgent` เสมอ · agent ไม่แปล query เป็นอังกฤษก่อน retrieve ·
+> `--local` ไม่มีอยู่ใน RAG CLI (มีเฉพาะสคริปต์ eval) · ให้ยึด `CLAUDE.md` และตัวโค้ดเป็นหลัก
+
 เอกสารฉบับนี้อธิบายโค้ดทั้งหมดของ **RAG Module** (`rag_service/`) ของโปรเจกต์ CyberCase Intelligence Framework
 ครอบคลุม: System Architecture, Database Schema, Libraries, และคำอธิบาย **ทุกไฟล์/ทุกฟังก์ชัน** ว่าแต่ละส่วนทำอะไร
 

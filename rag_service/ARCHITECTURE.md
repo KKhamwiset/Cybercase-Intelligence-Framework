@@ -1,5 +1,13 @@
 # CyberCase RAG Service — สถาปัตยกรรม & คู่มืออ้างอิงโค้ดทุกฟังก์ชัน
 
+> ⚠️ **ล้าสมัยบางส่วน — ตรวจเมื่อ 2026-08-15 (branch `chore/rag-service-cleanup`)**
+> เอกสารนี้ยังไม่ได้อัปเดตตามการลบ dead code รอบล่าสุด จุดที่ไม่ตรงกับโค้ดแล้ว:
+> `use_local`/Ollama ถูกถอดออกจาก pipeline ที่ให้บริการ (เหลือใช้เฉพาะ `evaluation/`) ·
+> `GraphRAGChain` ไม่ได้อยู่บนเส้นทาง production อีกต่อไป — `POST /query` เข้า `GraphRAGAgent` เสมอ
+> และ CLI ก็เป็น agent-only แล้ว · agent ไม่แปล query เป็นอังกฤษก่อน retrieve ·
+> `USE_LOCAL`, `CHROMA_*`, `GRAPH_EXPANSION_DEPTH`, `THANOY_*` ถูกลบออกจาก `config.py`
+> ให้ยึด `CLAUDE.md` และตัวโค้ดเป็นหลัก (ไฟล์ `.pdf` คู่กันก็เก่าตามไปด้วย)
+
 > เอกสารนี้เขียนขึ้นใหม่ทั้งหมดจากการอ่านซอร์สโค้ด `rag_service/` ทุกไฟล์ (ไม่อ้างอิงเอกสารเดิม)
 > ครอบคลุม: ภาพรวมสถาปัตยกรรม, เทคนิค/method, DB schema, โมเดลทุกตัวใน pipeline,
 > และคำอธิบาย **ทุกฟังก์ชัน/คลาส** แยกตามไฟล์

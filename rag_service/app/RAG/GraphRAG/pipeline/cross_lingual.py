@@ -1,12 +1,20 @@
 """
 Cross-Lingual Translation Layer
 =================================
-Handles language routing for the cross-lingual RAG pipeline.
+Language routing for the RAG pipeline. Two halves with different lifetimes:
 
-Pipeline stages:
-  1. Pre-retrieval  : Thai query  → English query  (query translate LLM)
-  2. Reasoning      : English context → Simplified English narrative (reasoning LLM)
-  3. Translation    : Simplified English → Thai output (translation LLM)
+LIVE — used by the agent, all @staticmethods, no instance needed:
+  • should_respond_in_thai()     language detection
+  • get_fast_system_prompt()     the default single-call prompt (Thai direct)
+  • get_reasoning_system_prompt()  English answers, and the two-stage rollback
+  • get_translation_system_prompt()  the translate_output node
+
+EVALUATION ONLY — the pre-retrieval translation half:
+  • __init__ / translate_query()   Thai query → English query
+  • build_retrieval_queries()      dual-query fan-out, DUAL_QUERY_RETRIEVAL
+Nothing in the served pipeline translates the input: BGE-M3 is multilingual, so
+the agent retrieves on the Thai text as-is. These survive for pipeline/chain.py
+and evaluation/, which measure the old translate-then-retrieve baseline.
 
 Technical terms (ATT&CK IDs, technique names, group names) are preserved as-is
 throughout all stages.
@@ -250,12 +258,13 @@ class CrossLingualLayer:
 
     @staticmethod
     def get_fast_system_prompt(respond_in_thai: bool) -> str:
-        """Single-pass system prompt for --fast mode.
+        """The DEFAULT production prompt for Thai answers, despite the name.
 
-        Same jargon-simplification + 4-section structure as the reasoning stage,
-        but the model writes the FINAL answer directly in the response language —
-        there is no separate downstream translation stage in fast mode, so we fold
-        reasoning + translation into one LLM call.
+        Named for --fast, but SINGLE_CALL_GENERATION (on by default) makes the
+        agent's own reasoning node use it too — so this is what most traffic
+        actually hits. Same jargon-simplification + 4-section structure as the
+        reasoning stage, but the model writes the FINAL answer directly in the
+        response language, folding reasoning + translation into one LLM call.
         """
         if not respond_in_thai:
             return REASONING_SYSTEM_PROMPT

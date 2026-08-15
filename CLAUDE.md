@@ -51,12 +51,13 @@ cd rag_service/app
 
 python -m RAG.GraphRAG.main --ingest        # Ingest STIX data into Neo4j + Qdrant
 python -m RAG.GraphRAG.main --test          # Run test queries
-python -m RAG.GraphRAG.main                 # Interactive mode
-python -m RAG.GraphRAG.main --agent         # Use LangGraph agentic mode
+python -m RAG.GraphRAG.main                 # Interactive mode (agent)
 python -m RAG.GraphRAG.main --retrieve-only # Debug retrieval only
-python -m RAG.GraphRAG.main --agent --local # Use local Ollama models instead of Claude
+python -m RAG.GraphRAG.main --fast          # Single retrieve → one answer call
+python -m RAG.GraphRAG.main --ultrafast     # Vector-only retrieve → terse answer
 ```
-Note: `--ingest` resolves the STIX data dir from `config.py` `_PROJECT_ROOT`, which currently points at `rag_service/` — but the STIX bundles live at the repo root (`Mitre_ATT&CK Doc/`). Check this path before running ingestion.
+The CLI has no `--local` flag — Ollama is offline-tooling only, see RAG Evaluation
+below. `--agent` still parses but is a no-op: the agent is the only pipeline.
 
 ### RAG Evaluation
 ```bash
@@ -88,10 +89,10 @@ Neo4j and Qdrant are cloud-hosted — no local containers for them.
 ### High-Level Stack
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS 4
 - **Backend API**: FastAPI + SQLAlchemy (async) + PostgreSQL — owns chat threads/messages/runs, background work, and clarification policy; calls the RAG service via HTTPX
-- **RAG Engine**: LangGraph (agentic loop) + LangChain LCEL, hosted in `rag_service`
+- **RAG Engine**: LangGraph for orchestration (the agentic state machine) plus LangChain for the LLM and message abstractions (`langchain_core.messages`, `langchain_anthropic.ChatAnthropic`), hosted in `rag_service`. LangGraph is a separate library, not part of LangChain. No LCEL — the LCEL chain is evaluation-only (`pipeline/chain.py`)
 - **Vector DB**: Qdrant (BGE-M3 embeddings, 1024-dim, FP16)
 - **Graph DB**: Neo4j (MITRE ATT&CK STIX entities + relationships)
-- **LLMs**: Claude Sonnet 4 (reasoning/translation), Claude Haiku 4.5 (evaluation); optional local Ollama mode (`--local`)
+- **LLMs**: one `CORE_LLM_PROVIDER` drives reasoning, routing, decomposition and evaluation. Default is `openrouter` → `openai/gpt-5.6-luna`; set `CORE_LLM_PROVIDER=anthropic` for `claude-haiku-4-5`. The served pipeline is cloud-only
 
 ### Agentic RAG Pipeline (`rag_service/app/RAG/GraphRAG/pipeline/`)
 
@@ -100,13 +101,19 @@ The pipeline is a LangGraph state machine in `agent_graph.py`:
 ```
 User Input (Thai/English)
     ↓
-[ROUTER] General explanation? → Direct LLM → END
-    ↓ (Incident analysis path)
-[CROSS-LINGUAL] Translate query to English
+[ROUTER] Classifies, but the result is currently discarded — the graph edge is
+    hard-wired to the incident path, so general-explanation is unreachable
     ↓
-[HYBRID RETRIEVAL] Multi-query (hybrid_retriever.py)
-    ├── Dense vector search (Qdrant + BGE-M3)
-    └── Graph expansion (Neo4j, 2-hop depth)
+[PREPARE] Detect response language only. NO input translation — BGE-M3 is
+    multilingual and retrieves on the Thai text as-is
+    ↓
+[DECOMPOSE] Incident → atomic per-technique sub-queries, in the incident's
+    own language (query_decomposer.py)
+    ↓
+[HYBRID RETRIEVAL] retrieve_multi_quota — per-query quota, round-robin
+    interleaved so every sub-query's technique survives the trim
+    ├── Dense vector search (Qdrant + BGE-M3) + rerank
+    └── Graph expansion (Neo4j, 2 hops)
     ↓
 [EVALUATOR] Context sufficiency check (evaluator.py)
     ├── SUFFICIENT → proceed
@@ -116,7 +123,9 @@ User Input (Thai/English)
     ↓
 [REASONING LLM] Generate answer (single-call Thai by default)
     ↓
-[TRANSLATION LLM] Translate to Thai if needed (skipped for single-call)
+[TRANSLATION LLM] Skipped on the normal Thai path (single-call already wrote
+    Thai). Still runs for an ACKNOWLEDGE_LIMIT message, and for the whole
+    answer if SINGLE_CALL_GENERATION=false
     ↓
 END → AgentResponse(status="completed", answer)
 ```
@@ -155,11 +164,11 @@ The frontend may derive an extraction and seven-section report from the selected
 ## Key Configuration (`rag_service/app/RAG/GraphRAG/config.py`)
 - **Embedding model**: `BAAI/bge-m3` (1024-dim, FP16)
 - **Reranker**: `BAAI/bge-reranker-v2-m3` (multilingual incl. Thai)
-- **Dual-query retrieval**: `DUAL_QUERY_RETRIEVAL=true` — Thai queries are retrieved both as-is and via English translation, results fused
-- **Reasoning LLM**: `claude-sonnet-4-20250514`
-- **Eval LLM**: `claude-haiku-4-5`
+- **Core LLM**: `CORE_LLM_PROVIDER` (`openrouter` default → `openai/gpt-5.6-luna`, or `anthropic` → `claude-haiku-4-5`) — used for reasoning, routing, decomposition and evaluation
+- **Single-call generation**: `SINGLE_CALL_GENERATION=true` — Thai answers are written in one call; set false to restore reason-EN-then-translate
+- **`DUAL_QUERY_RETRIEVAL`**: read only by `pipeline/chain.py`, which is evaluation-only. The served agent does no input translation
 - **RAGAS eval LLM**: `qwen/qwen-2.5-72b-instruct` via OpenRouter
-- **Local mode (`--local`)**: Ollama `qwen2.5:7b` (pipeline) + `gemma3:4b` (eval/RAGAS judge), `OLLAMA_BASE_URL` (default `http://localhost:11434`)
+- **Local models (`evaluation/` only)**: Ollama `qwen2.5:7b` + `gemma3:4b`, `OLLAMA_BASE_URL` (default `http://localhost:11434`). Not reachable from the service
 - **Vector top-K**: 10, **Graph depth**: 2 hops, **Final top-K**: 5
 - **Qdrant collections**: `mitre_entities`, `mitre_relationships`
 

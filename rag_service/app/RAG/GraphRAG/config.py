@@ -16,7 +16,11 @@ _PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent
 load_dotenv(_SCRIPT_DIR / ".env")
 load_dotenv()
 
-# STIX data folders (each contains versioned .json bundles)
+# STIX data folders (each contains versioned .json bundles).
+# _PROJECT_ROOT is rag_service/, which is where the bundles sit inside the Docker
+# image (the build context root). In a repo checkout they live one level up, at
+# the repo root, so fall back there — this is why the existence check exists
+# rather than a single hard-coded path.
 _STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
 if not _STIX_DATA_DIR.exists():
     _STIX_DATA_DIR = _PROJECT_ROOT.parent / "Mitre_ATT&CK Doc"
@@ -223,7 +227,8 @@ FINAL_TOP_K = 5  # After reranking
 # for a 100% clean corpus.
 ATTACK_DOMAIN_FILTER = os.getenv("ATTACK_DOMAIN_FILTER", "enterprise").strip() or None
 
-# Reranker — must handle Thai↔English pairs when DUAL_QUERY_RETRIEVAL is on
+# Reranker — must handle Thai↔English pairs, because the agent does no input
+# translation: a Thai incident is scored directly against English MITRE text.
 # (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
