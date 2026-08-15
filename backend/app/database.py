@@ -1,12 +1,12 @@
-"""
-Async SQLAlchemy engine & session factory.
-Uses asyncpg as the PostgreSQL driver.
-"""
-
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
+
+# Disable verbose SQLAlchemy engine SQL query logging in container logs
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
 
 # ── Engine ───────────────────────────────────────────────────────────────────
 engine = create_async_engine(
@@ -18,7 +18,7 @@ engine = create_async_engine(
         "password": settings.postgres_password,
         "database": settings.postgres_db,
     },
-    echo=settings.debug,
+    echo=False,
     pool_pre_ping=True,
 )
 

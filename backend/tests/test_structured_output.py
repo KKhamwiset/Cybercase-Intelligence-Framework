@@ -152,7 +152,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
         assert client.request_payload is not None
         self.assertEqual(
             client.request_payload["model"],
-            "openai/gpt-oss-120b",
+            "openai/gpt-5.6-luna",
         )
         self.assertIn("output_config", client.request_payload)
 

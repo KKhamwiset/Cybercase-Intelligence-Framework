@@ -18,12 +18,12 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 - **Graph Database**: Neo4j (Enterprise/Community)
 - **Vector Database**: Qdrant (1024-dim, BGE-M3 embeddings)
 - **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py` & `backend/app/config.py`):
-  - **OpenRouter Default**: `openai/gpt-oss-120b` (alias: `oss`)
+  - **OpenRouter Default**: `openai/gpt-5.6-luna` (alias: `luna`)
   - **Ready-Selection Aliases**:
-    - `oss` $\to$ `openai/gpt-oss-120b` (Default)
+    - `luna` $\to$ `openai/gpt-5.6-luna` (Default)
+    - `oss` $\to$ `openai/gpt-oss-120b`
     - `sonnet` $\to$ `anthropic/claude-3.5-sonnet`
     - `haiku` $\to$ `anthropic/claude-3.5-haiku`
-    - `luna` $\to$ `openai/gpt-5.6-luna`
     - `4o` $\to$ `openai/gpt-4o`
   - **Embedding**: `BAAI/bge-m3` (FP16 on CUDA, FP32 on CPU, 1024-dim)
   - **Reranker**: `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`

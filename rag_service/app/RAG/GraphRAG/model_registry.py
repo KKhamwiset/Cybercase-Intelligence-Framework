@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 
-DEFAULT_OPENROUTER_MODEL = "openai/gpt-oss-120b"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-5.6-luna"
 
 
 @dataclass(frozen=True)
@@ -21,11 +21,18 @@ class ModelPreset:
 # Curated ready-selection catalog
 CURATED_MODEL_PRESETS: tuple[ModelPreset, ...] = (
     ModelPreset(
+        canonical_id="openai/gpt-5.6-luna",
+        display_name="GPT 5.6 Luna",
+        family="GPT",
+        aliases=("luna", "gpt-luna", "gpt-5.6-luna", "default"),
+        description="High-context general analysis and extraction (Default)",
+    ),
+    ModelPreset(
         canonical_id="openai/gpt-oss-120b",
         display_name="GPT-OSS 120B",
         family="GPT-OSS",
-        aliases=("gpt-oss-120b", "gpt-oss", "oss-120b", "oss", "default"),
-        description="Open-weight 120B reasoning and structured extraction model (Default)",
+        aliases=("oss", "gpt-oss", "gpt-oss-120b", "oss-120b"),
+        description="Open-weight 120B reasoning and structured extraction model",
     ),
     ModelPreset(
         canonical_id="anthropic/claude-3.5-sonnet",
@@ -40,13 +47,6 @@ CURATED_MODEL_PRESETS: tuple[ModelPreset, ...] = (
         family="Claude",
         aliases=("haiku", "claude-haiku", "claude-3.5-haiku", "haiku-3.5"),
         description="Fast, token-efficient extraction and evaluation",
-    ),
-    ModelPreset(
-        canonical_id="openai/gpt-5.6-luna",
-        display_name="GPT 5.6 Luna",
-        family="GPT",
-        aliases=("luna", "gpt-luna", "gpt-5.6-luna"),
-        description="High-context general analysis and extraction",
     ),
     ModelPreset(
         canonical_id="openai/gpt-4o",
@@ -122,7 +122,8 @@ def format_model_table() -> str:
         )
     lines.append("=" * 95)
     lines.append("Usage Examples:")
-    lines.append("  python -m RAG.GraphRAG.main --model oss             (Default: openai/gpt-oss-120b)")
+    lines.append("  python -m RAG.GraphRAG.main --model luna            (Default: openai/gpt-5.6-luna)")
+    lines.append("  python -m RAG.GraphRAG.main --model oss             (openai/gpt-oss-120b)")
     lines.append("  python -m RAG.GraphRAG.main --model sonnet          (anthropic/claude-3.5-sonnet)")
     lines.append("  python -m RAG.GraphRAG.main --model haiku           (anthropic/claude-3.5-haiku)")
     lines.append("  python -m RAG.GraphRAG.main --model luna            (openai/gpt-5.6-luna)")

@@ -638,6 +638,16 @@ class ChatRunWorker:
         return run
 
 
+def _log_stage(stage_name: str, run_id: UUID | str, detail: str = "") -> None:
+    sep = "=" * 70
+    msg = f"\n{sep}\n[CHAT RUN {run_id}] ▶ STAGE: {stage_name}"
+    if detail:
+        msg += f" — {detail}"
+    msg += f"\n{sep}"
+    print(msg, flush=True)
+    logger.info("Chat run %s entering stage: %s %s", run_id, stage_name, detail)
+
+
 async def process_chat_run(
     run_id: UUID,
     *,
@@ -655,6 +665,11 @@ async def process_chat_run(
     if claimed_run is None:
         return
 
+    _log_stage(
+        "STARTING RUN",
+        run_id,
+        f"action={claimed_run.post_answer_action or 'initial_query'}",
+    )
     followup_metadata_json: dict[str, Any] | None = None
     try:
         if not isinstance(claimed_run.content, str):
@@ -667,6 +682,7 @@ async def process_chat_run(
             raise ValueError('Chat run operation is invalid')
 
         if claimed_run.post_answer_action == 'add_case_info':
+            _log_stage("EXTRACTING CASE STATE DELTA", run_id)
             if not isinstance(claimed_run.case_state_json, dict):
                 raise CaseStateMutationFailure(
                     'case_state_parent_missing',
@@ -717,6 +733,7 @@ async def process_chat_run(
                 )
 
             if not delta.changes and not claimed_run.clarification_answer:
+                _log_stage("NO CHANGES DETECTED (Skipping RAG)", run_id)
                 outcome = map_case_state_no_change_response(
                     mutation_metadata=mutation_metadata,
                 )
@@ -729,9 +746,11 @@ async def process_chat_run(
                 retrieval_query = project_case_state_to_retrieval_query(
                     merged_case_state_json,
                 )
+                _log_stage("RAG RETRIEVAL (Querying GraphRAG)", run_id)
                 response = await (rag_call or request_rag)(retrieval_query)
                 rag_context_payload = _validated_rag_context_payload(response)
                 analysis_context = rag_context_payload.to_analysis_context()
+                _log_stage("ANALYZING UPDATED CASE OVERVIEW", run_id)
                 answer = await (ask_call or request_case_analysis)(
                     mode='case_overview',
                     case_state_json=merged_case_state_json,
@@ -748,6 +767,7 @@ async def process_chat_run(
                     source_message_ids=_source_message_ids_for_run(claimed_run),
                     mutation_metadata=mutation_metadata,
                 )
+                _log_stage("EVALUATING CLARIFICATION & FOLLOWUP POLICY", run_id)
                 followup_resolution = await evaluate_followup_outcome(
                     original_user_content=claimed_run.original_user_content,
                     clarification_exchanges=claimed_run.clarification_exchanges,
@@ -796,15 +816,18 @@ async def process_chat_run(
                         followup_metadata_json=followup_metadata_json,
                         action=action,
                     )
+            _log_stage("PERSISTING OUTCOME & COMPLETING RUN", run_id)
             async with async_session() as finalize_db:
                 await ChatRunWorker(finalize_db).complete_run(
                     run_id,
                     worker_id,
                     outcome,
                 )
+            print(f"\n[CHAT RUN {run_id}] ✔ RUN COMPLETED SUCCESSFULLY\n{'='*70}\n", flush=True)
             return
 
         if claimed_run.post_answer_action == 'ask':
+            _log_stage("ANSWERING QUESTION (ASK Mode)", run_id)
             if not isinstance(claimed_run.case_state_json, dict):
                 raise CaseAnalysisFailure(
                     'analysis_context_missing',
@@ -830,14 +853,17 @@ async def process_chat_run(
                 answer.strip(),
                 analysis_context=claimed_run.analysis_context,
             )
+            _log_stage("PERSISTING ASK OUTCOME", run_id)
             async with async_session() as finalize_db:
                 await ChatRunWorker(finalize_db).complete_run(
                     run_id,
                     worker_id,
                     outcome,
                 )
+            print(f"\n[CHAT RUN {run_id}] ✔ ASK COMPLETED SUCCESSFULLY\n{'='*70}\n", flush=True)
             return
 
+        _log_stage("EXTRACTING BASELINE CASE STATE", run_id)
         validated_case_state_json, extraction_metadata = (
             await run_validated_case_state_extraction(
                 claimed_run,
@@ -863,12 +889,14 @@ async def process_chat_run(
                 followup_metadata_json,
             )
 
+        _log_stage("RAG RETRIEVAL (Querying GraphRAG)", run_id)
         retrieval_query = project_case_state_to_retrieval_query(
             validated_case_state_json,
         )
         response = await (rag_call or request_rag)(retrieval_query)
         rag_context_payload = _validated_rag_context_payload(response)
         analysis_context = rag_context_payload.to_analysis_context()
+        _log_stage("ANALYZING INITIAL CASE OVERVIEW", run_id)
         answer = await (ask_call or request_case_analysis)(
             mode='case_overview',
             case_state_json=validated_case_state_json,
@@ -880,6 +908,7 @@ async def process_chat_run(
                 'analysis_invalid_response',
                 'The initial Main Case Analysis returned no answer',
             )
+        _log_stage("EVALUATING CLARIFICATION & FOLLOWUP POLICY", run_id)
         followup_resolution = await evaluate_followup_outcome(
             original_user_content=claimed_run.original_user_content,
             clarification_exchanges=claimed_run.clarification_exchanges,
@@ -913,13 +942,16 @@ async def process_chat_run(
                 followup_metadata_json=followup_metadata_json,
             )
 
+        _log_stage("PERSISTING OUTCOME & COMPLETING RUN", run_id)
         async with async_session() as finalize_db:
             await ChatRunWorker(finalize_db).complete_run(
                 run_id,
                 worker_id,
                 outcome,
             )
+        print(f"\n[CHAT RUN {run_id}] ✔ INITIAL RUN COMPLETED SUCCESSFULLY\n{'='*70}\n", flush=True)
     except ExtractionStageFailure as exc:
+        print(f"\n[CHAT RUN {run_id}] ✖ FAILED AT EXTRACTION STAGE: [{exc.code}] {exc.message}\n{'='*70}\n", flush=True)
         await _record_failure(
             run_id,
             worker_id,
@@ -928,6 +960,7 @@ async def process_chat_run(
             followup_metadata_json=exc.metadata_json,
         )
     except RagCallFailure as exc:
+        print(f"\n[CHAT RUN {run_id}] ✖ FAILED AT RAG RETRIEVAL STAGE: [{exc.code}] {exc.message}\n{'='*70}\n", flush=True)
         await _record_failure(
             run_id,
             worker_id,
@@ -936,6 +969,7 @@ async def process_chat_run(
             followup_metadata_json=followup_metadata_json,
         )
     except CaseStateMutationFailure as exc:
+        print(f"\n[CHAT RUN {run_id}] ✖ FAILED AT MUTATION STAGE: [{exc.code}] {exc.message}\n{'='*70}\n", flush=True)
         await _record_failure(
             run_id,
             worker_id,
@@ -944,6 +978,7 @@ async def process_chat_run(
             followup_metadata_json=followup_metadata_json,
         )
     except CaseAnalysisFailure as exc:
+        print(f"\n[CHAT RUN {run_id}] ✖ FAILED AT ANALYSIS STAGE: [{exc.code}] {exc.message}\n{'='*70}\n", flush=True)
         await _record_failure(
             run_id,
             worker_id,
@@ -951,7 +986,8 @@ async def process_chat_run(
             exc.message,
             followup_metadata_json=followup_metadata_json,
         )
-    except Exception:
+    except Exception as exc:
+        print(f"\n[CHAT RUN {run_id}] ✖ FAILED WITH UNEXPECTED ERROR: {exc}\n{'='*70}\n", flush=True)
         await _record_failure(
             run_id,
             worker_id,

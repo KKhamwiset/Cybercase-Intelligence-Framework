@@ -181,7 +181,7 @@ class ChatReportTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.provider, "openrouter")
-        self.assertEqual(result.model, "openai/gpt-oss-120b")
+        self.assertEqual(result.model, "openai/gpt-5.6-luna")
         self.assertIsNotNone(result.report)
         self.assertEqual(len(adapter.calls), 1)
         self.assertEqual(result.input_tokens, 31)

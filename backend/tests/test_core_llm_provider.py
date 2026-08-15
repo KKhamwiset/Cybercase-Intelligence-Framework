@@ -37,7 +37,7 @@ class CoreLlmProviderTests(unittest.TestCase):
         )
 
         self.assertEqual(target.provider, "openrouter")
-        self.assertEqual(target.model, "openai/gpt-oss-120b")
+        self.assertEqual(target.model, "openai/gpt-5.6-luna")
         self.assertEqual(target.messages_url, "https://openrouter.ai/api/v1/messages")
         self.assertEqual(target.headers["Authorization"], "Bearer core-secret")
         self.assertNotIn("x-api-key", target.headers)

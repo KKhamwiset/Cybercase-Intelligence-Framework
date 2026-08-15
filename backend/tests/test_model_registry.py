@@ -11,7 +11,7 @@ from app.services.llm.model_registry import (
 
 
 def test_default_model():
-    assert DEFAULT_OPENROUTER_MODEL == "openai/gpt-oss-120b"
+    assert DEFAULT_OPENROUTER_MODEL == "openai/gpt-5.6-luna"
     assert resolve_openrouter_model(None) == DEFAULT_OPENROUTER_MODEL
     assert resolve_openrouter_model("") == DEFAULT_OPENROUTER_MODEL
     assert resolve_openrouter_model("default") == DEFAULT_OPENROUTER_MODEL
@@ -20,6 +20,9 @@ def test_default_model():
 @pytest.mark.parametrize(
     ("alias", "expected_canonical_id"),
     [
+        ("luna", "openai/gpt-5.6-luna"),
+        ("gpt-luna", "openai/gpt-5.6-luna"),
+        ("gpt-5.6-luna", "openai/gpt-5.6-luna"),
         ("gpt-oss-120b", "openai/gpt-oss-120b"),
         ("gpt-oss", "openai/gpt-oss-120b"),
         ("oss-120b", "openai/gpt-oss-120b"),
@@ -29,8 +32,6 @@ def test_default_model():
         ("claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"),
         ("haiku", "anthropic/claude-3.5-haiku"),
         ("claude-haiku", "anthropic/claude-3.5-haiku"),
-        ("luna", "openai/gpt-5.6-luna"),
-        ("gpt-luna", "openai/gpt-5.6-luna"),
         ("4o", "openai/gpt-4o"),
         ("gpt-4o", "openai/gpt-4o"),
     ],
@@ -55,5 +56,5 @@ def test_list_and_table_formatting():
 
     table = format_model_table()
     assert "CYBERCASE OPENROUTER MODEL REGISTRY" in table
-    assert "openai/gpt-oss-120b" in table
+    assert "openai/gpt-5.6-luna" in table
     assert "[DEFAULT]" in table

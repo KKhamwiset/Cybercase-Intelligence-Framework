@@ -206,7 +206,7 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result.status, "candidate")
         self.assertEqual(result.provider, "openrouter")
-        self.assertEqual(result.model, "openai/gpt-oss-120b")
+        self.assertEqual(result.model, "openai/gpt-5.6-luna")
         self.assertIsInstance(result.extraction, BaselineExtraction)
         assert result.extraction is not None
         self.assertEqual(result.extraction.evidence[0].evidence_id, "E-001")
