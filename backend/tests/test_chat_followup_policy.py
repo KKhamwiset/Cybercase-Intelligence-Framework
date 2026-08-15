@@ -413,7 +413,7 @@ class FollowUpOutcomeTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             outcome.metadata_json["chat_followup"]["policy_version"],
-            "baseline_pre_rag_followup_v1",
+            "analysis_aware_completeness_v2",
         )
         self.assertEqual(
             outcome.metadata_json["chat_followup"]["reason_code"],
@@ -697,6 +697,14 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(kwargs["question"])
             return "Grounded Main Case Analysis answer"
 
+        async def extraction_call(*args: object, **kwargs: object):
+            del args, kwargs
+            events.append("extraction")
+            return (
+                _validated_case_state(exchanges),
+                {"status": "candidate"},
+            )
+
         with (
             patch(
                 "app.services.chat.chat_worker.async_session",
@@ -706,14 +714,9 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
                 "app.services.chat.chat_worker.ChatRunWorker",
                 return_value=worker,
             ),
-            patch(
+             patch(
                 "app.services.chat.chat_worker.run_validated_case_state_extraction",
-                new=AsyncMock(
-                    return_value=(
-                        _validated_case_state(exchanges),
-                        {"status": "candidate"},
-                    )
-                ),
+                new=extraction_call,
             ),
         ):
             await process_chat_run(
@@ -724,7 +727,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             )
         return events, completed, rag_queries
 
-    async def test_policy_runs_before_rag_and_ask_skips_rag(self) -> None:
+    async def test_analysis_runs_before_policy_and_ask_persists_grounding(self) -> None:
         events, completed, rag_queries = await self._run(
             policy=_EventPolicy(
                 [],
@@ -736,16 +739,24 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertEqual(events, ["policy", "complete:awaiting_followup"])
-        self.assertEqual(rag_queries, [])
+        self.assertEqual(
+            events,
+            ["extraction", "rag", "policy", "complete:awaiting_followup"],
+        )
+        self.assertEqual(len(rag_queries), 1)
         self.assertEqual(len(completed), 1)
         self.assertEqual(completed[0].content, "Which host was affected?")
         self.assertEqual(
             completed[0].metadata_json["chat_followup"]["kind"],
             "clarification",
         )
+        self.assertIsNotNone(completed[0].validated_case_state_json)
+        self.assertIsNotNone(completed[0].rag_context_payload)
+        self.assertTrue(
+            completed[0].metadata_json["chat_followup"]["rag_invoked"]
+        )
 
-    async def test_proceed_calls_rag_exactly_once_after_policy(self) -> None:
+    async def test_policy_runs_after_analysis_and_rag_exactly_once(self) -> None:
         events, completed, rag_queries = await self._run(
             policy=_EventPolicy(
                 [],
@@ -757,7 +768,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        self.assertEqual(events, ["policy", "rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "policy", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         self.assertEqual(
             completed[0].content,
@@ -774,7 +785,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             policy=_MetricsProceedPolicy()
         )
 
-        self.assertEqual(events, ["rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         trace = completed[0].metadata_json["chat_followup"]
         self.assertEqual(trace["latency_ms"], 12.5)
@@ -786,7 +797,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             policy=_EventPolicy([], error=TimeoutError("policy timed out"))
         )
 
-        self.assertEqual(events, ["policy", "rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "policy", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         self.assertEqual(
             completed[0].content,
@@ -814,7 +825,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             exchanges=exchanges,
         )
 
-        self.assertEqual(events, ["rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         self.assertEqual(completed[0].thread_status, "answered")
         self.assertEqual(
@@ -841,7 +852,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             exchanges=exchanges,
         )
 
-        self.assertEqual(events, ["rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         self.assertEqual(
             rag_queries[0],
@@ -873,7 +884,7 @@ class ChatWorkerFollowUpTests(unittest.IsolatedAsyncioTestCase):
             exchanges=exchanges,
         )
 
-        self.assertEqual(events, ["policy", "rag", "complete:answered"])
+        self.assertEqual(events, ["extraction", "rag", "policy", "complete:answered"])
         self.assertEqual(len(rag_queries), 1)
         self.assertEqual(completed[0].thread_status, "answered")
         self.assertEqual(

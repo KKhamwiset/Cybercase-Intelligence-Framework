@@ -116,6 +116,8 @@ def validate_core_llm_provider(value: str) -> str:
     return provider
 
 
+from .model_registry import DEFAULT_OPENROUTER_MODEL, resolve_openrouter_model
+
 CORE_LLM_PROVIDER = validate_core_llm_provider(
     os.getenv("CORE_LLM_PROVIDER", "openrouter")
 )
@@ -124,8 +126,8 @@ OPENROUTER_CYBERCASE = os.getenv("OPENROUTER_CYBERCASE", "")
 CORE_LLM_ANTHROPIC_MODEL = os.getenv(
     "CORE_LLM_ANTHROPIC_MODEL", "claude-haiku-4-5"
 )
-CORE_LLM_OPENROUTER_MODEL = os.getenv(
-    "CORE_LLM_OPENROUTER_MODEL", "openai/gpt-5.6-luna"
+CORE_LLM_OPENROUTER_MODEL = resolve_openrouter_model(
+    os.getenv("CORE_LLM_OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
 )
 CORE_LLM_ANTHROPIC_BASE_URL = os.getenv(
     "CORE_LLM_ANTHROPIC_BASE_URL", "https://api.anthropic.com"

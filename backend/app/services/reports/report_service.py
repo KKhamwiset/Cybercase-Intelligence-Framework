@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
+from app.models.case_state import CaseStateVersion
 from app.models.chat import ChatMessage, ChatThread
+from app.models.rag_context import RagContext
 from app.models.report import ChatReport
 from app.schemas.chat import ChatReportCreate, ChatReportRead, MitreTableRow
 from app.schemas.chat.reports import StructuredReport
@@ -72,7 +74,13 @@ class ReportNotFound(ReportServiceError):
     """The requested thread or report does not exist."""
 
 
-def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
+def build_current_report_snapshot(
+    thread: ChatThread,
+    *,
+    current_case_state_json: dict[str, object] | None = None,
+    rag_context: RagContext | None = None,
+    case_state_version_id: UUID | None = None,
+) -> ReportInputSnapshot:
     """Build the only report input admitted by the current chat state.
 
     The server derives provenance from persisted rows. Assistant content is used
@@ -116,7 +124,27 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
             "Complete a terminal assistant answer before generating a report.",
         )
 
-    metadata = _metadata_dict(latest_assistant.metadata_json)
+    extraction_assistant = next(
+        (
+            message
+            for message in reversed(ordered_messages)
+            if message.role == "assistant"
+            and _is_terminal_assistant(message)
+            and isinstance(
+                _metadata_dict(message.metadata_json).get(EXTRACTION_METADATA_KEY),
+                dict,
+            )
+        ),
+        None,
+    )
+    if extraction_assistant is None:
+        raise ReportGenerationConflict(
+            "report_extraction_missing",
+            "A validated baseline extraction is required before generating a report.",
+        )
+
+    latest_metadata = _metadata_dict(latest_assistant.metadata_json)
+    metadata = _metadata_dict(extraction_assistant.metadata_json)
     extraction_metadata = metadata.get(EXTRACTION_METADATA_KEY)
     if not isinstance(extraction_metadata, dict):
         raise ReportGenerationConflict(
@@ -167,13 +195,16 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
         )
 
     try:
-        extraction = BaselineExtraction.model_validate(
-            {
+        extraction_payload = (
+            current_case_state_json
+            if current_case_state_json is not None
+            else {
                 field_name: extraction_metadata[field_name]
                 for field_name in _EXTRACTION_FIELDS
                 if field_name in extraction_metadata
             }
         )
+        extraction = BaselineExtraction.model_validate(extraction_payload)
         validate_baseline_extraction(extraction, extraction_input)
     except Exception as exc:
         raise ReportGenerationConflict(
@@ -190,14 +221,19 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
         )
         for message in extraction_input.messages
     ]
-    mitre_rows = _admitted_mitre_rows(metadata.get("mitre_table"))
+    mitre_value = (
+        rag_context.mitre_table
+        if rag_context is not None
+        else latest_metadata.get("mitre_table", metadata.get("mitre_table"))
+    )
+    mitre_rows = _admitted_mitre_rows(mitre_value)
     if len(mitre_rows) > 64:
         raise ReportGenerationConflict(
             "report_mitre_rows_too_many",
             "The persisted MITRE mapping contains too many rows for one report.",
         )
 
-    extraction_id = latest_assistant.id
+    extraction_id = extraction_assistant.id
     return ReportInputSnapshot(
         thread_id=thread.id,
         thread_title=thread.title or "New chat",
@@ -211,7 +247,14 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
             "extraction_provider": extraction_metadata.get("provider"),
             "extraction_model": extraction_metadata.get("model"),
             "source_message_ids": [str(message_id) for message_id in source_ids],
-            "mitre_source_message_id": str(extraction_id),
+            "mitre_source_message_id": str(latest_assistant.id),
+            "case_state_version_id": (
+                str(case_state_version_id) if case_state_version_id is not None else None
+            ),
+            "retrieval_context_id": (
+                rag_context.retrieval_context_id if rag_context is not None
+                else latest_assistant.retrieval_context_id
+            ),
         },
     )
 
@@ -250,7 +293,39 @@ class ChatReportService:
             if thread is None:
                 raise ReportNotFound("chat_thread_not_found", "Chat thread not found")
 
-            snapshot = build_current_report_snapshot(thread)
+            current_case_state: CaseStateVersion | None = None
+            current_rag_context: RagContext | None = None
+            if thread.current_case_state_version_id is not None:
+                state_result = await self.db.execute(
+                    select(CaseStateVersion).where(
+                        CaseStateVersion.id == thread.current_case_state_version_id,
+                        CaseStateVersion.thread_id == thread.id,
+                    )
+                )
+                current_case_state = state_result.scalar_one_or_none()
+                context_result = await self.db.execute(
+                    select(RagContext).where(
+                        RagContext.thread_id == thread.id,
+                        RagContext.case_state_version_id
+                        == thread.current_case_state_version_id,
+                    )
+                )
+                current_rag_context = context_result.scalar_one_or_none()
+                if current_case_state is None or current_rag_context is None:
+                    raise ReportGenerationConflict(
+                        "report_case_state_context_missing",
+                        "The latest Case State and retrieval context are not available for reporting.",
+                    )
+                snapshot = build_current_report_snapshot(
+                    thread,
+                    current_case_state_json=current_case_state.state_json,
+                    rag_context=current_rag_context,
+                    case_state_version_id=current_case_state.id,
+                )
+            else:
+                # Keep direct legacy fixtures/read-only callers compatible; all
+                # production chat runs now persist the pointer and context.
+                snapshot = build_current_report_snapshot(thread)
             snapshot_hash = source_snapshot_hash(snapshot)
             idempotency_key = request.idempotency_key or snapshot_hash
 

@@ -37,10 +37,17 @@ class CoreLlmProviderTests(unittest.TestCase):
         )
 
         self.assertEqual(target.provider, "openrouter")
-        self.assertEqual(target.model, "openai/gpt-5.6-luna")
+        self.assertEqual(target.model, "deepseek/deepseek-v4-flash-0731")
         self.assertEqual(target.messages_url, "https://openrouter.ai/api/v1/messages")
         self.assertEqual(target.headers["Authorization"], "Bearer core-secret")
         self.assertNotIn("x-api-key", target.headers)
+
+    def test_openrouter_target_resolves_aliases(self) -> None:
+        target = resolve_core_llm_target(
+            "sonnet",
+            configured_settings=self._settings(openrouter_key="core-secret"),
+        )
+        self.assertEqual(target.model, "anthropic/claude-3.5-sonnet")
 
     def test_anthropic_target_preserves_feature_model_and_native_auth(self) -> None:
         target = resolve_core_llm_target(

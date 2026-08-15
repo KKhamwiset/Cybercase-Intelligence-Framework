@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -60,6 +60,7 @@ from app.services.chat.outcome_mapper import (
     AssistantOutcome,
     RagContextPayload,
     _validated_rag_context_payload,
+    build_merged_extraction_metadata,
     map_case_analysis_response,
     map_case_state_mutation_response,
     map_case_state_no_change_response,
@@ -91,8 +92,10 @@ class ClaimedChatRun:
     original_user_content: object
     clarification_exchanges: tuple[ClarificationExchange, ...]
     followup_root_ordinal: int
+    pending_question: str | None = None
     extraction_input: ExtractionInput | None = None
     post_answer_action: str | None = None
+    clarification_answer: bool = False
     request_message_id: UUID | None = None
     case_state_version_id: UUID | None = None
     case_state_json: dict[str, object] | None = None
@@ -177,6 +180,10 @@ class ChatRunWorker:
             )
             if post_answer_action not in (None, 'ask', 'add_case_info'):
                 post_answer_action = None
+            clarification_answer = (
+                isinstance(request_payload, dict)
+                and request_payload.get("clarification_answer") is True
+            )
 
             case_state_json: dict[str, object] | None = None
             analysis_context: dict[str, object] | None = None
@@ -246,6 +253,7 @@ class ChatRunWorker:
             clarification_exchanges: tuple[
                 ClarificationExchange, ...
             ] = ()
+            pending_question: str | None = None
             followup_root_ordinal = requested_root_ordinal
             history: list[ChatMessage] | None = None
             if requested_root_ordinal is not None and requested_round == 0:
@@ -309,6 +317,7 @@ class ChatRunWorker:
                 if chain is not None:
                     original_user_content = chain.original_user_content
                     clarification_exchanges = chain.exchanges
+                    pending_question = chain.pending_question
                     followup_root_ordinal = chain.root_ordinal
                 if followup_root_ordinal is None:
                     request_message = next(
@@ -326,7 +335,7 @@ class ChatRunWorker:
                 followup_root_ordinal = 1
 
             extraction_input: ExtractionInput | None = None
-            if post_answer_action is None:
+            if post_answer_action in (None, "add_case_info"):
                 try:
                     if history is not None:
                         extraction_input = build_extraction_input(
@@ -361,9 +370,11 @@ class ChatRunWorker:
                 rag_query=rag_query,
                 original_user_content=original_user_content,
                 clarification_exchanges=clarification_exchanges,
+                pending_question=pending_question,
                 followup_root_ordinal=followup_root_ordinal,
                 extraction_input=extraction_input,
                 post_answer_action=post_answer_action,
+                clarification_answer=clarification_answer,
                 request_message_id=run.request_message_id,
                 case_state_version_id=case_state_version_id,
                 case_state_json=case_state_json,
@@ -440,7 +451,12 @@ class ChatRunWorker:
                     delta = CaseStateDelta.model_validate(
                         outcome.case_state_delta_json
                     )
-                    if not delta.changes:
+                    chat_action = outcome.metadata_json.get("chat_action")
+                    allow_empty_delta = (
+                        isinstance(chat_action, dict)
+                        and chat_action.get("action") == "clarification_answer"
+                    )
+                    if not delta.changes and not allow_empty_delta:
                         raise ValueError("an empty delta cannot create a child version")
                     merged_state = apply_case_state_delta(
                         parent_version.state_json,
@@ -673,6 +689,11 @@ async def process_chat_run(
                     new_user_message=claimed_run.content,
                     source_message_id=claimed_run.request_message_id,
                     mutation_intent='add_case_info',
+                    pending_question=(
+                        claimed_run.pending_question
+                        if claimed_run.clarification_answer
+                        else None
+                    ),
                 )
             except (TypeError, ValueError) as exc:
                 raise CaseStateMutationFailure(
@@ -695,7 +716,7 @@ async def process_chat_run(
                     ),
                 )
 
-            if not delta.changes:
+            if not delta.changes and not claimed_run.clarification_answer:
                 outcome = map_case_state_no_change_response(
                     mutation_metadata=mutation_metadata,
                 )
@@ -722,16 +743,59 @@ async def process_chat_run(
                         'analysis_invalid_response',
                         'The mutation Main Case Analysis returned no answer',
                     )
-                outcome = map_case_state_mutation_response(
-                    answer.strip(),
-                    rag_context_payload=rag_context_payload,
-                    merged_case_state_json=merged_case_state_json,
-                    delta_json=delta.model_dump(mode='json'),
-                    expected_parent_case_state_version_id=(
-                        claimed_run.case_state_version_id
-                    ),
+                extraction_metadata = build_merged_extraction_metadata(
+                    merged_case_state_json,
+                    source_message_ids=_source_message_ids_for_run(claimed_run),
                     mutation_metadata=mutation_metadata,
                 )
+                followup_resolution = await evaluate_followup_outcome(
+                    original_user_content=claimed_run.original_user_content,
+                    clarification_exchanges=claimed_run.clarification_exchanges,
+                    followup_root_ordinal=claimed_run.followup_root_ordinal,
+                    source_run_id=claimed_run.id,
+                    policy=policy,
+                    case_state=merged_case_state_json,
+                    analysis_answer=answer.strip(),
+                    analysis_context=analysis_context,
+                )
+                action = (
+                    "clarification_answer"
+                    if claimed_run.clarification_answer
+                    else "add_case_info"
+                )
+                if followup_resolution.outcome is not None:
+                    outcome = _attach_post_analysis_followup_outcome(
+                        followup_resolution.outcome,
+                        rag_context_payload=rag_context_payload,
+                        validated_case_state_json=merged_case_state_json,
+                        extraction_metadata=extraction_metadata,
+                        action=action,
+                        delta_json=delta.model_dump(mode='json'),
+                        expected_parent_case_state_version_id=(
+                            claimed_run.case_state_version_id
+                        ),
+                        mutation_metadata=mutation_metadata,
+                    )
+                else:
+                    followup_metadata_json = {
+                        **_mark_followup_rag_invoked_metadata(
+                            followup_resolution.metadata_json
+                        ),
+                        EXTRACTION_METADATA_KEY: extraction_metadata,
+                    }
+                    outcome = map_case_state_mutation_response(
+                        answer.strip(),
+                        rag_context_payload=rag_context_payload,
+                        merged_case_state_json=merged_case_state_json,
+                        delta_json=delta.model_dump(mode='json'),
+                        expected_parent_case_state_version_id=(
+                            claimed_run.case_state_version_id
+                        ),
+                        mutation_metadata=mutation_metadata,
+                        extraction_metadata=extraction_metadata,
+                        followup_metadata_json=followup_metadata_json,
+                        action=action,
+                    )
             async with async_session() as finalize_db:
                 await ChatRunWorker(finalize_db).complete_run(
                     run_id,
@@ -774,23 +838,6 @@ async def process_chat_run(
                 )
             return
 
-        followup_resolution = await evaluate_followup_outcome(
-            original_user_content=claimed_run.original_user_content,
-            clarification_exchanges=claimed_run.clarification_exchanges,
-            followup_root_ordinal=claimed_run.followup_root_ordinal,
-            source_run_id=claimed_run.id,
-            policy=policy,
-        )
-        followup_metadata_json = followup_resolution.metadata_json
-        if followup_resolution.outcome is not None:
-            async with async_session() as finalize_db:
-                await ChatRunWorker(finalize_db).complete_run(
-                    run_id,
-                    worker_id,
-                    followup_resolution.outcome,
-                )
-            return
-
         validated_case_state_json, extraction_metadata = (
             await run_validated_case_state_extraction(
                 claimed_run,
@@ -819,12 +866,6 @@ async def process_chat_run(
         retrieval_query = project_case_state_to_retrieval_query(
             validated_case_state_json,
         )
-        followup_metadata_json = {
-            **_mark_followup_rag_invoked_metadata(
-                followup_resolution.metadata_json
-            ),
-            EXTRACTION_METADATA_KEY: extraction_metadata,
-        }
         response = await (rag_call or request_rag)(retrieval_query)
         rag_context_payload = _validated_rag_context_payload(response)
         analysis_context = rag_context_payload.to_analysis_context()
@@ -839,13 +880,38 @@ async def process_chat_run(
                 'analysis_invalid_response',
                 'The initial Main Case Analysis returned no answer',
             )
-        outcome = map_initial_case_analysis_response(
-            answer.strip(),
-            rag_context_payload=rag_context_payload,
-            validated_case_state_json=validated_case_state_json,
-            extraction_metadata=extraction_metadata,
-            followup_metadata_json=followup_metadata_json or {},
+        followup_resolution = await evaluate_followup_outcome(
+            original_user_content=claimed_run.original_user_content,
+            clarification_exchanges=claimed_run.clarification_exchanges,
+            followup_root_ordinal=claimed_run.followup_root_ordinal,
+            source_run_id=claimed_run.id,
+            policy=policy,
+            case_state=validated_case_state_json,
+            analysis_answer=answer.strip(),
+            analysis_context=analysis_context,
         )
+        if followup_resolution.outcome is not None:
+            outcome = _attach_post_analysis_followup_outcome(
+                followup_resolution.outcome,
+                rag_context_payload=rag_context_payload,
+                validated_case_state_json=validated_case_state_json,
+                extraction_metadata=extraction_metadata,
+                action="initial_analysis",
+            )
+        else:
+            followup_metadata_json = {
+                **_mark_followup_rag_invoked_metadata(
+                    followup_resolution.metadata_json
+                ),
+                EXTRACTION_METADATA_KEY: extraction_metadata,
+            }
+            outcome = map_initial_case_analysis_response(
+                answer.strip(),
+                rag_context_payload=rag_context_payload,
+                validated_case_state_json=validated_case_state_json,
+                extraction_metadata=extraction_metadata,
+                followup_metadata_json=followup_metadata_json,
+            )
 
         async with async_session() as finalize_db:
             await ChatRunWorker(finalize_db).complete_run(
@@ -910,6 +976,64 @@ async def _record_failure(
             error_message,
             followup_metadata_json=followup_metadata_json,
         )
+
+
+def _source_message_ids_for_run(claimed_run: ClaimedChatRun) -> list[UUID]:
+    if claimed_run.extraction_input is not None:
+        return [
+            message.message_id for message in claimed_run.extraction_input.messages
+        ]
+    if claimed_run.request_message_id is not None:
+        return [claimed_run.request_message_id]
+    return []
+
+
+def _attach_post_analysis_followup_outcome(
+    outcome: AssistantOutcome,
+    *,
+    rag_context_payload: RagContextPayload,
+    validated_case_state_json: dict[str, object],
+    extraction_metadata: dict[str, Any],
+    action: str,
+    delta_json: dict[str, object] | None = None,
+    expected_parent_case_state_version_id: UUID | None = None,
+    mutation_metadata: dict[str, Any] | None = None,
+) -> AssistantOutcome:
+    """Carry the latest analysis artifacts through the pending-follow-up turn."""
+
+    marked = _mark_followup_rag_invoked(outcome, outcome.metadata_json)
+    metadata = deepcopy(marked.metadata_json)
+    metadata.update(
+        {
+            EXTRACTION_METADATA_KEY: deepcopy(extraction_metadata),
+            "analysis_kind": "grounded_main_analysis",
+            "retrieved_context": rag_context_payload.context,
+            "mitre_table": deepcopy(list(rag_context_payload.mitre_table)),
+            "chat_action": {
+                "action": action,
+                "route": "analysis",
+                "grounded_main_analysis": True,
+                "state_mutated": True,
+                "case_state_version_created": True,
+                "rag_invoked": True,
+                "retrieval_context_reused": False,
+                "analysis_mode": "case_overview",
+            },
+        }
+    )
+    if delta_json is not None:
+        metadata["case_state_delta"] = deepcopy(delta_json)
+    if mutation_metadata is not None:
+        metadata["chat_mutation"] = deepcopy(mutation_metadata)
+    return replace(
+        marked,
+        retrieval_context_id=rag_context_payload.retrieval_context_id,
+        metadata_json=metadata,
+        validated_case_state_json=deepcopy(validated_case_state_json),
+        rag_context_payload=rag_context_payload,
+        case_state_delta_json=(deepcopy(delta_json) if delta_json is not None else None),
+        expected_parent_case_state_version_id=expected_parent_case_state_version_id,
+    )
 
 
 __all__ = [

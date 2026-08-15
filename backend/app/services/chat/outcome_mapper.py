@@ -10,7 +10,12 @@ from uuid import UUID
 from app.schemas.chat.rag import QueryResponse
 from app.services.case_analysis import CASE_ANALYSIS_PROMPT_VERSION
 from app.services.chat.rag_client import RagCallFailure
-from app.services.extraction.llm_extraction import EXTRACTION_METADATA_KEY
+from app.services.extraction.llm_extraction import (
+    BASELINE_EXTRACTION_MODE,
+    BASELINE_EXTRACTION_PROMPT_VERSION,
+    BASELINE_EXTRACTION_VERSION,
+    EXTRACTION_METADATA_KEY,
+)
 
 
 @dataclass(frozen=True)
@@ -175,27 +180,35 @@ def map_case_state_mutation_response(
     delta_json: dict[str, object],
     expected_parent_case_state_version_id: UUID,
     mutation_metadata: dict[str, Any],
+    extraction_metadata: dict[str, Any] | None = None,
+    followup_metadata_json: dict[str, Any] | None = None,
+    action: str = "add_case_info",
 ) -> AssistantOutcome:
     """Map a successful explicit mutation into an atomic child-version outcome."""
 
-    metadata_json: dict[str, Any] = {
-        "chat_mutation": deepcopy(mutation_metadata),
-        "retrieved_context": rag_context_payload.context,
-        "mitre_table": deepcopy(list(rag_context_payload.mitre_table)),
-        "case_state_delta": deepcopy(delta_json),
-        "analysis_kind": "grounded_main_analysis",
-        "chat_action": {
-            "action": "add_case_info",
-            "route": "analysis",
-            "grounded_main_analysis": True,
-            "state_mutated": True,
-            "case_state_version_created": True,
-            "rag_invoked": True,
-            "retrieval_context_reused": False,
-            "analysis_mode": "case_overview",
-            "prompt_version": CASE_ANALYSIS_PROMPT_VERSION,
+    metadata_json: dict[str, Any] = deepcopy(followup_metadata_json or {})
+    metadata_json.update(
+        {
+            "chat_mutation": deepcopy(mutation_metadata),
+            "retrieved_context": rag_context_payload.context,
+            "mitre_table": deepcopy(list(rag_context_payload.mitre_table)),
+            "case_state_delta": deepcopy(delta_json),
+            "analysis_kind": "grounded_main_analysis",
+            "chat_action": {
+                "action": action,
+                "route": "analysis",
+                "grounded_main_analysis": True,
+                "state_mutated": True,
+                "case_state_version_created": True,
+                "rag_invoked": True,
+                "retrieval_context_reused": False,
+                "analysis_mode": "case_overview",
+                "prompt_version": CASE_ANALYSIS_PROMPT_VERSION,
+            },
         },
-    }
+    )
+    if extraction_metadata is not None:
+        metadata_json[EXTRACTION_METADATA_KEY] = deepcopy(extraction_metadata)
     return AssistantOutcome(
         content=answer,
         retrieval_context_id=rag_context_payload.retrieval_context_id,
@@ -238,3 +251,30 @@ def map_case_state_no_change_response(
         thread_status="answered",
         active_rag_session_id=None,
     )
+
+
+def build_merged_extraction_metadata(
+    case_state_json: dict[str, object],
+    *,
+    source_message_ids: list[UUID],
+    mutation_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Represent a validated delta merge using the stable extraction contract."""
+
+    mutation_metadata = mutation_metadata or {}
+    metadata: dict[str, Any] = {
+        "version": BASELINE_EXTRACTION_VERSION,
+        "mode": BASELINE_EXTRACTION_MODE,
+        "status": "candidate",
+        "prompt_version": BASELINE_EXTRACTION_PROMPT_VERSION,
+        "provider": mutation_metadata.get("provider"),
+        "model": mutation_metadata.get("model"),
+        "validation_status": "validated",
+        "latency_ms": mutation_metadata.get("latency_ms", 0.0),
+        "input_tokens": mutation_metadata.get("input_tokens"),
+        "output_tokens": mutation_metadata.get("output_tokens"),
+        "source_message_ids": [str(message_id) for message_id in source_message_ids],
+        "raw_response": None,
+    }
+    metadata.update(deepcopy(case_state_json))
+    return metadata

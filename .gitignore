@@ -111,11 +111,8 @@ yarn-error.log*
 /db-data/
 
 # ==============================================================================
-# Alembic
+# Experiments & Research Benchmarks
 # ==============================================================================
-# Usually alembic/versions/ is tracked, but we ignore pycache and compiled files
-alembic/versions/*.pyc
-alembic/versions/__pycache__/
-# Ignore alembic.ini if it contains sensitive database URIs
-# (Uncomment below if you don't want to track alembic.ini)
-# alembic.ini
+experiments/
+backend/experiments/
+

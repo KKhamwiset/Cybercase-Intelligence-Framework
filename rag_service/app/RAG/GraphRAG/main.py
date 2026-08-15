@@ -283,7 +283,37 @@ Examples (run from rag_service/app):
         ),
     )
 
+    arg_parser.add_argument(
+        "--model",
+        "-m",
+        type=str,
+        default=None,
+        help="Select OpenRouter model alias (deepseek, qwen, sonnet, haiku, luna, 4o) or custom model ID",
+    )
+
+    arg_parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="Display curated ready-selection OpenRouter models and exit",
+    )
+
     args = arg_parser.parse_args()
+
+    if args.list_models:
+        from .model_registry import format_model_table
+        print(format_model_table())
+        return
+
+    if args.model:
+        import os
+        from . import config
+        from .model_registry import resolve_openrouter_model
+        resolved_model = resolve_openrouter_model(args.model)
+        os.environ["CORE_LLM_OPENROUTER_MODEL"] = resolved_model
+        config.CORE_LLM_OPENROUTER_MODEL = resolved_model
+        if config.CORE_LLM_PROVIDER == "openrouter":
+            config.CORE_LLM_EFFECTIVE_MODEL = resolved_model
+        print(f"[MODEL] Active OpenRouter model: {resolved_model}")
 
     if args.ingest:
         is_cloud = bool(QDRANT_URL) or "localhost" not in NEO4J_URI

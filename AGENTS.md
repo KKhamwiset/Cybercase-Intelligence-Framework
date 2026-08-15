@@ -17,10 +17,16 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 - **Agentic Pipeline**: LangGraph (State Machine) + LangChain LCEL
 - **Graph Database**: Neo4j (Enterprise/Community)
 - **Vector Database**: Qdrant (1024-dim, BGE-M3 embeddings)
-- **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py`):
-  - **Reasoning**: `claude-sonnet-4-20250514` (or latest Sonnet)
-  - **Evaluator / Token-efficiency**: `claude-haiku-4-5`
-  - **Embedding**: `BAAI/bge-m3` (FP16, 1024-dim)
+- **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py` & `backend/app/config.py`):
+  - **OpenRouter Default**: `deepseek/deepseek-v4-flash-0731` (alias: `deepseek`)
+  - **Ready-Selection Aliases**:
+    - `deepseek` $\to$ `deepseek/deepseek-v4-flash-0731` (Default)
+    - `qwen` $\to$ `qwen/qwen3.8-27b`
+    - `sonnet` $\to$ `anthropic/claude-3.5-sonnet`
+    - `haiku` $\to$ `anthropic/claude-3.5-haiku`
+    - `luna` $\to$ `openai/gpt-5.6-luna`
+    - `4o` $\to$ `openai/gpt-4o`
+  - **Embedding**: `BAAI/bge-m3` (FP16 on CUDA, FP32 on CPU, 1024-dim)
   - **Reranker**: `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1`
   - **RAGAS Evaluator**: `meta-llama/llama-3.3-70b-instruct:free` (via OpenRouter)
 
@@ -35,6 +41,7 @@ Cybercase Framework/
 │   │   ├── models/chat.py     # Persisted chat threads, messages, and runs
 │   │   ├── routers/           # Health and chat endpoints
 │   │   ├── services/chat/     # Chat lifecycle, worker, clarification, RAG client
+│   │   ├── services/llm/      # LLM provider routing & model registry
 │   │   └── database.py       # Async engine and session management
 │   └── alembic/              # Async PostgreSQL migrations
 ├── rag_service/              # Standalone GraphRAG FastAPI service
@@ -43,6 +50,7 @@ Cybercase Framework/
 │       ├── pipeline/          # LangGraph, context builder, and evaluator
 │       ├── retrieval/         # Dense + graph retrieval and fusion
 │       ├── evaluation/        # RAG evaluation tools
+│       ├── model_registry.py  # Central OpenRouter presets & alias resolver
 │       └── config.py          # RAG settings and model routing
 ├── frontend/                 # Next.js 15 Web Application
 │   └── src/
@@ -77,11 +85,19 @@ python -m alembic upgrade head
 ```bash
 cd rag_service/app
 
+# Display available OpenRouter models catalog
+python -m RAG.GraphRAG.main --list-models
+
 # Ingest all STIX 2.1 bundle data into Qdrant & Neo4j
 python -m RAG.GraphRAG.main --ingest
 
-# Run interactive RAG playground
+# Run interactive RAG playground with default DeepSeek model
 python -m RAG.GraphRAG.main
+
+# Run with specific model alias (e.g. Sonnet, Qwen, GPT-4o)
+python -m RAG.GraphRAG.main --model sonnet
+python -m RAG.GraphRAG.main --model qwen
+python -m RAG.GraphRAG.main --model 4o
 
 # Run pipeline in LangGraph Agentic mode
 python -m RAG.GraphRAG.main --agent

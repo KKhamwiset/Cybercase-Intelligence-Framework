@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.config import Settings, settings
+from app.services.llm.model_registry import resolve_openrouter_model
 
 
 CoreLlmProvider = Literal["anthropic", "openrouter"]
@@ -47,9 +48,15 @@ def resolve_core_llm_target(
         api_key = active_settings.openrouter_cybercase.strip()
         if require_key and not api_key:
             raise CoreLlmConfigurationError("openrouter", "OPENROUTER_CYBERCASE")
+        selected_model = (
+            feature_anthropic_model
+            if feature_anthropic_model
+            else active_settings.core_llm_openrouter_model
+        )
+        resolved_model = resolve_openrouter_model(selected_model)
         return CoreLlmTarget(
             provider="openrouter",
-            model=active_settings.core_llm_openrouter_model,
+            model=resolved_model,
             api_key=api_key,
             base_url=active_settings.openrouter_base_url.rstrip("/"),
             messages_url=active_settings.openrouter_messages_url,

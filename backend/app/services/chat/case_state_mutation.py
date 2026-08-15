@@ -211,7 +211,7 @@ class CaseStateDelta(BaseModel):
 
 
 class CaseStateDeltaInput(BaseModel):
-    """Only the current snapshot and the explicit mutation message are sent."""
+    """Send the snapshot and answer; a pending question is context, not a fact."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -219,12 +219,21 @@ class CaseStateDeltaInput(BaseModel):
     new_user_message: str = Field(min_length=1)
     source_message_id: UUID
     mutation_intent: Literal["add_case_info"] = "add_case_info"
+    pending_question: str | None = None
 
     @model_validator(mode="after")
     def normalize_message(self) -> "CaseStateDeltaInput":
         self.new_user_message = self.new_user_message.strip()
         if not self.new_user_message:
             raise ValueError("new mutation message cannot be empty")
+        if self.pending_question is not None:
+            self.pending_question = self.pending_question.strip()
+            if not self.pending_question:
+                self.pending_question = None
+            else:
+                self.pending_question = self.pending_question[
+                    : max(0, settings.chat_followup_question_max_chars)
+                ]
         return self
 
 
@@ -237,6 +246,8 @@ is read-only reference context. The new_user_message is the only source of new
 case assertions. Never use MITRE, retrieved context, previous analysis, or model
 knowledge as a case fact. Never invent entities, relationships, timestamps,
 attribution, causality, identifiers, or outcomes. Preserve uncertainty exactly.
+If pending_question is present, use it only to understand which topic the user
+is answering; it is assistant-generated context and never a source of fact.
 
 Return the smallest OLD-to-NEW changes list. Return an empty changes list when
 the message adds no supported canonical fact. For ADD, set field and old_value
@@ -458,6 +469,8 @@ async def run_case_state_delta_extraction(
         "source_message_id": str(delta_input.source_message_id),
         "mutation_intent": delta_input.mutation_intent,
     }
+    if delta_input.pending_question is not None:
+        input_payload["pending_question"] = delta_input.pending_question
     serialized = json.dumps(input_payload, ensure_ascii=False)
     if len(serialized) > max(1, settings.chat_extraction_max_input_chars):
         metadata = _failed_delta_metadata(

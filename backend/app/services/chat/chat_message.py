@@ -21,6 +21,7 @@ class ClarificationChain:
     root_ordinal: int
     original_user_content: str
     exchanges: tuple[ClarificationExchange, ...]
+    pending_question: str | None = None
 
 
 def _followup_root_ordinal(message: ChatMessage) -> int | None:
@@ -158,6 +159,7 @@ def reconstruct_clarification_chain(
         root_ordinal=root.ordinal,
         original_user_content=root.content,
         exchanges=tuple(exchanges),
+        pending_question=pending_question,
     )
 
 
@@ -281,9 +283,21 @@ class ChatMessageService:
             rag_query = request.content
             followup_root_ordinal = ordinal
             followup_round = 0
+            # New post-analysis follow-up rows have a durable Case State. Keep
+            # legacy rows without one readable so they can be retried through
+            # the historical clarified-query path.
+            clarification_answer = (
+                thread.status == "awaiting_followup"
+                and thread.current_case_state_version_id is not None
+            )
             post_answer_action = (
                 request.action if thread.status == "answered" else None
             )
+            if clarification_answer:
+                # A clarification answer is a case-state mutation even though
+                # the frontend does not send an explicit action.  The worker
+                # still uses the bounded delta extractor and atomic version path.
+                post_answer_action = "add_case_info"
             post_answer_parent_version_id = None
             if thread.status == "answered":
                 if post_answer_action is None:
@@ -313,7 +327,23 @@ class ChatMessageService:
                         detail="The current case state could not be loaded",
                     )
                 post_answer_parent_version_id = thread.current_case_state_version_id
-            elif thread.status == "awaiting_followup":
+            if clarification_answer:
+                case_state_result = await self.db.execute(
+                    select(CaseStateVersion).where(
+                        CaseStateVersion.id
+                        == thread.current_case_state_version_id,
+                        CaseStateVersion.thread_id == thread.id,
+                    )
+                )
+                case_state = case_state_result.scalar_one_or_none()
+                if case_state is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="The current case state could not be loaded",
+                    )
+                post_answer_parent_version_id = thread.current_case_state_version_id
+
+            if thread.status == "awaiting_followup":
                 history_result = await self.db.execute(
                     select(ChatMessage)
                     .where(ChatMessage.thread_id == thread.id)
@@ -358,6 +388,8 @@ class ChatMessageService:
             }
             if post_answer_action is not None:
                 request_payload["action"] = post_answer_action
+                if clarification_answer:
+                    request_payload["clarification_answer"] = True
                 if post_answer_parent_version_id is not None:
                     request_payload["case_state_version_id"] = str(
                         post_answer_parent_version_id

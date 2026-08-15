@@ -48,9 +48,15 @@ def resolve_core_llm_target(
         if require_key and not api_key:
             raise CoreLlmConfigurationError("openrouter", "OPENROUTER_CYBERCASE")
         base_url = config.CORE_LLM_OPENROUTER_BASE_URL.rstrip("/")
+        selected_model = (
+            anthropic_model
+            if anthropic_model
+            else config.CORE_LLM_OPENROUTER_MODEL
+        )
+        resolved_model = config.resolve_openrouter_model(selected_model)
         return CoreLlmTarget(
             provider="openrouter",
-            model=config.CORE_LLM_OPENROUTER_MODEL,
+            model=resolved_model,
             api_key=api_key,
             base_url=base_url,
             messages_url=f"{base_url}/v1/messages",

@@ -1,13 +1,15 @@
-"""Pre-retrieval clarification checks, follow-up decision policy evaluation, and audit metadata formatting."""
+"""Post-analysis completeness checks and follow-up audit metadata formatting."""
 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import re
 import time
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any, Sequence
 from uuid import UUID
@@ -96,8 +98,11 @@ async def evaluate_followup_outcome(
     followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
+    case_state: Mapping[str, object] | None = None,
+    analysis_answer: str | None = None,
+    analysis_context: Mapping[str, object] | None = None,
 ) -> FollowUpResolution:
-    """Run the generic pre-RAG gate and return an auditable resolution."""
+    """Run the post-analysis completeness gate and return an audit record."""
 
     round_number = len(clarification_exchanges) + 1
     prior_exchange_count = len(clarification_exchanges)
@@ -150,15 +155,24 @@ async def evaluate_followup_outcome(
     started = time.perf_counter()
     try:
         active_policy = policy() if isinstance(policy, type) else (policy or AnthropicFollowUpPolicy())
-        if hasattr(active_policy, "decide_with_metadata") and callable(getattr(active_policy, "decide_with_metadata")):
-            raw_result = await active_policy.decide_with_metadata(
-                original_user_content=original_user_content,
-                clarification_exchanges=clarification_exchanges,
+        policy_kwargs = {
+            "original_user_content": original_user_content,
+            "clarification_exchanges": clarification_exchanges,
+            "case_state": case_state,
+            "analysis_answer": analysis_answer,
+            "analysis_context": analysis_context,
+        }
+        if hasattr(active_policy, "decide_with_metadata") and callable(
+            getattr(active_policy, "decide_with_metadata")
+        ):
+            raw_result = await _invoke_policy_method(
+                active_policy.decide_with_metadata,
+                policy_kwargs,
             )
         else:
-            raw_result = await active_policy.decide(
-                original_user_content=original_user_content,
-                clarification_exchanges=clarification_exchanges,
+            raw_result = await _invoke_policy_method(
+                active_policy.decide,
+                policy_kwargs,
             )
         elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
         result = _coerce_policy_result(raw_result, elapsed_ms=elapsed_ms)
@@ -264,6 +278,9 @@ async def resolve_followup_outcome(
     followup_root_ordinal: int,
     source_run_id: UUID,
     policy: FollowUpPolicy | None = None,
+    case_state: Mapping[str, object] | None = None,
+    analysis_answer: str | None = None,
+    analysis_context: Mapping[str, object] | None = None,
 ) -> AssistantOutcome | None:
     """Compatibility wrapper returning only the pending assistant outcome."""
 
@@ -273,8 +290,30 @@ async def resolve_followup_outcome(
         followup_root_ordinal=followup_root_ordinal,
         source_run_id=source_run_id,
         policy=policy,
+        case_state=case_state,
+        analysis_answer=analysis_answer,
+        analysis_context=analysis_context,
     )
     return resolution.outcome
+
+
+async def _invoke_policy_method(
+    method: Any,
+    kwargs: dict[str, object],
+) -> object:
+    """Call old test/custom policies without dropping new completeness context."""
+
+    try:
+        parameters = inspect.signature(method).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    accepts_kwargs = any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    if not accepts_kwargs and parameters:
+        kwargs = {key: value for key, value in kwargs.items() if key in parameters}
+    return await method(**kwargs)
 
 
 def _coerce_policy_result(
