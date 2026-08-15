@@ -48,7 +48,7 @@ export function ChatComposer({
           onKeyDown={handleKeyDown}
           onChange={(event) => onInputChange(event.target.value)}
           placeholder="Describe an incident, paste forensic logs, or ask about MITRE techniques..."
-          className="w-full resize-none bg-transparent pr-12 text-sm text-ink outline-none placeholder:text-ink-muted disabled:text-ink-disabled"
+          className="w-full resize-none border-none bg-transparent pr-12 text-sm text-ink outline-none shadow-none placeholder:text-ink-muted focus:border-none focus:outline-none focus:ring-0 focus-visible:border-none focus-visible:outline-none focus-visible:ring-0 disabled:text-ink-disabled"
         />
 
         <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
