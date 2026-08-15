@@ -1,6 +1,22 @@
 """
-LangChain LCEL Chain for MITRE ATT&CK GraphRAG
-================================================
+LangChain LCEL Chain for MITRE ATT&CK GraphRAG  —  EVALUATION ONLY
+==================================================================
+NOT a production path. ``POST /query`` always routes to ``GraphRAGAgent``
+(agent_graph.py); nothing in ``app/`` imports this module, and it is
+deliberately absent from ``pipeline/__init__.py`` so importing the package
+does not drag it in.
+
+It survives because ``evaluation/eval_runner.py --mode generation`` and
+``evaluation/crosslingual_benchmark.py`` still build a ``GraphRAGChain``
+directly, and they are the baseline the agent path is measured against.
+Retiring it means porting those two onto ``GraphRAGAgent`` first — which
+would move the eval numbers, so it is a deliberate decision, not cleanup.
+
+This is also the only remaining caller of the translate-then-retrieve flow
+(``CrossLingualLayer.translate_query`` → ``build_retrieval_queries`` →
+``DUAL_QUERY_RETRIEVAL``). The agent dropped input translation entirely:
+BGE-M3 is multilingual, so it retrieves on the Thai text as-is.
+
 Orchestrates the full cross-lingual GraphRAG pipeline:
 
     Thai Query

@@ -1,7 +1,7 @@
 """
 LangGraph Agentic RAG Pipeline
 ================================
-Replaces the linear LCEL chain with a stateful graph that supports:
+The only pipeline serving ``POST /query``. A stateful graph that supports:
 
    1. **Decomposed Multi-Query Retrieval** — the incident is broken into atomic
       per-technique sub-queries (in the incident's own language; no English
@@ -42,8 +42,6 @@ from ..config import (
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,
-    LOCAL_LLM_MODEL,
-    OLLAMA_BASE_URL,
     SINGLE_CALL_GENERATION,
     ULTRAFAST_MAX_TOKENS,
     ULTRAFAST_TOP_K,
@@ -84,8 +82,11 @@ class AgentState(TypedDict, total=False):
     # ── Routing ───────────────────────────────────────────────────────────
     route: str  # GENERAL_EXPLANATION | INCIDENT_ANALYSIS
 
-    # ── Translation ───────────────────────────────────────────────────────
-    english_query: str  # Translated (or original if already English)
+    # ── Language ──────────────────────────────────────────────────────────
+    # Nothing translates the input any more. english_query is kept only so the
+    # evaluator and reasoning nodes have a stable handle; it mirrors the
+    # original query verbatim. Renaming it would touch the evaluator contract.
+    english_query: str
     respond_in_thai: bool
     answer_is_final: bool  # single-call generation already produced Thai
 
@@ -140,19 +141,17 @@ MAX_BROADEN_RETRIES = 2  # Broaden iterations before answering with what we have
 class GraphRAGAgent:
     """Agentic RAG pipeline built on LangGraph.
 
-    Drop-in companion for ``GraphRAGChain`` — offers the same ``.query()``
-    interface but with query decomposition and a self-reflection loop.
+    Adds query decomposition and a self-reflection loop on top of plain
+    retrieve-then-generate.
     """
 
     def __init__(
         self,
         embed_model: Optional[BGEM3FlagModel] = None,
         reranker: Optional[Any] = None,
-        use_local: bool = False,
     ) -> None:
         sep("Initializing GraphRAG Agent (LangGraph)")
 
-        self.use_local = use_local
         self._ultrafast_llm = None  # lazily built on first query_ultrafast call
 
         # Shared embedding model
@@ -162,62 +161,37 @@ class GraphRAGAgent:
         else:
             self.embed_model = embed_model
 
-        # Components — propagate use_local to all LLM-bearing components.
         # No input-translation component: retrieval is native-language (BGE-M3).
         # CrossLingualLayer is still used, but only via its @staticmethods
         # (language detect + system prompts), so no instance is needed.
         self.retriever = HybridRetriever(
             embed_model=self.embed_model, reranker=reranker
         )
-        self.router = QueryRouter(use_local=use_local)
-        self.evaluator = ContextEvaluator(use_local=use_local)
-        self.decomposer = QueryDecomposer(use_local=use_local)
+        self.router = QueryRouter()
+        self.evaluator = ContextEvaluator()
+        self.decomposer = QueryDecomposer()
 
-        # LLMs
-        if use_local:
-            from langchain_ollama import ChatOllama
-
-            # reasoning=False disables Qwen3.5 thinking, so no <think> blocks leak
-            # into the answer or the downstream Thai translation stage.
-            self.reasoning_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+        # Both LLMs are the same model; the system prompt draws the stage
+        # boundary. reasoning_llm and translation_llm are set (and cleared)
+        # together, so downstream None-checks only ever see both or neither.
+        try:
+            target = resolve_core_llm_target(LLM_MODEL)
+            self.reasoning_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=LLM_MAX_TOKENS,
             )
-            self.translation_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+            self.translation_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=LLM_MAX_TOKENS,
             )
-            print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
-            print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
-        else:
-            try:
-                target = resolve_core_llm_target(LLM_MODEL)
-                self.reasoning_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=LLM_MAX_TOKENS,
-                )
-                self.translation_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=LLM_MAX_TOKENS,
-                )
-                print(
-                    f"[AGENT] Reasoning LLM : {target.model} ({target.provider})"
-                )
-                print(
-                    f"[AGENT] Translation LLM: {target.model} ({target.provider})"
-                )
-            except CoreLlmConfigurationError as exc:
-                self.reasoning_llm = None
-                self.translation_llm = None
-                print(f"[AGENT] No cloud LLM configured: {exc}")
+            print(f"[AGENT] Reasoning LLM : {target.model} ({target.provider})")
+            print(f"[AGENT] Translation LLM: {target.model} ({target.provider})")
+        except CoreLlmConfigurationError as exc:
+            self.reasoning_llm = None
+            self.translation_llm = None
+            print(f"[AGENT] No cloud LLM configured: {exc}")
 
         print(
             "[AGENT] Generation    : "
@@ -321,25 +295,14 @@ class GraphRAGAgent:
         if self._ultrafast_llm is not None:
             return self._ultrafast_llm
 
-        if self.use_local:
-            from langchain_ollama import ChatOllama
-
-            self._ultrafast_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+        try:
+            self._ultrafast_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=ULTRAFAST_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=ULTRAFAST_MAX_TOKENS,
             )
-        else:
-            try:
-                self._ultrafast_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=ULTRAFAST_MAX_TOKENS,
-                )
-            except CoreLlmConfigurationError as exc:
-                print(f"[AGENT] Ultrafast cloud LLM unavailable: {exc}")
+        except CoreLlmConfigurationError as exc:
+            print(f"[AGENT] Ultrafast cloud LLM unavailable: {exc}")
         return self._ultrafast_llm
 
     def query_ultrafast(self, user_query: str, verbose: bool = True) -> AgentResponse:
@@ -658,11 +621,15 @@ class GraphRAGAgent:
         }
 
     def _node_reasoning(self, state: AgentState) -> dict:
-        """Stage 2: Reasoning LLM — synthesize context into an English answer."""
+        """Reasoning LLM — synthesize the retrieved context into the answer.
+
+        For a Thai query this writes the final Thai directly (single-call) and
+        the translate node is skipped. English queries, and the whole path when
+        SINGLE_CALL_GENERATION is off, produce English for translate_output.
+        """
         verbose = state.get("verbose", True)
         strategy = state.get("strategy", "")
         ack_message = state.get("acknowledgement_message", "")
-        gap_warning = state.get("gap_warning", "")
 
         if not self.reasoning_llm:
             return {
@@ -775,8 +742,13 @@ class GraphRAGAgent:
         user — the only remaining recovery is the agent's own BROADEN_SEARCH
         rewrite. Once the budget is spent, or the evaluator gives no usable
         rewrite (looping on the same queries would change nothing), we answer
-        with the best available context; PARTIAL_ANSWER / ACKNOWLEDGE_LIMIT are
-        then honoured downstream in ``_node_reasoning``.
+        with the best available context; ACKNOWLEDGE_LIMIT is then honoured
+        downstream in ``_node_reasoning``.
+
+        PARTIAL_ANSWER is NOT honoured: the evaluator can return it, and its
+        ``gap_warning`` is carried into state, but nothing reads it, so the
+        answer goes out without the caveat the evaluator asked for. Wiring it
+        up is a feature, not cleanup — left as-is deliberately.
         """
         evaluation: EvaluationResult = state.get("evaluation")  # type: ignore[assignment]
         broaden_count = state.get("broaden_count", 0)

@@ -11,6 +11,12 @@ class QueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     query: str
+    # Vestigial: GraphRAGAgent is the only pipeline, so this selects nothing.
+    # It cannot be deleted unilaterally — extra="forbid" above means dropping
+    # the field turns the backend's existing `use_agent: true` payload
+    # (services/chat/rag_client.py) into a 422 on every chat request. Remove it
+    # here and in backend/app/schemas/chat/rag.py in the same change, or not
+    # at all.
     use_agent: bool = True
 
 
@@ -40,7 +46,3 @@ class RetrievalContextSnapshot(BaseModel):
     context: str
     rag_result: dict[str, Any] = Field(default_factory=dict)
     mitre_table: list[MitreTableRow] = Field(default_factory=list)
-
-
-class ReviewStatusRequest(BaseModel):
-    review_status: Literal["draft", "ai_generated", "reviewed", "approved"]

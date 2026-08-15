@@ -16,7 +16,11 @@ _PROJECT_ROOT = _SCRIPT_DIR.parent.parent.parent
 load_dotenv(_SCRIPT_DIR / ".env")
 load_dotenv()
 
-# STIX data folders (each contains versioned .json bundles)
+# STIX data folders (each contains versioned .json bundles).
+# _PROJECT_ROOT is rag_service/, which is where the bundles sit inside the Docker
+# image (the build context root). In a repo checkout they live one level up, at
+# the repo root, so fall back there — this is why the existence check exists
+# rather than a single hard-coded path.
 _STIX_DATA_DIR = _PROJECT_ROOT / "Mitre_ATT&CK Doc"
 if not _STIX_DATA_DIR.exists():
     _STIX_DATA_DIR = _PROJECT_ROOT.parent / "Mitre_ATT&CK Doc"
@@ -84,17 +88,6 @@ QDRANT_COLLECTION_ENTITIES = os.getenv("QDRANT_COLLECTION_ENTITIES", "mitre_enti
 QDRANT_COLLECTION_RELATIONSHIPS = os.getenv(
     "QDRANT_COLLECTION_RELATIONSHIPS", "mitre_relationships"
 )
-
-# ──────────────────────────────────────────────────────────────────────────────
-# LEGACY — ChromaDB Configuration (kept for reference / rollback)
-# ──────────────────────────────────────────────────────────────────────────────
-CHROMA_DIR = _SCRIPT_DIR / "chroma_db"
-CHROMA_HOST = os.getenv("CHROMA_HOST")
-CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
-CHROMA_SSL = os.getenv("CHROMA_SSL", "False").lower() == "true"
-CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
-CHROMA_COLLECTION_ENTITIES = "mitre_entities"
-CHROMA_COLLECTION_RELATIONSHIPS = "mitre_relationships"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # HYBRID RETRIEVAL — RRF (Reciprocal Rank Fusion)
@@ -192,22 +185,19 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ──────────────────────────────────────────────────────────────────────────────
-# THANOY — Thai legal AI (iApp) for the report's "legal advice" section.
-# A SEPARATE specialist from the MITRE pipeline: our pipeline explains the
-# technical incident, Thanoy maps it to Thai law (Computer Crime Act, Cybersecurity
-# Act, Criminal Code …). OPTIONAL — if THANOY_API_KEY is unset, the legal section
-# is simply skipped (the report still renders). Docs: iapp.co.th/docs/llm/thanoy-legal
+# LOCAL MODELS (Ollama) — OFFLINE TOOLING ONLY, not the service
 # ──────────────────────────────────────────────────────────────────────────────
-THANOY_API_KEY = os.getenv("THANOY_API_KEY", "")
-THANOY_API_URL = os.getenv("THANOY_API_URL", "https://api.iapp.co.th/thanoy")
-THANOY_TIMEOUT = float(os.getenv("THANOY_TIMEOUT", "30"))
-THANOY_ENABLED = bool(THANOY_API_KEY)
-
-# ──────────────────────────────────────────────────────────────────────────────
-# LOCAL MODELS (Ollama) — used when --local flag is passed
-# Install: https://ollama.com  |  pip install langchain-ollama
-# Pull   : ollama pull qwen2.5:7b && ollama pull gemma3:4b
-# ──────────────────────────────────────────────────────────────────────────────
+# The served pipeline is cloud-only: GraphRAGAgent and ContextEvaluator no longer
+# take a use_local switch, and there is no --local flag on the RAG CLI. What is
+# left here is consumed by evaluation/ and by the chain path it still exercises:
+#   evaluation/eval_runner.py --local          → LOCAL_LLM_MODEL, LOCAL_EVAL_MODEL
+#   evaluation/generation_metrics.py           → RAGAS nomic-embed-text embeddings
+#   evaluation/crosslingual_generation_benchmark.py "ollama:<name>" → fine-tune A/B
+# Retiring these means giving evaluation/ a cloud embedding provider and dropping
+# the local arm of the fine-tune comparison — a change to that directory, not a
+# cleanup of this one.
+# Setup: https://ollama.com | pip install langchain-ollama
+#        ollama pull qwen2.5:7b && ollama pull gemma3:4b
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Model 1 — Pipeline  (reasoning + translation + routing)
@@ -218,11 +208,6 @@ LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen2.5:7b")
 # gemma3:4b   Q4_K_M ≈ 2.6 GB VRAM  |  different family → lower judge bias
 LOCAL_EVAL_MODEL = os.getenv("LOCAL_EVAL_MODEL", "gemma3:4b")
 
-# Master switch — when true the SERVICE runs the WHOLE pipeline on local Ollama
-# models (reasoning + translation + routing + report) instead of Claude, mirroring
-# the CLI's --local flag. Set USE_LOCAL=true in the env to enable.
-USE_LOCAL = os.getenv("USE_LOCAL", "false").lower() in ("1", "true", "yes")
-
 # Context window for local Ollama models. ChatOllama otherwise defaults to a small
 # num_ctx and SILENTLY truncates large prompts (decomposition input + retrieved
 # context) → degenerate/empty output. Must comfortably hold the incident text.
@@ -232,7 +217,6 @@ LOCAL_NUM_CTX = int(os.getenv("LOCAL_NUM_CTX", "8192"))
 # RETRIEVAL
 # ──────────────────────────────────────────────────────────────────────────────
 VECTOR_TOP_K = 10  # Initial vector retrieval count
-GRAPH_EXPANSION_DEPTH = 2  # How many hops to expand in graph
 FINAL_TOP_K = 5  # After reranking
 
 # Restrict entity vector search to one ATT&CK domain. The corpus is ingested with
@@ -243,17 +227,30 @@ FINAL_TOP_K = 5  # After reranking
 # for a 100% clean corpus.
 ATTACK_DOMAIN_FILTER = os.getenv("ATTACK_DOMAIN_FILTER", "enterprise").strip() or None
 
-# Reranker — must handle Thai↔English pairs when DUAL_QUERY_RETRIEVAL is on
+# Reranker — must handle Thai↔English pairs, because the agent does no input
+# translation: a Thai incident is scored directly against English MITRE text.
 # (mmarco-mMiniLMv2 was trained on 14 mMARCO languages, Thai not included)
 RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
 # MITRE mapping table sent to the backend: vector hits below this rerank score
 # (sigmoid [0,1] × type weight) are dropped unless the answer cites them.
-# Calibrated against live Qdrant data (2026-07-03): the cross-encoder saturates
-# at sigmoid≈0.500 for no-signal pairs, so after the ×1.2 Technique weight the
-# noise floor sits at 0.600 — irrelevant techniques score 0.600-0.607, genuinely
-# relevant ones 0.65-0.87. 0.62 cuts the floor while keeping real signal.
-MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.62"))
+#
+# History: the 2026-07-03 calibration (threshold 0.62, "noise floor 0.600-0.607,
+# relevant 0.65-0.87") was measured while reranker.py applied sigmoid a second
+# time on top of CrossEncoder.predict()'s own sigmoid, which compressed every
+# score into [0.5, 0.731]. That double sigmoid is now removed, so those numbers
+# no longer apply. Translating the same observations back through the double
+# sigmoid puts the noise floor at ~0.03 and real signal at ~0.20 and up (both
+# after the ×1.2 Technique weight), so the cut belongs somewhere in 0.05-0.15.
+# 0.05 is the conservative end of that range: this is only the secondary noise
+# filter (answer-grounded citation is the primary one), so a false keep shows up
+# as a visible "retrieved_only" row while a false drop silently loses a real
+# technique. NOTE: reranking a Thai query directly scores near-zero across the
+# board (the DUAL_QUERY_RETRIEVAL Thai channel) — entities found only via that
+# channel will not clear any threshold. Re-run the sweep to settle the value:
+#   python -m evaluation.crosslingual_generation_benchmark \
+#       --thresholds 0.03,0.05,0.10,0.15,0.20,0.30
+MITRE_TABLE_SCORE_THRESHOLD = float(os.getenv("MITRE_TABLE_SCORE_THRESHOLD", "0.05"))
 
 # ──────────────────────────────────────────────────────────────────────────────
 # LEGACY — mmarco reranker (kept for reference / rollback)
@@ -291,5 +288,3 @@ def sep(title=""):
         print("\n" + "─" * pad + f" {title} " + "─" * pad)
     else:
         print("\n" + "─" * width)
-
-print(ATTACK_DOMAINS.items())

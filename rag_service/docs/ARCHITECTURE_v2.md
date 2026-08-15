@@ -1,5 +1,10 @@
 # CyberCase RAG Service — Architecture v2.0
 
+> ⚠️ **ล้าสมัยบางส่วน — ตรวจเมื่อ 2026-08-15 (branch `chore/rag-service-cleanup`)**
+> diagram ยังวาด Ollama เป็นทางเลือก `--local` และยังมี `GraphRAGChain` บนเส้นทางหลัก
+> ทั้งสองอย่างไม่จริงแล้ว: pipeline ที่ให้บริการเป็น cloud-only และ `POST /query`
+> เข้า `GraphRAGAgent` เสมอ · ให้ยึด `CLAUDE.md` และตัวโค้ดเป็นหลัก
+
 > เอกสารนี้เขียนใหม่ทั้งหมดจากการอ่านซอร์สโค้ดปัจจุบันของ `rag_service/` (กรกฎาคม 2569)
 > เน้น **สถาปัตยกรรม + diagram + design ที่เป็นปัจจุบัน** (single-call generation,
 > self-reflection loop, batched retrieval, device-aware) — สำหรับรายละเอียดระดับ *ทุกฟังก์ชัน* ดู

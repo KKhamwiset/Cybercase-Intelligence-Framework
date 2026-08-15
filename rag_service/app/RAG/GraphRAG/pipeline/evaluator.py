@@ -26,8 +26,6 @@ from ..config import (
     EVALUATOR_LLM_MODEL,
     EVALUATOR_MAX_TOKENS,
     EVALUATOR_TEMPERATURE,
-    LOCAL_EVAL_MODEL,
-    OLLAMA_BASE_URL,
     sep,
 )
 from ..llm_content import require_message_text
@@ -164,26 +162,16 @@ Never use FORCE_SUFFICIENT — answering with known-incomplete context without f
 class ContextEvaluator:
     """Evaluates whether retrieved context is sufficient to answer a query."""
 
-    def __init__(self, use_local: bool = False) -> None:
-        if use_local:
-            from langchain_ollama import ChatOllama
-            self.llm = ChatOllama(
-                model=LOCAL_EVAL_MODEL,
-                base_url=OLLAMA_BASE_URL,
+    def __init__(self) -> None:
+        try:
+            self.llm = create_core_chat_model(
+                anthropic_model=EVALUATOR_LLM_MODEL,
                 temperature=EVALUATOR_TEMPERATURE,
-                num_predict=EVALUATOR_MAX_TOKENS,
+                max_tokens=EVALUATOR_MAX_TOKENS,
             )
-            print(f"[EVALUATOR] Local model: {LOCAL_EVAL_MODEL}")
-        else:
-            try:
-                self.llm = create_core_chat_model(
-                    anthropic_model=EVALUATOR_LLM_MODEL,
-                    temperature=EVALUATOR_TEMPERATURE,
-                    max_tokens=EVALUATOR_MAX_TOKENS,
-                )
-            except CoreLlmConfigurationError as exc:
-                self.llm = None
-                print(f"[EVALUATOR] No cloud LLM configured: {exc}")
+        except CoreLlmConfigurationError as exc:
+            self.llm = None
+            print(f"[EVALUATOR] No cloud LLM configured: {exc}")
 
     # ------------------------------------------------------------------
     def evaluate(

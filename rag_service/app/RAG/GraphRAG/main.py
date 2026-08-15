@@ -1,12 +1,13 @@
 """
 MITRE ATT&CK GraphRAG — CLI Entrypoint
 ========================================
-Usage:
-    python main.py --ingest       # Parse STIX data → load Neo4j + Qdrant
-    python main.py --test          # Run test queries
-    python main.py                 # Interactive mode
-    python main.py --retrieve-only # Retrieval without LLM (for debugging)
-    python main.py --agent         # Runs the new GraphRAGAgent with interactive mode
+Run as a module from rag_service/app — the package uses relative imports, so
+`python main.py` fails with ImportError:
+
+    python -m RAG.GraphRAG.main --ingest         # Parse STIX → Neo4j + Qdrant
+    python -m RAG.GraphRAG.main --test           # Run test queries
+    python -m RAG.GraphRAG.main                  # Interactive mode
+    python -m RAG.GraphRAG.main --retrieve-only  # Retrieval without LLM
 """
 
 import argparse
@@ -38,7 +39,7 @@ else:
 # INGEST
 # ──────────────────────────────────────────────────────────────────────────────
 def run_ingest():
-    """Parse STIX data and load into Neo4j + ChromaDB."""
+    """Parse STIX data and load into Neo4j + Qdrant."""
     from .ingestion.graph_loader import GraphLoader
     from .ingestion.stix_parser import parse_all_domains
     from .ingestion.vector_loader import VectorLoader
@@ -109,27 +110,15 @@ TEST_QUERIES = [
 
 def run_tests(
     retrieve_only: bool = False,
-    use_agent: bool = False,
     fast: bool = False,
     ultrafast: bool = False,
 ):
     """Run test queries."""
-    if fast or ultrafast or use_agent:
-        # --fast / --ultrafast use GraphRAGAgent.query_fast / query_ultrafast.
-        from .pipeline.agent_graph import GraphRAGAgent
+    from .pipeline.agent_graph import GraphRAGAgent
 
-        pipeline = GraphRAGAgent()
-    else:
-        from .pipeline.chain import GraphRAGChain
+    pipeline = GraphRAGAgent()
 
-        pipeline = GraphRAGChain()
-
-    mode_label = (
-        "ultrafast" if ultrafast
-        else "fast" if fast
-        else "agent" if use_agent
-        else "chain"
-    )
+    mode_label = "ultrafast" if ultrafast else "fast" if fast else "agent"
     if retrieve_only and not (fast or ultrafast):
         mode_label += " (retrieve-only)"
 
@@ -163,31 +152,24 @@ def run_tests(
 # ──────────────────────────────────────────────────────────────────────────────
 def run_interactive(
     retrieve_only: bool = False,
-    use_agent: bool = False,
     fast: bool = False,
     ultrafast: bool = False,
 ):
     """Interactive query mode."""
-    if fast or ultrafast or use_agent:
-        # --fast / --ultrafast use GraphRAGAgent.query_fast / query_ultrafast.
-        from .pipeline.agent_graph import GraphRAGAgent
+    from .pipeline.agent_graph import GraphRAGAgent
 
-        pipeline = GraphRAGAgent()
-    else:
-        from .pipeline.chain import GraphRAGChain
-
-        pipeline = GraphRAGChain()
+    pipeline = GraphRAGAgent()
 
     mode_parts = []
     if ultrafast:
         mode_parts.append("ULTRAFAST")
     elif fast:
         mode_parts.append("FAST")
-    elif use_agent:
+    else:
         mode_parts.append("AGENTIC")
     if retrieve_only and not (fast or ultrafast):
         mode_parts.append("RETRIEVE-ONLY")
-    mode = " | ".join(mode_parts) if mode_parts else "FULL PIPELINE"
+    mode = " | ".join(mode_parts)
 
     print(f"\n{'=' * 72}")
     print(f"  MITRE ATT&CK GraphRAG — Interactive Mode ({mode})")
@@ -197,7 +179,7 @@ def run_interactive(
         print("  ⚡⚡ Ultrafast: vector-only retrieve → terse answer (no graph/decompose/eval/translate)")
     elif fast:
         print("  ⚡ Fast mode: single retrieve → direct answer (no decompose/eval)")
-    elif use_agent:
+    else:
         print("  🤖 Agentic features: query decomposition + self-reflection")
     print(f"{'=' * 72}")
 
@@ -239,11 +221,11 @@ def main():
         description="MITRE ATT&CK GraphRAG Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python main.py --ingest          # Load data into Neo4j + Qdrant
-  python main.py --test            # Run test queries (full pipeline)
-  python main.py --test --retrieve-only  # Test retrieval without LLM
-  python main.py                   # Interactive mode
+Examples (run from rag_service/app):
+  python -m RAG.GraphRAG.main --ingest         # Load data into Neo4j + Qdrant
+  python -m RAG.GraphRAG.main --test           # Run test queries
+  python -m RAG.GraphRAG.main --test --retrieve-only  # Retrieval without LLM
+  python -m RAG.GraphRAG.main                  # Interactive mode
         """,
     )
 
@@ -274,7 +256,10 @@ Examples:
     arg_parser.add_argument(
         "--agent",
         action="store_true",
-        help="Use the Agentic RAG pipeline (LangGraph) with self-reflection and follow-up",
+        help=(
+            "No-op, kept so existing invocations keep working: GraphRAGAgent is "
+            "the only pipeline now."
+        ),
     )
 
     arg_parser.add_argument(
@@ -317,14 +302,12 @@ Examples:
     elif args.test:
         run_tests(
             retrieve_only=args.retrieve_only,
-            use_agent=args.agent,
             fast=args.fast,
             ultrafast=args.ultrafast,
         )
     else:
         run_interactive(
             retrieve_only=args.retrieve_only,
-            use_agent=args.agent,
             fast=args.fast,
             ultrafast=args.ultrafast,
         )

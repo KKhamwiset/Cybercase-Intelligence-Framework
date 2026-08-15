@@ -1,7 +1,6 @@
-from .rag import QueryRequest, QueryResponse, ReviewStatusRequest
+from .rag import QueryRequest, QueryResponse
 
 __all__ = [
     "QueryRequest",
     "QueryResponse",
-    "ReviewStatusRequest",
 ]

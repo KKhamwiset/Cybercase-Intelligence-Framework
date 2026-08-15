@@ -17,7 +17,6 @@ router = APIRouter(tags=["rag"])
 async def health(request: Request):
     return {
         "status": "ok",
-        "rag_chain": request.app.state.rag_chain is not None,
         "rag_agent": request.app.state.rag_agent is not None,
     }
 

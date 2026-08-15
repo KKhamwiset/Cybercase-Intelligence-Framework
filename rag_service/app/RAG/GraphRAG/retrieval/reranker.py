@@ -8,8 +8,6 @@ top-K cut that feeds graph expansion and the LLM context.
 """
 from __future__ import annotations
 
-import math
-
 from .vector_retriever import VectorResult
 from ..config import DEVICE, FINAL_TOP_K, RERANKER_MODEL
 
@@ -32,17 +30,20 @@ class Reranker:
         """Score each (query, document) pair and return top_k results sorted
         by cross-encoder score.
 
-        Raw logit scores are passed through sigmoid so the final score stays
-        in [0, 1] and remains interpretable in context display.
+        ``CrossEncoder.predict()`` already applies the model's default
+        activation, which is ``nn.Sigmoid()`` for a ``num_labels=1`` model such
+        as bge-reranker-v2-m3. Scores are therefore already in [0, 1] — do NOT
+        apply sigmoid again here (doing so squashes the whole range into
+        [0.5, 0.731] and destroys any absolute score threshold downstream).
         """
         if not results:
             return results
 
         pairs = [(query, r.document[:512]) for r in results]
-        raw_scores = self.model.predict(pairs)
+        scores = self.model.predict(pairs)
 
-        for result, raw in zip(results, raw_scores):
-            result.score = 1.0 / (1.0 + math.exp(-float(raw)))
+        for result, score in zip(results, scores):
+            result.score = float(score)
 
         reranked = sorted(results, key=lambda r: r.score, reverse=True)
 
