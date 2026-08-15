@@ -11,7 +11,7 @@ from app.services.llm.model_registry import (
 
 
 def test_default_model():
-    assert DEFAULT_OPENROUTER_MODEL == "qwen/qwen3.8-27b"
+    assert DEFAULT_OPENROUTER_MODEL == "openai/gpt-oss-120b"
     assert resolve_openrouter_model(None) == DEFAULT_OPENROUTER_MODEL
     assert resolve_openrouter_model("") == DEFAULT_OPENROUTER_MODEL
     assert resolve_openrouter_model("default") == DEFAULT_OPENROUTER_MODEL
@@ -20,13 +20,10 @@ def test_default_model():
 @pytest.mark.parametrize(
     ("alias", "expected_canonical_id"),
     [
-        ("deepseek", "deepseek/deepseek-v4-flash-0731"),
-        ("deepseek-flash", "deepseek/deepseek-v4-flash-0731"),
-        ("deepseek-v4", "deepseek/deepseek-v4-flash-0731"),
-        ("qwen", "qwen/qwen3.8-27b"),
-        ("qwen-27b", "qwen/qwen3.8-27b"),
-        ("qwen3.8", "qwen/qwen3.8-27b"),
-        ("qwen3.8-27b", "qwen/qwen3.8-27b"),
+        ("gpt-oss-120b", "openai/gpt-oss-120b"),
+        ("gpt-oss", "openai/gpt-oss-120b"),
+        ("oss-120b", "openai/gpt-oss-120b"),
+        ("oss", "openai/gpt-oss-120b"),
         ("sonnet", "anthropic/claude-3.5-sonnet"),
         ("claude-sonnet", "anthropic/claude-3.5-sonnet"),
         ("claude-3.5-sonnet", "anthropic/claude-3.5-sonnet"),
@@ -58,5 +55,5 @@ def test_list_and_table_formatting():
 
     table = format_model_table()
     assert "CYBERCASE OPENROUTER MODEL REGISTRY" in table
-    assert "qwen/qwen3.8-27b" in table
+    assert "openai/gpt-oss-120b" in table
     assert "[DEFAULT]" in table

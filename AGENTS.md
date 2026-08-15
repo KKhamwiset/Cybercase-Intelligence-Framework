@@ -18,10 +18,9 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 - **Graph Database**: Neo4j (Enterprise/Community)
 - **Vector Database**: Qdrant (1024-dim, BGE-M3 embeddings)
 - **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py` & `backend/app/config.py`):
-  - **OpenRouter Default**: `qwen/qwen3.8-27b` (alias: `qwen`)
+  - **OpenRouter Default**: `openai/gpt-oss-120b` (alias: `oss`)
   - **Ready-Selection Aliases**:
-    - `qwen` $\to$ `qwen/qwen3.8-27b` (Default)
-    - `deepseek` $\to$ `deepseek/deepseek-v4-flash-0731`
+    - `oss` $\to$ `openai/gpt-oss-120b` (Default)
     - `sonnet` $\to$ `anthropic/claude-3.5-sonnet`
     - `haiku` $\to$ `anthropic/claude-3.5-haiku`
     - `luna` $\to$ `openai/gpt-5.6-luna`
@@ -91,12 +90,12 @@ python -m RAG.GraphRAG.main --list-models
 # Ingest all STIX 2.1 bundle data into Qdrant & Neo4j
 python -m RAG.GraphRAG.main --ingest
 
-# Run interactive RAG playground with default DeepSeek model
+# Run interactive RAG playground with default GPT-OSS model
 python -m RAG.GraphRAG.main
 
-# Run with specific model alias (e.g. Sonnet, Qwen, GPT-4o)
+# Run with specific model alias (e.g. Sonnet, GPT-OSS, GPT-4o)
 python -m RAG.GraphRAG.main --model sonnet
-python -m RAG.GraphRAG.main --model qwen
+python -m RAG.GraphRAG.main --model oss
 python -m RAG.GraphRAG.main --model 4o
 
 # Run pipeline in LangGraph Agentic mode

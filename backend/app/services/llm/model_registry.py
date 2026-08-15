@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-DEFAULT_OPENROUTER_MODEL = "qwen/qwen3.8-27b"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-oss-120b"
 
 
 @dataclass(frozen=True)
@@ -19,18 +19,11 @@ class ModelPreset:
 
 CURATED_MODEL_PRESETS: tuple[ModelPreset, ...] = (
     ModelPreset(
-        canonical_id="qwen/qwen3.8-27b",
-        display_name="Qwen 3.8 27B",
-        family="Qwen",
-        aliases=("qwen", "qwen-27b", "qwen3.8", "qwen3.8-27b", "default"),
-        description="Multilingual and structured analysis open weights leader (Default)",
-    ),
-    ModelPreset(
-        canonical_id="deepseek/deepseek-v4-flash-0731",
-        display_name="DeepSeek V4 Flash",
-        family="DeepSeek",
-        aliases=("deepseek", "deepseek-flash", "deepseek-v4"),
-        description="High-speed flash reasoning and threat analysis",
+        canonical_id="openai/gpt-oss-120b",
+        display_name="GPT-OSS 120B",
+        family="GPT-OSS",
+        aliases=("gpt-oss-120b", "gpt-oss", "oss-120b", "oss", "default"),
+        description="Open-weight 120B reasoning and structured extraction model (Default)",
     ),
     ModelPreset(
         canonical_id="anthropic/claude-3.5-sonnet",
@@ -69,38 +62,42 @@ for preset in CURATED_MODEL_PRESETS:
         _ALIAS_MAP[alias.lower().strip()] = preset.canonical_id
 
 
-def resolve_openrouter_model(name_or_alias: str | None) -> str:
-    """Resolve a friendly model nickname, alias, or full ID to the canonical OpenRouter ID."""
-    if not name_or_alias or not name_or_alias.strip():
+def resolve_openrouter_model(model_name_or_alias: str | None) -> str:
+    """Resolve an alias or model name to its canonical OpenRouter model string."""
+    if not model_name_or_alias or not model_name_or_alias.strip():
         return DEFAULT_OPENROUTER_MODEL
 
-    clean_name = name_or_alias.strip()
-    if clean_name.lower().startswith("openrouter/"):
-        clean_name = clean_name[len("openrouter/"):].strip()
+    cleaned = model_name_or_alias.strip()
+    if cleaned.lower().startswith("openrouter/"):
+        cleaned = cleaned[len("openrouter/"):]
 
-    normalized = clean_name.lower()
-    if normalized in _ALIAS_MAP:
-        return _ALIAS_MAP[normalized]
+    lookup_key = cleaned.lower()
+    if lookup_key in _ALIAS_MAP:
+        return _ALIAS_MAP[lookup_key]
 
-    if "/" in clean_name:
-        return clean_name
+    if "/" in cleaned:
+        return cleaned
 
+    # Fallback to default if unknown alias
     return DEFAULT_OPENROUTER_MODEL
 
 
 def list_available_models() -> list[dict[str, object]]:
-    """Return structured catalog of ready-selection models."""
-    return [
-        {
-            "canonical_id": p.canonical_id,
-            "display_name": p.display_name,
-            "family": p.family,
-            "aliases": list(p.aliases),
-            "description": p.description,
-            "is_default": p.canonical_id == DEFAULT_OPENROUTER_MODEL,
-        }
-        for p in CURATED_MODEL_PRESETS
-    ]
+    """Return catalog list of all curated ready-selection models with their metadata."""
+    catalog = []
+    for p in CURATED_MODEL_PRESETS:
+        catalog.append(
+            {
+                "canonical_id": p.canonical_id,
+                "display_name": p.display_name,
+                "family": p.family,
+                "primary_alias": p.aliases[0],
+                "all_aliases": list(p.aliases),
+                "description": p.description,
+                "is_default": p.canonical_id == DEFAULT_OPENROUTER_MODEL,
+            }
+        )
+    return catalog
 
 
 def format_model_table() -> str:
@@ -119,8 +116,7 @@ def format_model_table() -> str:
         )
     lines.append("=" * 95)
     lines.append("Usage Examples:")
-    lines.append("  python -m RAG.GraphRAG.main --model qwen            (Default: qwen/qwen3.8-27b)")
-    lines.append("  python -m RAG.GraphRAG.main --model deepseek        (deepseek/deepseek-v4-flash-0731)")
+    lines.append("  python -m RAG.GraphRAG.main --model oss             (Default: openai/gpt-oss-120b)")
     lines.append("  python -m RAG.GraphRAG.main --model sonnet          (anthropic/claude-3.5-sonnet)")
     lines.append("  python -m RAG.GraphRAG.main --model haiku           (anthropic/claude-3.5-haiku)")
     lines.append("  python -m RAG.GraphRAG.main --model luna            (openai/gpt-5.6-luna)")
