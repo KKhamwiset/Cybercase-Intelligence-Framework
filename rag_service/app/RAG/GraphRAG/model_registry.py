@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 
-DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-flash-0731"
+DEFAULT_OPENROUTER_MODEL = "qwen/qwen3.8-27b"
 
 
 @dataclass(frozen=True)
@@ -21,18 +21,18 @@ class ModelPreset:
 # Curated ready-selection catalog
 CURATED_MODEL_PRESETS: tuple[ModelPreset, ...] = (
     ModelPreset(
-        canonical_id="deepseek/deepseek-v4-flash-0731",
-        display_name="DeepSeek V4 Flash",
-        family="DeepSeek",
-        aliases=("deepseek", "deepseek-flash", "deepseek-v4", "default"),
-        description="High-speed flash reasoning and threat analysis (Default)",
-    ),
-    ModelPreset(
         canonical_id="qwen/qwen3.8-27b",
         display_name="Qwen 3.8 27B",
         family="Qwen",
-        aliases=("qwen", "qwen-27b", "qwen3.8", "qwen3.8-27b"),
-        description="Multilingual and structured analysis open weights leader",
+        aliases=("qwen", "qwen-27b", "qwen3.8", "qwen3.8-27b", "default"),
+        description="Multilingual and structured analysis open weights leader (Default)",
+    ),
+    ModelPreset(
+        canonical_id="deepseek/deepseek-v4-flash-0731",
+        display_name="DeepSeek V4 Flash",
+        family="DeepSeek",
+        aliases=("deepseek", "deepseek-flash", "deepseek-v4"),
+        description="High-speed flash reasoning and threat analysis",
     ),
     ModelPreset(
         canonical_id="anthropic/claude-3.5-sonnet",
@@ -129,8 +129,8 @@ def format_model_table() -> str:
         )
     lines.append("=" * 95)
     lines.append("Usage Examples:")
-    lines.append("  python -m RAG.GraphRAG.main --model deepseek        (Default: deepseek/deepseek-v4-flash-0731)")
-    lines.append("  python -m RAG.GraphRAG.main --model qwen            (qwen/qwen3.8-27b)")
+    lines.append("  python -m RAG.GraphRAG.main --model qwen            (Default: qwen/qwen3.8-27b)")
+    lines.append("  python -m RAG.GraphRAG.main --model deepseek        (deepseek/deepseek-v4-flash-0731)")
     lines.append("  python -m RAG.GraphRAG.main --model sonnet          (anthropic/claude-3.5-sonnet)")
     lines.append("  python -m RAG.GraphRAG.main --model haiku           (anthropic/claude-3.5-haiku)")
     lines.append("  python -m RAG.GraphRAG.main --model luna            (openai/gpt-5.6-luna)")

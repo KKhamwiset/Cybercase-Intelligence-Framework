@@ -18,10 +18,10 @@ This file provides system architecture, rules, guidelines, and commands for AI c
 - **Graph Database**: Neo4j (Enterprise/Community)
 - **Vector Database**: Qdrant (1024-dim, BGE-M3 embeddings)
 - **Primary LLM Models** (`rag_service/app/RAG/GraphRAG/config.py` & `backend/app/config.py`):
-  - **OpenRouter Default**: `deepseek/deepseek-v4-flash-0731` (alias: `deepseek`)
+  - **OpenRouter Default**: `qwen/qwen3.8-27b` (alias: `qwen`)
   - **Ready-Selection Aliases**:
-    - `deepseek` $\to$ `deepseek/deepseek-v4-flash-0731` (Default)
-    - `qwen` $\to$ `qwen/qwen3.8-27b`
+    - `qwen` $\to$ `qwen/qwen3.8-27b` (Default)
+    - `deepseek` $\to$ `deepseek/deepseek-v4-flash-0731`
     - `sonnet` $\to$ `anthropic/claude-3.5-sonnet`
     - `haiku` $\to$ `anthropic/claude-3.5-haiku`
     - `luna` $\to$ `openai/gpt-5.6-luna`

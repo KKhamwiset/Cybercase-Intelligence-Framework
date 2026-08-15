@@ -181,7 +181,7 @@ class ChatReportTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.provider, "openrouter")
-        self.assertEqual(result.model, "deepseek/deepseek-v4-flash-0731")
+        self.assertEqual(result.model, "qwen/qwen3.8-27b")
         self.assertIsNotNone(result.report)
         self.assertEqual(len(adapter.calls), 1)
         self.assertEqual(result.input_tokens, 31)

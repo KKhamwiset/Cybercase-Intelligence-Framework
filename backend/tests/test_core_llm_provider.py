@@ -37,7 +37,7 @@ class CoreLlmProviderTests(unittest.TestCase):
         )
 
         self.assertEqual(target.provider, "openrouter")
-        self.assertEqual(target.model, "deepseek/deepseek-v4-flash-0731")
+        self.assertEqual(target.model, "qwen/qwen3.8-27b")
         self.assertEqual(target.messages_url, "https://openrouter.ai/api/v1/messages")
         self.assertEqual(target.headers["Authorization"], "Bearer core-secret")
         self.assertNotIn("x-api-key", target.headers)

@@ -152,7 +152,7 @@ class StructuredOutputSchemaTests(unittest.IsolatedAsyncioTestCase):
         assert client.request_payload is not None
         self.assertEqual(
             client.request_payload["model"],
-            "deepseek/deepseek-v4-flash-0731",
+            "qwen/qwen3.8-27b",
         )
         self.assertIn("output_config", client.request_payload)
 
