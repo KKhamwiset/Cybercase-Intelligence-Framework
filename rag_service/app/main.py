@@ -17,7 +17,6 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
     print("[RAG Service] Initializing RAG modules...")
     app.state.retrieval_contexts = {}
-    use_local = False
 
     try:
         from FlagEmbedding import BGEM3FlagModel
@@ -26,23 +25,16 @@ async def lifespan(app: FastAPI):
             CORE_LLM_EFFECTIVE_PROVIDER,
             EMBED_MODEL,
             USE_FP16,
-            USE_LOCAL,
         )
 
-        use_local = USE_LOCAL
         print(f"[RAG Service] Loading shared embedding model: {EMBED_MODEL}")
         embed_model = BGEM3FlagModel(EMBED_MODEL, use_fp16=USE_FP16)
 
-        llm_mode = (
-            "LOCAL (Ollama)"
-            if use_local
-            else (
-                f"CLOUD ({CORE_LLM_EFFECTIVE_PROVIDER}: "
-                f"{CORE_LLM_EFFECTIVE_MODEL})"
-            )
+        print(
+            f"[RAG Service] LLM: {CORE_LLM_EFFECTIVE_PROVIDER}: "
+            f"{CORE_LLM_EFFECTIVE_MODEL}"
         )
-        print(f"[RAG Service] LLM mode: {llm_mode}")
-        app.state.rag_agent = GraphRAGAgent(embed_model=embed_model, use_local=use_local)
+        app.state.rag_agent = GraphRAGAgent(embed_model=embed_model)
         print("[RAG Service] RAG modules initialized successfully.")
     except Exception as e:
         print(f"[RAG Service] Error initializing RAG modules: {e}")

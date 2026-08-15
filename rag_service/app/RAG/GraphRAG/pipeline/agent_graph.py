@@ -42,8 +42,6 @@ from ..config import (
     LLM_MAX_TOKENS,
     LLM_MODEL,
     LLM_TEMPERATURE,
-    LOCAL_LLM_MODEL,
-    OLLAMA_BASE_URL,
     SINGLE_CALL_GENERATION,
     ULTRAFAST_MAX_TOKENS,
     ULTRAFAST_TOP_K,
@@ -148,11 +146,9 @@ class GraphRAGAgent:
         self,
         embed_model: Optional[BGEM3FlagModel] = None,
         reranker: Optional[Any] = None,
-        use_local: bool = False,
     ) -> None:
         sep("Initializing GraphRAG Agent (LangGraph)")
 
-        self.use_local = use_local
         self._ultrafast_llm = None  # lazily built on first query_ultrafast call
 
         # Shared embedding model
@@ -162,62 +158,37 @@ class GraphRAGAgent:
         else:
             self.embed_model = embed_model
 
-        # Components — propagate use_local to all LLM-bearing components.
         # No input-translation component: retrieval is native-language (BGE-M3).
         # CrossLingualLayer is still used, but only via its @staticmethods
         # (language detect + system prompts), so no instance is needed.
         self.retriever = HybridRetriever(
             embed_model=self.embed_model, reranker=reranker
         )
-        self.router = QueryRouter(use_local=use_local)
-        self.evaluator = ContextEvaluator(use_local=use_local)
-        self.decomposer = QueryDecomposer(use_local=use_local)
+        self.router = QueryRouter()
+        self.evaluator = ContextEvaluator()
+        self.decomposer = QueryDecomposer()
 
-        # LLMs
-        if use_local:
-            from langchain_ollama import ChatOllama
-
-            # reasoning=False disables Qwen3.5 thinking, so no <think> blocks leak
-            # into the answer or the downstream Thai translation stage.
-            self.reasoning_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+        # Both LLMs are the same model; the system prompt draws the stage
+        # boundary. reasoning_llm and translation_llm are set (and cleared)
+        # together, so downstream None-checks only ever see both or neither.
+        try:
+            target = resolve_core_llm_target(LLM_MODEL)
+            self.reasoning_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=LLM_MAX_TOKENS,
             )
-            self.translation_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+            self.translation_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=LLM_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=LLM_MAX_TOKENS,
             )
-            print(f"[AGENT] Reasoning LLM  : {LOCAL_LLM_MODEL} (local)")
-            print(f"[AGENT] Translation LLM: {LOCAL_LLM_MODEL} (local)")
-        else:
-            try:
-                target = resolve_core_llm_target(LLM_MODEL)
-                self.reasoning_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=LLM_MAX_TOKENS,
-                )
-                self.translation_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=LLM_MAX_TOKENS,
-                )
-                print(
-                    f"[AGENT] Reasoning LLM : {target.model} ({target.provider})"
-                )
-                print(
-                    f"[AGENT] Translation LLM: {target.model} ({target.provider})"
-                )
-            except CoreLlmConfigurationError as exc:
-                self.reasoning_llm = None
-                self.translation_llm = None
-                print(f"[AGENT] No cloud LLM configured: {exc}")
+            print(f"[AGENT] Reasoning LLM : {target.model} ({target.provider})")
+            print(f"[AGENT] Translation LLM: {target.model} ({target.provider})")
+        except CoreLlmConfigurationError as exc:
+            self.reasoning_llm = None
+            self.translation_llm = None
+            print(f"[AGENT] No cloud LLM configured: {exc}")
 
         print(
             "[AGENT] Generation    : "
@@ -321,25 +292,14 @@ class GraphRAGAgent:
         if self._ultrafast_llm is not None:
             return self._ultrafast_llm
 
-        if self.use_local:
-            from langchain_ollama import ChatOllama
-
-            self._ultrafast_llm = ChatOllama(
-                model=LOCAL_LLM_MODEL,
-                base_url=OLLAMA_BASE_URL,
+        try:
+            self._ultrafast_llm = create_core_chat_model(
+                anthropic_model=LLM_MODEL,
                 temperature=LLM_TEMPERATURE,
-                num_predict=ULTRAFAST_MAX_TOKENS,
-                reasoning=False,
+                max_tokens=ULTRAFAST_MAX_TOKENS,
             )
-        else:
-            try:
-                self._ultrafast_llm = create_core_chat_model(
-                    anthropic_model=LLM_MODEL,
-                    temperature=LLM_TEMPERATURE,
-                    max_tokens=ULTRAFAST_MAX_TOKENS,
-                )
-            except CoreLlmConfigurationError as exc:
-                print(f"[AGENT] Ultrafast cloud LLM unavailable: {exc}")
+        except CoreLlmConfigurationError as exc:
+            print(f"[AGENT] Ultrafast cloud LLM unavailable: {exc}")
         return self._ultrafast_llm
 
     def query_ultrafast(self, user_query: str, verbose: bool = True) -> AgentResponse:

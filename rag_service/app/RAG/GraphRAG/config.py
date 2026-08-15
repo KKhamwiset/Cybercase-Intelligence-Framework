@@ -192,10 +192,19 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ──────────────────────────────────────────────────────────────────────────────
-# LOCAL MODELS (Ollama) — used when --local flag is passed
-# Install: https://ollama.com  |  pip install langchain-ollama
-# Pull   : ollama pull qwen2.5:7b && ollama pull gemma3:4b
+# LOCAL MODELS (Ollama) — OFFLINE TOOLING ONLY, not the service
 # ──────────────────────────────────────────────────────────────────────────────
+# The served pipeline is cloud-only: GraphRAGAgent and ContextEvaluator no longer
+# take a use_local switch, and there is no --local flag on the RAG CLI. What is
+# left here is consumed by evaluation/ and by the chain path it still exercises:
+#   evaluation/eval_runner.py --local          → LOCAL_LLM_MODEL, LOCAL_EVAL_MODEL
+#   evaluation/generation_metrics.py           → RAGAS nomic-embed-text embeddings
+#   evaluation/crosslingual_generation_benchmark.py "ollama:<name>" → fine-tune A/B
+# Retiring these means giving evaluation/ a cloud embedding provider and dropping
+# the local arm of the fine-tune comparison — a change to that directory, not a
+# cleanup of this one.
+# Setup: https://ollama.com | pip install langchain-ollama
+#        ollama pull qwen2.5:7b && ollama pull gemma3:4b
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Model 1 — Pipeline  (reasoning + translation + routing)
@@ -205,11 +214,6 @@ LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "qwen2.5:7b")
 # Model 2 — Evaluation judge  (context sufficiency + query merger + offline RAGAS)
 # gemma3:4b   Q4_K_M ≈ 2.6 GB VRAM  |  different family → lower judge bias
 LOCAL_EVAL_MODEL = os.getenv("LOCAL_EVAL_MODEL", "gemma3:4b")
-
-# Master switch — when true the SERVICE runs the WHOLE pipeline on local Ollama
-# models (reasoning + translation + routing + report) instead of Claude, mirroring
-# the CLI's --local flag. Set USE_LOCAL=true in the env to enable.
-USE_LOCAL = os.getenv("USE_LOCAL", "false").lower() in ("1", "true", "yes")
 
 # Context window for local Ollama models. ChatOllama otherwise defaults to a small
 # num_ctx and SILENTLY truncates large prompts (decomposition input + retrieved
