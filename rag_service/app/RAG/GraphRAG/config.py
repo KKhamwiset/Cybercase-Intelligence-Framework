@@ -156,7 +156,7 @@ CORE_LLM_EFFECTIVE_BASE_URL = (
 # Legacy Anthropic aliases remain for offline tooling outside the production
 # provider factory.
 LLM_MODEL = CORE_LLM_ANTHROPIC_MODEL
-LLM_MAX_TOKENS = 4096
+LLM_MAX_TOKENS = 8192
 LLM_TEMPERATURE = 0
 
 # Single-call generation (benchmark variant C): for Thai queries the
@@ -173,12 +173,12 @@ SINGLE_CALL_GENERATION = (
 
 # Ultrafast mode (--ultrafast): vector-only retrieve (no graph) + terse, capped
 # output. Output-token count dominates LLM latency, so the answer is short.
-ULTRAFAST_MAX_TOKENS = int(os.getenv("ULTRAFAST_MAX_TOKENS", "1024"))
+ULTRAFAST_MAX_TOKENS = int(os.getenv("ULTRAFAST_MAX_TOKENS", "2048"))
 ULTRAFAST_TOP_K = int(os.getenv("ULTRAFAST_TOP_K", "6"))
 
 EVALUATOR_LLM_MODEL = CORE_LLM_ANTHROPIC_MODEL
 EVALUATOR_MAX_TOKENS = (
-    1024  # Must fit: verdict + reason + covered/missing phases + rewritten_query
+    4096  # Must fit: reasoning/thinking + verdict + reason + covered/missing phases + rewritten_query
 )
 EVALUATOR_TEMPERATURE = 0
 

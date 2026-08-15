@@ -84,7 +84,7 @@ class QueryRouter:
                 self.llm = create_core_chat_model(
                     anthropic_model=LLM_MODEL,
                     temperature=0,
-                    max_tokens=32,
+                    max_tokens=2048,
                 )
             except CoreLlmConfigurationError as exc:
                 self.llm = None

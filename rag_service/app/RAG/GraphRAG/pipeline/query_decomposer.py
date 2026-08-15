@@ -167,7 +167,7 @@ class QueryDecomposer:
                 self.llm = create_core_chat_model(
                     anthropic_model=LLM_MODEL,
                     temperature=0,
-                    max_tokens=512,
+                    max_tokens=4096,
                 )
             except CoreLlmConfigurationError as exc:
                 print(f"[DECOMPOSE] No cloud LLM configured: {exc}")

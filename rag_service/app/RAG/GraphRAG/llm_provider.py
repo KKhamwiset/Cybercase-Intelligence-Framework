@@ -92,11 +92,16 @@ def create_core_chat_model(
     """Create one cloud ChatAnthropic client for the selected provider."""
 
     target = resolve_core_llm_target(anthropic_model)
+    effective_max_tokens = (
+        max(max_tokens, 4096)
+        if target.provider == "openrouter"
+        else max_tokens
+    )
     kwargs: dict[str, object] = {
         "model_name": target.model,
         "api_key": target.api_key,
         "temperature": temperature,
-        "max_tokens_to_sample": max_tokens,
+        "max_tokens_to_sample": effective_max_tokens,
     }
     if target.provider == "openrouter":
         kwargs["base_url"] = target.base_url

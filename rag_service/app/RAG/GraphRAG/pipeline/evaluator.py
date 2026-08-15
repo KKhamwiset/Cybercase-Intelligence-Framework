@@ -233,16 +233,23 @@ class ContextEvaluator:
             "{retry_hint}", str(retry_count + 1)
         ).replace("{max_retries}", str(MAX_RETRIES))
 
-        response = self.llm.invoke(
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ]
-        )
-
-        result = self._parse_response(
-            require_message_text(response, operation="context evaluation")
-        )
+        try:
+            response = self.llm.invoke(
+                [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_prompt),
+                ]
+            )
+            result = self._parse_response(
+                require_message_text(response, operation="context evaluation")
+            )
+        except Exception as exc:
+            if verbose:
+                print(f"  [EVALUATOR] Context evaluation exception ({exc}), defaulting to SUFFICIENT")
+            result = EvaluationResult(
+                verdict=VERDICT_SUFFICIENT,
+                reason="Context evaluation fell back to sufficient due to unparseable response.",
+            )
 
         if verbose:
             print(f"  Verdict   : {result.verdict}")

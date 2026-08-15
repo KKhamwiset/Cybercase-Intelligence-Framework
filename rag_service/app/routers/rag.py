@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from fastapi import APIRouter, HTTPException, Request
 
 from RAG.GraphRAG.pipeline.mitre_table import build_mitre_table
@@ -9,6 +10,8 @@ from routers.context_store import (
     store_retrieval_context,
 )
 from schemas.rag import QueryRequest, QueryResponse, RetrievalContextSnapshot
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["rag"])
 
@@ -49,6 +52,7 @@ async def query_rag(request: QueryRequest, req: Request):
             mitre_table=mitre_table,
         )
     except Exception as e:
+        logger.exception("POST /query processing failed: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
