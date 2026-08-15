@@ -131,7 +131,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
                 feature="extraction",
                 configured_max_tokens=2_048,
             ),
-            {"max_tokens": 8_192},
+            {"max_tokens": 16_384},
         )
         self.assertEqual(
             structured_output_request_options(
@@ -246,7 +246,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("temperature", report_client.request_payload)
         self.assertNotIn("reasoning", report_client.request_payload)
 
-    async def test_openrouter_extraction_call_site_uses_8192_floor(self) -> None:
+    async def test_openrouter_extraction_call_site_uses_16384_floor(self) -> None:
         settings.core_llm_provider = "openrouter"
         extraction_client = _RecordingAsyncClient(_text_response())
 
@@ -262,7 +262,7 @@ class StructuredOutputRequestRouterTests(unittest.IsolatedAsyncioTestCase):
             )
 
         assert extraction_client.request_payload is not None
-        self.assertEqual(extraction_client.request_payload["max_tokens"], 8_192)
+        self.assertEqual(extraction_client.request_payload["max_tokens"], 16_384)
         self.assertNotIn("temperature", extraction_client.request_payload)
         self.assertNotIn("reasoning", extraction_client.request_payload)
 

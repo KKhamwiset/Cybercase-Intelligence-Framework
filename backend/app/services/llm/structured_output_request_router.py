@@ -12,7 +12,7 @@ StructuredOutputFeature = Literal["followup", "extraction", "report"]
 _STRUCTURED_OUTPUT_FEATURES = frozenset({"followup", "extraction", "report"})
 _OPENROUTER_OUTPUT_TOKEN_FLOORS: dict[StructuredOutputFeature, int] = {
     "followup": 2_048,
-    "extraction": 8_192,
+    "extraction": 16_384,
     "report": 16_384,
 }
 

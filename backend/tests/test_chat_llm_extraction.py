@@ -435,8 +435,8 @@ class ChatLlmExtractionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Never use Thai text", BASELINE_EXTRACTION_SYSTEM_PROMPT)
 
     def test_extraction_budget_and_raw_response_cap_are_aligned(self) -> None:
-        self.assertEqual(settings.chat_extraction_max_output_tokens, 8_192)
-        self.assertEqual(settings.chat_extraction_max_raw_response_chars, 48_000)
+        self.assertEqual(settings.chat_extraction_max_output_tokens, 16_384)
+        self.assertEqual(settings.chat_extraction_max_raw_response_chars, 96_000)
 
     async def test_malformed_model_json_is_an_explicit_failure(self) -> None:
         result = await run_baseline_extraction(

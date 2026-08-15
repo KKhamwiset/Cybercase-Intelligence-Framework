@@ -109,28 +109,28 @@ class Settings(BaseSettings):
     # explicit failed extraction record rather than falling back to regex.
     chat_extraction_enabled: bool = True
     chat_extraction_model: str = "deepseek/deepseek-v4-flash-0731"
-    chat_extraction_timeout_seconds: float = 60.0
-    chat_extraction_max_input_chars: int = 20_000
-    chat_extraction_max_output_tokens: int = 8_192
-    chat_extraction_max_entities: int = 24
-    chat_extraction_max_relationships: int = 48
-    chat_extraction_max_evidence: int = 24
-    chat_extraction_max_timeline: int = 32
-    chat_extraction_max_missing_information: int = 16
-    chat_extraction_max_text_chars: int = 4_000
-    chat_extraction_max_raw_response_chars: int = 48_000
+    chat_extraction_timeout_seconds: float = 120.0
+    chat_extraction_max_input_chars: int = 60_000
+    chat_extraction_max_output_tokens: int = 16_384
+    chat_extraction_max_entities: int = 32
+    chat_extraction_max_relationships: int = 64
+    chat_extraction_max_evidence: int = 32
+    chat_extraction_max_timeline: int = 48
+    chat_extraction_max_missing_information: int = 24
+    chat_extraction_max_text_chars: int = 8_000
+    chat_extraction_max_raw_response_chars: int = 96_000
 
     # Persisted report generation. The report service performs one provider
     # call per valid generation attempt and never repairs model output.
     chat_report_enabled: bool = True
     chat_report_model: str = "deepseek/deepseek-v4-flash-0731"
-    chat_report_timeout_seconds: float = 90.0
-    chat_report_max_input_chars: int = 80_000
-    chat_report_max_output_tokens: int = 8_192
-    chat_report_max_raw_response_chars: int = 48_000
+    chat_report_timeout_seconds: float = 180.0
+    chat_report_max_input_chars: int = 100_000
+    chat_report_max_output_tokens: int = 16_384
+    chat_report_max_raw_response_chars: int = 96_000
     chat_report_temperature: float = 0.0
-    chat_report_max_text_chars: int = 4_000
-    chat_report_max_claims: int = 96
-    chat_report_max_limitations: int = 32
+    chat_report_max_text_chars: int = 8_000
+    chat_report_max_claims: int = 128
+    chat_report_max_limitations: int = 48
 
 settings = Settings()
