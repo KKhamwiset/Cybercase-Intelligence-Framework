@@ -8,7 +8,7 @@ from fastapi import FastAPI
 # Add the current directory to sys.path so we can import RAG.
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from RAG import GraphRAGAgent, GraphRAGChain  # noqa: E402
+from RAG import GraphRAGAgent  # noqa: E402
 from routers.rag import router as rag_router  # noqa: E402
 
 
@@ -42,7 +42,6 @@ async def lifespan(app: FastAPI):
             )
         )
         print(f"[RAG Service] LLM mode: {llm_mode}")
-        app.state.rag_chain = GraphRAGChain(embed_model=embed_model, use_local=use_local)
         app.state.rag_agent = GraphRAGAgent(embed_model=embed_model, use_local=use_local)
         print("[RAG Service] RAG modules initialized successfully.")
     except Exception as e:
@@ -50,13 +49,10 @@ async def lifespan(app: FastAPI):
         import traceback
 
         traceback.print_exc()
-        app.state.rag_chain = None
         app.state.rag_agent = None
 
     yield
 
-    if app.state.rag_chain:
-        app.state.rag_chain.close()
     if app.state.rag_agent:
         app.state.rag_agent.close()
     print("[RAG Service] RAG modules shut down.")

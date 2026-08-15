@@ -8,8 +8,9 @@ from RAG import MitreTableRow
 
 
 class QueryRequest(BaseModel):
+    # Pydantic ignores unknown fields by default, so callers still sending the
+    # old `use_agent` flag (the backend chat client does) keep working.
     query: str
-    use_agent: bool = True
 
 
 class QueryResponse(BaseModel):
