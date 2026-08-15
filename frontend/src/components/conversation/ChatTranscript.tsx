@@ -21,29 +21,31 @@ export function ChatTranscript({
 
   if (messages.length === 0) {
     return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-hover text-lg font-black text-ink">
-          CC
+      <div className="flex h-full min-h-[400px] flex-col items-center justify-center p-8 text-center">
+        <div className="mx-auto max-w-md">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-hover text-lg font-black text-ink">
+            CC
+          </div>
+          <h3 className="mt-4 text-base font-extrabold text-ink">
+            Investigation Console
+          </h3>
+          <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
+            Describe an incident, paste forensic logs, or query MITRE ATT&amp;CK tactics.
+            CyberCase will retrieve graph context and extract candidate observables.
+          </p>
         </div>
-        <h3 className="mt-4 text-base font-extrabold text-ink">
-          Investigation Console
-        </h3>
-        <p className="mt-2 max-w-md text-xs leading-relaxed text-ink-secondary">
-          Describe an incident, paste forensic logs, or query MITRE ATT&amp;CK tactics.
-          CyberCase will retrieve graph context and extract candidate observables.
-        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
       {messages.map((message) => {
         const isUser = message.role === "user";
         return (
           <div
             key={message.id}
-            className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+            className={`flex flex-col ${isUser ? "items-end" : "items-start w-full"}`}
           >
             <div className="flex items-center gap-2 mb-1.5 px-1">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-ink-secondary">
@@ -55,10 +57,10 @@ export function ChatTranscript({
             </div>
 
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3.5 shadow-[0_1px_3px_rgba(39,39,39,0.04)] sm:px-5 sm:py-4 ${
+              className={`rounded-2xl px-4 py-3.5 shadow-[0_1px_3px_rgba(39,39,39,0.04)] sm:px-5 sm:py-4 ${
                 isUser
-                  ? "bg-charcoal text-ivory"
-                  : "border border-line bg-surface text-ink"
+                  ? "max-w-[85%] bg-charcoal text-ivory"
+                  : "w-full border border-line bg-surface text-ink"
               }`}
             >
               {isUser ? (

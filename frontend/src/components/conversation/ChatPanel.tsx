@@ -44,17 +44,19 @@ export function ChatPanel({
 
       {/* Error Alert */}
       {error && (
-        <div
-          role="alert"
-          className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800 sm:mx-6"
-        >
-          {error}
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">
+          <div
+            role="alert"
+            className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-800"
+          >
+            {error}
+          </div>
         </div>
       )}
 
       {/* Input Area */}
-      <div className="border-t border-line bg-surface p-4 sm:p-6">
-        <div className="mx-auto max-w-3xl">
+      <div className="border-t border-line bg-canvas p-4 sm:p-6">
+        <div className="mx-auto w-full max-w-3xl">
           {threadStatus === "answered" && (
             <div className="mb-3 flex items-center gap-2">
               <span className="text-[11px] font-bold text-ink-secondary">
