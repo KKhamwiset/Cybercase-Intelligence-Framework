@@ -55,20 +55,20 @@ export function ChatPanel({
       )}
 
       {/* Input Area */}
-      <div className="border-t border-line bg-canvas p-4 sm:p-6">
+      <div className="shrink-0 bg-canvas px-4 pt-2 pb-5 sm:px-6 sm:pb-6">
         <div className="mx-auto w-full max-w-3xl">
           {threadStatus === "answered" && (
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-2.5 flex items-center gap-2 px-1">
               <span className="text-[11px] font-bold text-ink-secondary">
                 Next action:
               </span>
               <button
                 type="button"
                 onClick={() => onPostAnswerActionChange("ask")}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                className={`rounded-full border px-3 py-1 text-xs font-bold transition-all ${
                   postAnswerAction === "ask"
-                    ? "border-charcoal bg-charcoal text-ivory"
-                    : "border-line-strong bg-surface text-ink-secondary hover:bg-surface-hover"
+                    ? "border-charcoal bg-charcoal text-ivory shadow-sm"
+                    : "border-line-strong bg-surface text-ink-secondary hover:border-charcoal hover:bg-surface-hover"
                 }`}
               >
                 Ask question
@@ -76,10 +76,10 @@ export function ChatPanel({
               <button
                 type="button"
                 onClick={() => onPostAnswerActionChange("add_case_info")}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-bold transition-colors ${
+                className={`rounded-full border px-3 py-1 text-xs font-bold transition-all ${
                   postAnswerAction === "add_case_info"
-                    ? "border-charcoal bg-charcoal text-ivory"
-                    : "border-line-strong bg-surface text-ink-secondary hover:bg-surface-hover"
+                    ? "border-charcoal bg-charcoal text-ivory shadow-sm"
+                    : "border-line-strong bg-surface text-ink-secondary hover:border-charcoal hover:bg-surface-hover"
                 }`}
               >
                 Add case info
@@ -92,6 +92,9 @@ export function ChatPanel({
             onInputChange={onInputChange}
             onSubmit={onSubmit}
           />
+          <p className="mt-2 text-center text-[10px] text-ink-muted">
+            CyberCase maps threat telemetry to MITRE ATT&amp;CK STIX 2.1 intelligence.
+          </p>
         </div>
       </div>
     </div>
