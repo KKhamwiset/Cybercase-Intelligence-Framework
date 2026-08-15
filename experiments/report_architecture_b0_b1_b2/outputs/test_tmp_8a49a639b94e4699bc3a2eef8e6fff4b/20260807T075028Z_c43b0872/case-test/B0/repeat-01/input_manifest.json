@@ -1,0 +1,71 @@
+{
+  "case_id": "case-test",
+  "case_sha256": "df409f2c31db0c4f78b4b3f896c70995868a49e160d1b2f1567ce22ed7d13182",
+  "chunk_configuration": {
+    "estimated_full_case_tokens": 261,
+    "max_chunk_tokens": 220
+  },
+  "condition": "B0",
+  "decoding_settings": {
+    "extraction_max_output_tokens": 256,
+    "report_max_output_tokens": 512,
+    "temperature": 0.0
+  },
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "model": "claude-haiku-4-5-20251001",
+  "output_enforcement_modes": {
+    "relationship_extraction": "plain_json_local_validation",
+    "report": "provider_json_schema_local_validation"
+  },
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v1",
+    "report": "report_architecture_report_prompt_v1"
+  },
+  "provider": "anthropic",
+  "reference_context_ids": [
+    "REF-001"
+  ],
+  "repeat": 1,
+  "report_input": {
+    "case_id": "case-test",
+    "case_packet": {
+      "sources": [
+        {
+          "content": "A reported account received a suspicious message on 2026-08-01 at approximately 10:20. A reported account received a suspicious message on 2026-08-01 at approximately 10:20. ",
+          "source_id": "SRC-001",
+          "source_locator": "statement://1",
+          "source_type": "statement"
+        },
+        {
+          "content": "A record describes a transfer to ACCT-77 and says control of that account was not established. A record describes a transfer to ACCT-77 and says control of that account was not established. ",
+          "source_id": "SRC-002",
+          "source_locator": "record://2",
+          "source_type": "record"
+        },
+        {
+          "content": "A device observation mentions HOST-7, but ownership and attribution remain unknown. A device observation mentions HOST-7, but ownership and attribution remain unknown. ",
+          "source_id": "SRC-003",
+          "source_locator": "observation://3",
+          "source_type": "observation"
+        }
+      ]
+    },
+    "language": "en",
+    "reference_context": [
+      {
+        "content": "Frozen technical context only.",
+        "locator": null,
+        "mitre_technique_ids": [
+          "T1566"
+        ],
+        "reference_id": "REF-001",
+        "reference_type": "frozen_reference"
+      }
+    ]
+  },
+  "source_ids": [
+    "SRC-001",
+    "SRC-002",
+    "SRC-003"
+  ]
+}

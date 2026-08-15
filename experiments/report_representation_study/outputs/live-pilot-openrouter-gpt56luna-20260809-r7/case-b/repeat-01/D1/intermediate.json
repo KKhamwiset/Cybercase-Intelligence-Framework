@@ -1,0 +1,60 @@
+{
+  "case_id": "case-b",
+  "intermediate_version": "d1_summary_records_v1",
+  "ordered_parts": [
+    {
+      "case_id": "case-b",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0001",
+      "part_ordinal": 1,
+      "part_sha256": "d75ea9de6b81bc602304007e323f68fd4c096d45c91fbf0addfcf0325f44b188",
+      "records": [
+        {
+          "participants": [
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-memo-001",
+              "source_locator": "case-b/memo/paragraph-1"
+            }
+          ],
+          "summary": "The owner or controller of account ACC-B1 is unknown, and no login audit records were provided with the case packet.",
+          "timestamp_text": null
+        },
+        {
+          "participants": [
+            "Bob Niran",
+            "ACC-B1"
+          ],
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b/interview/bob/paragraph-2"
+            }
+          ],
+          "summary": "The interview summary identifies Bob Niran, but investigators state that the available information does not establish that Bob Niran controls account ACC-B1.",
+          "timestamp_text": null
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 112,
+          "char_start": 0,
+          "content_sha256": "9481025b1b4d789742a7644c911df510d5fe145107668e4d571361ee17f8e8aa",
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1",
+          "source_type": "investigation_memo"
+        },
+        {
+          "char_end": 153,
+          "char_start": 0,
+          "content_sha256": "b79af73b5848099655198ba249b8a390edc1b7a6183197ee1c1b8b5677b626dd",
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2",
+          "source_type": "interview_summary"
+        }
+      ]
+    }
+  ]
+}

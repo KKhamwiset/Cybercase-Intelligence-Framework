@@ -1,0 +1,39 @@
+{
+  "calls": [
+    {
+      "chunk_id": null,
+      "failure_code": null,
+      "input_tokens": 7,
+      "latency_ms": 0.272,
+      "output_tokens": 11,
+      "parse_status": "validated",
+      "response_sha256": "4f272a94ea9de63ccf4b89301b36cdbdb1a1add605280f60a23015cf21819537",
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T08:30:21.262843Z"
+    },
+    {
+      "chunk_id": null,
+      "failure_code": null,
+      "input_tokens": 7,
+      "latency_ms": 0.386,
+      "output_tokens": 11,
+      "parse_status": "validated",
+      "response_sha256": "e0b89b7d1854c1c5d66aac42400b24f41cb823a76b6ed3d48c1f6fad2fb055e3",
+      "stage": "report",
+      "started_at": "2026-08-07T08:30:21.263436Z"
+    }
+  ],
+  "case_id": "case-test",
+  "condition": "B2",
+  "failure_code": null,
+  "input_tokens": 14,
+  "model_calls": 2,
+  "output_tokens": 22,
+  "parse_validation_status": "validated",
+  "raw_report_response_available": true,
+  "relationship_ir_available": true,
+  "repeat": 1,
+  "status": "completed",
+  "total_latency_ms": 0.658,
+  "validated_report_available": true
+}

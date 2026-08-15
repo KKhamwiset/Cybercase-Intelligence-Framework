@@ -1,0 +1,30 @@
+{
+  "case_id": "case-001",
+  "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+  "chunk_configuration": {
+    "estimated_full_case_tokens": 292,
+    "max_chunk_tokens": 4000
+  },
+  "condition": "B0",
+  "decoding_settings": {
+    "extraction_max_output_tokens": 4096,
+    "report_max_output_tokens": 8192,
+    "temperature": 0.0
+  },
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v1",
+    "report": "report_architecture_report_prompt_v1"
+  },
+  "provider": "anthropic",
+  "reference_context_ids": [
+    "REF-001"
+  ],
+  "repeat": 1,
+  "source_ids": [
+    "SRC-001",
+    "SRC-002",
+    "SRC-003"
+  ]
+}

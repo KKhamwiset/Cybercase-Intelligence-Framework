@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "chunk_count": 2,
+      "estimated_b0_report_context_tokens": 8974,
+      "estimated_full_case_tokens": 292,
+      "estimated_full_extraction_context_tokens": 4726,
+      "reference_context_ids": [
+        "REF-001"
+      ],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-003"
+      ]
+    }
+  ],
+  "chunk_configuration": {
+    "context_window_tokens": 32000,
+    "max_chunk_tokens": 256
+  },
+  "conditions": [
+    "B0",
+    "B1",
+    "B2"
+  ],
+  "decoding_settings": {
+    "extraction_max_output_tokens": 4096,
+    "report_max_output_tokens": 8192,
+    "temperature": 0.0
+  },
+  "dry_run": false,
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "finished_at": "2026-08-07T07:33:38.072274+00:00",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v1",
+    "relationship_ir": "relationship_ir_v1",
+    "report": "report_architecture_report_prompt_v1",
+    "report_schema": "baseline_report_v1"
+  },
+  "provider": "anthropic",
+  "repeats": 1,
+  "repository": {
+    "dirty": true,
+    "experiment_code_sha": "75cd3658cb447ce8110e1e19b00e842585642793",
+    "head_sha": "75cd3658cb447ce8110e1e19b00e842585642793"
+  },
+  "results": [
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B0",
+      "failure_code": null,
+      "input_tokens": 2032,
+      "model_calls": 1,
+      "output_tokens": 1684,
+      "repeat": 1,
+      "status": "completed",
+      "total_latency_ms": 28113.852
+    },
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B1",
+      "failure_code": "provider_error",
+      "input_tokens": null,
+      "model_calls": 1,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "failed",
+      "total_latency_ms": 524.963
+    },
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B2",
+      "failure_code": "provider_error",
+      "input_tokens": null,
+      "model_calls": 1,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "failed",
+      "total_latency_ms": 511.269
+    }
+  ],
+  "run_id": "20260807T073308Z_c288bbd1",
+  "started_at": "2026-08-07T07:33:08.902242+00:00"
+}

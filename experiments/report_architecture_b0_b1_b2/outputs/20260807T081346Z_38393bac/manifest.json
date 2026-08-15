@@ -1,0 +1,109 @@
+{
+  "cases": [
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "chunk_count": 2,
+      "estimated_b0_report_context_tokens": 9669,
+      "estimated_full_case_tokens": 292,
+      "estimated_full_extraction_context_tokens": 6298,
+      "reference_context_ids": [
+        "REF-001"
+      ],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-003"
+      ]
+    }
+  ],
+  "chunk_configuration": {
+    "context_window_tokens": 32000,
+    "max_chunk_tokens": 256
+  },
+  "conditions": [
+    "B0",
+    "B1",
+    "B2"
+  ],
+  "decoding_settings": {
+    "extraction_max_output_tokens": 4096,
+    "report_max_output_tokens": 8192,
+    "temperature": 0.0
+  },
+  "dry_run": true,
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "finished_at": "2026-08-07T08:13:46.519506+00:00",
+  "local_schema_sha256": {
+    "relationship_ir": "234cd353f5dfb72d855a995cec858a1cc777e25edeaf2b0630188774b5fe0d2a"
+  },
+  "model": "claude-haiku-4-5-20251001",
+  "output_enforcement_modes": {
+    "relationship_extraction": "tool_json_local_validation",
+    "report": "provider_json_schema_local_validation"
+  },
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v3",
+    "relationship_ir": "relationship_ir_v1",
+    "report": "report_architecture_report_prompt_v1",
+    "report_schema": "baseline_report_v1"
+  },
+  "protocol_versions": {
+    "anthropic_transport": "anthropic_relationship_extraction_transport_v3",
+    "experiment": "report_architecture_b0_b1_b2_v3"
+  },
+  "provider": "anthropic",
+  "provider_schema_sha256": {
+    "relationship_ir": "adcfc775d5935d78e5a67fa2d69be96728356c9d3943ef494742e88a4ad9a927",
+    "report": "334469d1fd9d7f470309826f2ef9919f654d6259b816b84bc503c8b68beb837f"
+  },
+  "repeats": 1,
+  "repository": {
+    "dirty": true,
+    "experiment_code_sha": "6b8bed73d018b4291e85eb814d8ef99e9899e832",
+    "head_sha": "6b8bed73d018b4291e85eb814d8ef99e9899e832"
+  },
+  "results": [
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B0",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    },
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B1",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    },
+    {
+      "case_id": "case-001",
+      "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+      "condition": "B2",
+      "failure_code": null,
+      "input_tokens": null,
+      "model_calls": 0,
+      "output_tokens": null,
+      "repeat": 1,
+      "status": "dry_run",
+      "total_latency_ms": 0.0
+    }
+  ],
+  "run_id": "20260807T081346Z_38393bac",
+  "started_at": "2026-08-07T08:13:46.446503+00:00",
+  "transport_contract_sha256": {
+    "relationship_extraction_tool": "9f7b3bdc08b6798a6f455d968f8121f79138066484f06d0d290e04ca8d3a90ff"
+  }
+}

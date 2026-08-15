@@ -1,0 +1,266 @@
+{
+  "active_transport_contract_sha256": {
+    "relationship_extraction": "030b22b7d9b215b05a9accd029868c25093dc1316380b4e4a929e173528e0563",
+    "report": "0438f1c95e8830abbfb78b168046eb23c023b9c5f37ff2ce867906a1c509bc09"
+  },
+  "available_transport_contract_sha256": {
+    "relationship_extraction_provider_output_config": "0114bec2863644b5c2dd9a9b2cd0a96fd4fd2099046da632ce05459cec06f921",
+    "relationship_extraction_tool": "030b22b7d9b215b05a9accd029868c25093dc1316380b4e4a929e173528e0563",
+    "report_provider_output_config": "2548477d4210a9b5206c322f9d222273d69802b70c47b061de3e34cc64fe9627",
+    "report_tool": "0438f1c95e8830abbfb78b168046eb23c023b9c5f37ff2ce867906a1c509bc09"
+  },
+  "case_id": "case-001",
+  "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+  "chunk_configuration": {
+    "estimated_full_case_tokens": 292,
+    "max_chunk_tokens": 256
+  },
+  "condition": "B2",
+  "decoding_settings": {
+    "extraction_max_output_tokens": 4096,
+    "report_max_output_tokens": 8192,
+    "temperature": 0.0
+  },
+  "estimated_report_context_tokens": 10617,
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "local_schema_sha256": {
+    "relationship_ir": "234cd353f5dfb72d855a995cec858a1cc777e25edeaf2b0630188774b5fe0d2a",
+    "report": "3a109a234f50f70e5c11e49657b23235150eb4c4431dfadcbad0ac0f632d324a"
+  },
+  "model": "claude-haiku-4-5-20251001",
+  "output_enforcement_modes": {
+    "relationship_extraction": "tool_json_local_validation",
+    "report": "tool_json_local_validation"
+  },
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v4",
+    "report": "report_architecture_report_prompt_v2"
+  },
+  "protocol_versions": {
+    "experiment": "report_architecture_b0_b1_b2_v6",
+    "relationship_extraction_transport": "anthropic_relationship_extraction_transport_v5",
+    "report_transport": "anthropic_report_transport_v1"
+  },
+  "provider": "anthropic",
+  "provider_schema_sha256": {
+    "relationship_ir": "adcfc775d5935d78e5a67fa2d69be96728356c9d3943ef494742e88a4ad9a927",
+    "report": "334469d1fd9d7f470309826f2ef9919f654d6259b816b84bc503c8b68beb837f"
+  },
+  "provider_settings": {
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "timeout_seconds": 90.0
+  },
+  "reference_context_ids": [
+    "REF-001"
+  ],
+  "relationship_extraction_inputs": [
+    {
+      "chunk_id": null,
+      "payload": {
+        "case_id": "case-001",
+        "language": "en",
+        "reference_context": [
+          {
+            "content": "A frozen reference row describes phishing as a possible technical category. It is reference knowledge, not case evidence.",
+            "locator": "mitre://T1566",
+            "mitre_technique_ids": [
+              "T1566"
+            ],
+            "reference_id": "REF-001",
+            "reference_type": "frozen_mitre_context"
+          }
+        ],
+        "sources": [
+          {
+            "content": "On 2026-08-01 at approximately 10:20, an investigator received a report that an employee account employee@example.org received a suspicious message.",
+            "source_id": "SRC-001",
+            "source_locator": "statement://case-001/1",
+            "source_type": "investigator_statement"
+          },
+          {
+            "content": "A bank record description states that a transfer of USD 4,200 was reported from the employee account to account ACCT-77. The record does not establish who controlled ACCT-77.",
+            "source_id": "SRC-002",
+            "source_locator": "record://case-001/bank-1",
+            "source_type": "bank_record_description"
+          },
+          {
+            "content": "The investigator reported that device HOST-7 was used to access the employee account. Ownership of HOST-7 and attribution of the access remain unknown.",
+            "source_id": "SRC-003",
+            "source_locator": "observation://case-001/device-1",
+            "source_type": "device_observation"
+          }
+        ]
+      }
+    }
+  ],
+  "repeat": 1,
+  "report_input": {
+    "case_id": "case-001",
+    "language": "en",
+    "reference_context": [
+      {
+        "content": "A frozen reference row describes phishing as a possible technical category. It is reference knowledge, not case evidence.",
+        "locator": "mitre://T1566",
+        "mitre_technique_ids": [
+          "T1566"
+        ],
+        "reference_id": "REF-001",
+        "reference_type": "frozen_mitre_context"
+      }
+    ],
+    "relationship_ir": {
+      "entities": [
+        {
+          "canonical_name": "employee@example.org",
+          "entity_id": "ACCT-employee@example.org",
+          "entity_type": "account",
+          "reported_role": null,
+          "reported_roles": [],
+          "source_ids": [
+            "SRC-001"
+          ]
+        },
+        {
+          "canonical_name": "ACCT-77",
+          "entity_id": "ACCT-77",
+          "entity_type": "account",
+          "reported_role": null,
+          "reported_roles": [],
+          "source_ids": [
+            "SRC-002"
+          ]
+        },
+        {
+          "canonical_name": "HOST-7",
+          "entity_id": "HOST-7",
+          "entity_type": "device",
+          "reported_role": null,
+          "reported_roles": [],
+          "source_ids": [
+            "SRC-003"
+          ]
+        }
+      ],
+      "events": [
+        {
+          "action": "received suspicious message",
+          "actor_ids": [],
+          "event_id": "EVT-001",
+          "evidence_ids": [],
+          "source_ids": [
+            "SRC-001"
+          ],
+          "status": "reported",
+          "target_ids": [
+            "ACCT-employee@example.org"
+          ],
+          "timestamp": "2026-08-01T10:20:00",
+          "timestamp_text": "2026-08-01 at approximately 10:20"
+        },
+        {
+          "action": "transfer of USD 4,200",
+          "actor_ids": [
+            "ACCT-employee@example.org"
+          ],
+          "event_id": "EVT-002",
+          "evidence_ids": [],
+          "source_ids": [
+            "SRC-002"
+          ],
+          "status": "reported",
+          "target_ids": [
+            "ACCT-77"
+          ],
+          "timestamp": null,
+          "timestamp_text": null
+        },
+        {
+          "action": "used to access account",
+          "actor_ids": [
+            "HOST-7"
+          ],
+          "event_id": "EVT-003",
+          "evidence_ids": [],
+          "source_ids": [
+            "SRC-003"
+          ],
+          "status": "reported",
+          "target_ids": [
+            "ACCT-employee@example.org"
+          ],
+          "timestamp": null,
+          "timestamp_text": null
+        }
+      ],
+      "evidence": [
+        {
+          "artifact_type": "investigator_statement",
+          "description": "Investigator report of a suspicious message received by employee account",
+          "evidence_id": "EV-001",
+          "source_ids": [
+            "SRC-001"
+          ],
+          "status": "reported",
+          "title": "Suspicious message report"
+        },
+        {
+          "artifact_type": "bank_record_description",
+          "description": "Bank record describing a transfer of USD 4,200 from employee account to ACCT-77",
+          "evidence_id": "EV-002",
+          "source_ids": [
+            "SRC-002"
+          ],
+          "status": "reported",
+          "title": "Bank transfer record"
+        },
+        {
+          "artifact_type": "device_observation",
+          "description": "Investigator observation that HOST-7 was used to access the employee account",
+          "evidence_id": "EV-003",
+          "source_ids": [
+            "SRC-003"
+          ],
+          "status": "reported",
+          "title": "Device access observation"
+        }
+      ],
+      "missing_information": [
+        {
+          "description": "Controller or owner of account ACCT-77 is unknown",
+          "missing_id": "MISSING-001",
+          "source_ids": [
+            "SRC-002"
+          ]
+        },
+        {
+          "description": "Ownership of device HOST-7 is unknown",
+          "missing_id": "MISSING-002",
+          "source_ids": [
+            "SRC-003"
+          ]
+        },
+        {
+          "description": "Attribution of access to employee account via HOST-7 remains unknown",
+          "missing_id": "MISSING-003",
+          "source_ids": [
+            "SRC-003"
+          ]
+        }
+      ],
+      "missing_relationships": [],
+      "relationships": [],
+      "version": "relationship_ir_v1",
+      "warnings": [
+        "Reference context (REF-001) is frozen technical material and not case evidence; phishing category is not incorporated as a case fact",
+        "Timestamp for EVT-002 (transfer event) is not provided in source; timestamp set to null",
+        "Timestamp for EVT-003 (device access event) is not provided in source; timestamp set to null"
+      ]
+    }
+  },
+  "source_ids": [
+    "SRC-001",
+    "SRC-002",
+    "SRC-003"
+  ]
+}

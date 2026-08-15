@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CaseRelationshipGraph } from "@/components/chat/CaseRelationshipGraph";
+import { CaseRelationshipGraph } from "@/components/relationships/CaseRelationshipGraph";
 import type {
   ChatBaselineEntity,
   ChatBaselineRelationship,
@@ -42,8 +42,13 @@ if (typeof window !== "undefined") {
     },
   });
 
-  if (typeof SVGElement !== "undefined" && !SVGElement.prototype.getBBox) {
-    SVGElement.prototype.getBBox = () =>
+  if (
+    typeof SVGElement !== "undefined" &&
+    !(SVGElement.prototype as unknown as { getBBox?: () => DOMRect }).getBBox
+  ) {
+    (
+      SVGElement.prototype as unknown as { getBBox: () => DOMRect }
+    ).getBBox = () =>
       ({
         x: 0,
         y: 0,

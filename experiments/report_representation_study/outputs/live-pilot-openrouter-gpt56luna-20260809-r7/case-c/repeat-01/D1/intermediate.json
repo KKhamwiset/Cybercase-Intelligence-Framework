@@ -1,0 +1,61 @@
+{
+  "case_id": "case-c",
+  "intermediate_version": "d1_summary_records_v1",
+  "ordered_parts": [
+    {
+      "case_id": "case-c",
+      "intermediate_version": "d1_summary_records_v1",
+      "part_id": "part-0001",
+      "part_ordinal": 1,
+      "part_sha256": "1ab55f16e7e2dac9971dc998e022a6e9bcbe81beef444eda0b6b1ade758c43f9",
+      "records": [
+        {
+          "participants": [
+            "RedFox",
+            "Carol V."
+          ],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "summary": "The first report states that the handle RedFox belongs to Carol V. and that RedFox sent the message at 2026-03-01 10:00 UTC.",
+          "timestamp_text": "2026-03-01 10:00 UTC"
+        },
+        {
+          "participants": [
+            "RedFox",
+            "Carla V."
+          ],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "summary": "A witness instead says that RedFox may refer to Carla V. and recalls the message at approximately 2026-03-01 11:00 UTC, while stating that the time is uncertain; this conflicts with the first report's identity claim and chronology.",
+          "timestamp_text": "approximately 2026-03-01 11:00 UTC"
+        }
+      ],
+      "source_spans": [
+        {
+          "char_end": 124,
+          "char_start": 0,
+          "content_sha256": "b3531ae7c1ff58cd10085afdc881ce0754aa182aa6f8bf229e65525288d4d378",
+          "source_id": "c-report-001",
+          "source_locator": "case-c/report/paragraph-3",
+          "source_type": "incident_report"
+        },
+        {
+          "char_end": 159,
+          "char_start": 0,
+          "content_sha256": "504c1407d418a950e02bfa04761d551e546663550b66995b29d5fcccd0bd2b01",
+          "source_id": "c-witness-001",
+          "source_locator": "case-c/witness/paragraph-1",
+          "source_type": "witness_statement"
+        }
+      ]
+    }
+  ]
+}

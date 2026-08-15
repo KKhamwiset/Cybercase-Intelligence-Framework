@@ -1,0 +1,117 @@
+{
+  "entities": [
+    {
+      "canonical_name": "employee@example.org",
+      "entity_id": "ACCT-employee@example.org",
+      "entity_type": "account",
+      "reported_role": "employee account",
+      "reported_roles": [],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002"
+      ]
+    },
+    {
+      "canonical_name": "ACCT-77",
+      "entity_id": "ACCT-77",
+      "entity_type": "account",
+      "reported_role": null,
+      "reported_roles": [],
+      "source_ids": [
+        "SRC-002"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "action": "received suspicious message",
+      "actor_ids": [],
+      "event_id": "EVT-001",
+      "evidence_ids": [],
+      "source_ids": [
+        "SRC-001"
+      ],
+      "status": "reported",
+      "target_ids": [
+        "ACCT-employee@example.org"
+      ],
+      "timestamp": "2026-08-01T10:20:00Z",
+      "timestamp_text": "2026-08-01 at approximately 10:20"
+    },
+    {
+      "action": "transfer of USD 4,200",
+      "actor_ids": [
+        "ACCT-employee@example.org"
+      ],
+      "event_id": "EVT-002",
+      "evidence_ids": [],
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "target_ids": [
+        "ACCT-77"
+      ],
+      "timestamp": null,
+      "timestamp_text": null
+    }
+  ],
+  "evidence": [
+    {
+      "artifact_type": "investigator_statement",
+      "description": "An investigator received a report that an employee account employee@example.org received a suspicious message on 2026-08-01 at approximately 10:20.",
+      "evidence_id": "EV-001",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "status": "reported",
+      "title": "Investigator report of suspicious message"
+    },
+    {
+      "artifact_type": "bank_record_description",
+      "description": "A bank record describes a transfer of USD 4,200 from the employee account to account ACCT-77. The record does not establish who controlled ACCT-77.",
+      "evidence_id": "EV-002",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "title": "Bank record of transfer"
+    }
+  ],
+  "missing_information": [
+    {
+      "description": "The identity or controller of account ACCT-77 is not established by the bank record.",
+      "missing_id": "MISSING-001",
+      "source_ids": [
+        "SRC-002"
+      ]
+    },
+    {
+      "description": "The sender or source of the suspicious message received by employee@example.org is not identified.",
+      "missing_id": "MISSING-002",
+      "source_ids": [
+        "SRC-001"
+      ]
+    }
+  ],
+  "missing_relationships": [],
+  "relationships": [
+    {
+      "evidence_ids": [
+        "EV-002"
+      ],
+      "object_id": "ACCT-77",
+      "predicate": "transferred_funds_to",
+      "relationship_id": "REL-001",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "subject_id": "ACCT-employee@example.org"
+    }
+  ],
+  "version": "relationship_ir_v1",
+  "warnings": [
+    "Reference context (REF-001) describes phishing as a technical category but is frozen reference knowledge, not case evidence, and is not incorporated into the relationship model."
+  ]
+}

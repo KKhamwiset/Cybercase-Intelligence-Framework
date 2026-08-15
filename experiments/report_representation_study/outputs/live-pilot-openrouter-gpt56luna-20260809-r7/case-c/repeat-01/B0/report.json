@@ -1,0 +1,392 @@
+{
+  "case_id": "case-c",
+  "report_version": "representation_study_report_v1",
+  "sections": [
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "statement_id": "stmt-001",
+          "statement_type": "case_statement",
+          "text": "The first report states that the RedFox handle belongs to Carol V."
+        },
+        {
+          "epistemic_status": "suspected",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-002",
+          "statement_type": "case_statement",
+          "text": "A witness says that RedFox may refer to Carla V."
+        },
+        {
+          "epistemic_status": "conflicting_sources",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-003",
+          "statement_type": "analysis_candidate",
+          "text": "The sources provide conflicting reported identities for the RedFox handle."
+        }
+      ],
+      "heading": "Executive Summary",
+      "section_id": "executive_summary"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-004",
+          "statement_type": "case_statement",
+          "text": "The supplied case materials contain one incident report and one witness statement."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-005",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied materials do not establish whether Carol V. and Carla V. are aliases for one person or distinct individuals."
+        }
+      ],
+      "heading": "Case Background and Scope",
+      "section_id": "case_background_scope"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "statement_id": "stmt-006",
+          "statement_type": "case_statement",
+          "text": "The first report attributes a message sent at 2026-03-01 10:00 UTC to the RedFox handle."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-007",
+          "statement_type": "case_statement",
+          "text": "The witness recalls a message associated with RedFox at approximately 2026-03-01 11:00 UTC."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-008",
+          "statement_type": "case_statement",
+          "text": "The witness states that the recalled time is uncertain."
+        }
+      ],
+      "heading": "Evidence Findings",
+      "section_id": "evidence_findings"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-009",
+          "statement_type": "case_statement",
+          "text": "RedFox is the handle referenced by both supplied sources."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "statement_id": "stmt-010",
+          "statement_type": "case_statement",
+          "text": "The first report identifies RedFox as Carol V."
+        },
+        {
+          "epistemic_status": "suspected",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-011",
+          "statement_type": "case_statement",
+          "text": "The witness says RedFox may refer to Carla V."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-012",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied sources do not resolve whether the RedFox handle was used by Carol V., Carla V., or another unresolved counterpart."
+        }
+      ],
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            }
+          ],
+          "statement_id": "stmt-013",
+          "statement_type": "case_statement",
+          "text": "The first report places the message at 2026-03-01 10:00 UTC."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-014",
+          "statement_type": "case_statement",
+          "text": "The witness places the message at approximately 2026-03-01 11:00 UTC."
+        },
+        {
+          "epistemic_status": "conflicting_sources",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-015",
+          "statement_type": "analysis_candidate",
+          "text": "The supplied sources contain a one-hour discrepancy in the reported message time."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-016",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The exact message time is not established by the supplied sources."
+        }
+      ],
+      "heading": "Chronological Timeline",
+      "section_id": "chronological_timeline"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-017",
+          "statement_type": "limitation",
+          "text": "The supplied sources do not describe a technical behavior that supports a provisional MITRE ATT&CK mapping."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-018",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied sources do not establish the platform, account identifier, message content, or authentication records associated with RedFox."
+        }
+      ],
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-019",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied sources do not establish the identity of the person using the RedFox handle."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "c-report-001",
+              "source_locator": "case-c/report/paragraph-3"
+            },
+            {
+              "source_id": "c-witness-001",
+              "source_locator": "case-c/witness/paragraph-1"
+            }
+          ],
+          "statement_id": "stmt-020",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The supplied sources do not establish the exact time of the message."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-021",
+          "statement_type": "next_step",
+          "text": "Investigators should preserve the original report and witness statement together with their metadata."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-022",
+          "statement_type": "next_step",
+          "text": "Investigators should obtain platform records that may associate the RedFox handle with an account identifier and message timestamp."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-023",
+          "statement_type": "next_step",
+          "text": "Investigators should verify whether Carol V. and Carla V. are aliases for one person or distinct individuals."
+        }
+      ],
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Provisional Investigative Report: case-c"
+}

@@ -1,0 +1,190 @@
+{
+  "claims": [
+    {
+      "claim_id": "CLAIM-001",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "executive_summary",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "support_type": "user_reported",
+      "text": "On 2026-08-01 at approximately 10:20, an investigator received a report that an employee account employee@example.org received a suspicious message.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-002",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "evidence_findings",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "A bank record description states that a transfer of USD 4,200 was reported from the employee account to account ACCT-77.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-003",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "evidence_findings",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "The bank record does not establish who controlled ACCT-77.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-004",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "evidence_findings",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "Device HOST-7 was used to access the employee account.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-005",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "evidence_findings",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "Ownership of HOST-7 and attribution of the access remain unknown.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-006",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "individuals_accounts_systems_roles",
+      "source_ids": [
+        "SRC-001",
+        "SRC-002"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "Employee account employee@example.org is referenced as the recipient of a suspicious message and source of a reported transfer.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-007",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "individuals_accounts_systems_roles",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "Account ACCT-77 is referenced as the recipient of a USD 4,200 transfer; the controller is unknown.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-008",
+      "evidence_ids": [],
+      "mitre_technique_ids": [],
+      "section_id": "individuals_accounts_systems_roles",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "support_type": "extraction_candidate",
+      "text": "Device HOST-7 was observed accessing the employee account; ownership is unknown.",
+      "timeline_event_ids": []
+    },
+    {
+      "claim_id": "CLAIM-009",
+      "evidence_ids": [],
+      "mitre_technique_ids": [
+        "T1566"
+      ],
+      "section_id": "technical_analysis_mitre",
+      "source_ids": [
+        "SRC-001"
+      ],
+      "support_type": "mitre_mapping_candidate",
+      "text": "The reported suspicious message to employee@example.org may be consistent with phishing techniques.",
+      "timeline_event_ids": []
+    }
+  ],
+  "limitations": [
+    "This report is provisional and unverified. It is not a court-ready forensic examination, proof of guilt, a legal conclusion, or verified attribution.",
+    "The identity of the employee account holder is not established.",
+    "The controller of account ACCT-77 is not identified.",
+    "The owner of device HOST-7 is not identified.",
+    "The content, sender, and delivery mechanism of the suspicious message are not documented in the available materials.",
+    "The date and time of the financial transfer are not specified.",
+    "The date and time of device access are not specified.",
+    "The relationship between the reported suspicious message and the financial transaction is not established.",
+    "No forensic examination of devices or accounts has been conducted.",
+    "No interviews with relevant parties have been documented.",
+    "The report is based on investigator statements, bank record descriptions, and device observations; independent verification is required."
+  ],
+  "report_version": "baseline_report_v1",
+  "sections": [
+    {
+      "heading": "Executive Summary",
+      "items": [],
+      "paragraphs": [
+        "On 2026-08-01 at approximately 10:20, an investigator received a report of a suspicious message sent to an employee account (employee@example.org). A subsequent bank record indicates a USD 4,200 transfer from the employee account to account ACCT-77. Device HOST-7 was observed accessing the employee account. The identity of the account holder, the controller of the receiving account, and the owner of the device remain unestablished. This report documents the reported incident and available observations without establishing attribution or control."
+      ],
+      "section_id": "executive_summary"
+    },
+    {
+      "heading": "Case Background and Scope",
+      "items": [],
+      "paragraphs": [
+        "Case-001 concerns a report of suspicious activity involving an employee email account and an associated financial transaction. The investigation scope includes the receipt of a suspicious message, a bank transfer, and device access. The report is based on investigator statements, bank record descriptions, and device observations. Attribution of actions, account ownership, and device control remain outside the scope of established facts in this preliminary review."
+      ],
+      "section_id": "case_background_scope"
+    },
+    {
+      "heading": "Evidence Findings",
+      "items": [],
+      "paragraphs": [
+        "An investigator reported receipt of a report concerning a suspicious message sent to employee@example.org on 2026-08-01 at approximately 10:20. A bank record description documents a USD 4,200 transfer from the employee account to account ACCT-77; the record does not establish who controlled ACCT-77. A device observation indicates that HOST-7 was used to access the employee account; ownership of HOST-7 and attribution of the access remain unknown."
+      ],
+      "section_id": "evidence_findings"
+    },
+    {
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "items": [],
+      "paragraphs": [
+        "The following entities are referenced in the case materials: employee account employee@example.org (recipient of a suspicious message and source of a reported transfer); account ACCT-77 (recipient of a USD 4,200 transfer, controller unknown); device HOST-7 (observed accessing the employee account, ownership unknown); and an investigator who received the initial report. No individuals have been identified by name, and no roles or responsibilities have been established."
+      ],
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "heading": "Chronological Timeline",
+      "items": [],
+      "paragraphs": [
+        "2026-08-01, approximately 10:20: An investigator received a report that employee account employee@example.org received a suspicious message. The timing and source of the message are not specified. A bank transfer of USD 4,200 from the employee account to account ACCT-77 is documented; the date and time of the transfer are not specified in the available materials. Device HOST-7 was observed accessing the employee account; the date and time of access are not specified."
+      ],
+      "section_id": "chronological_timeline"
+    },
+    {
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "items": [],
+      "paragraphs": [
+        "The reported suspicious message to employee@example.org may be consistent with phishing techniques, which are documented in the MITRE ATT&CK framework. However, the content, delivery mechanism, and intent of the message are not described in the available case materials. The unauthorized access to the employee account and the associated financial transfer may involve credential compromise or account takeover, but the technical mechanisms remain unspecified. Device HOST-7 was observed accessing the account, but the method of access and the relationship between the device and the account holder are unknown."
+      ],
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "items": [],
+      "paragraphs": [
+        "This report is a provisional, unverified preliminary review based on investigator statements, bank record descriptions, and device observations. No conclusions regarding attribution, intent, or guilt are supported by the available materials. Significant limitations apply: the identity of the account holder, the controller of the receiving account ACCT-77, and the owner of device HOST-7 remain unknown. The content and delivery mechanism of the suspicious message are not documented. The date and time of the financial transfer and device access are not specified. The relationship between the reported message and the financial transaction is not established.",
+        "Recommended next investigative steps include: (1) obtaining the full content and metadata of the suspicious message, including sender information and delivery logs; (2) establishing the identity and authorization status of the employee account holder; (3) determining the ownership and control of account ACCT-77 and device HOST-7; (4) obtaining complete bank records and transaction logs with precise timestamps; (5) conducting forensic examination of device HOST-7 to establish access patterns and user identity; (6) reviewing access logs for the employee account to correlate device access with the reported message and transfer; (7) interviewing the employee account holder and other relevant parties. This report is not a court-ready forensic examination, proof of guilt, a legal conclusion, or verified attribution. Human review and further investigation are required."
+      ],
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Preliminary Investigation Report: Case-001 Suspicious Account Activity"
+}

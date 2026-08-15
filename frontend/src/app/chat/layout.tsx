@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { ChatWorkspace } from "@/components/chat/ChatWorkspace";
+import { ChatWorkspace } from "@/components/ChatWorkspace";
 
 interface ChatLayoutProps {
   children: ReactNode;

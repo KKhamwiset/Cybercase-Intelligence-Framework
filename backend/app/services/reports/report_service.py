@@ -87,7 +87,7 @@ def build_current_report_snapshot(thread: ChatThread) -> ReportInputSnapshot:
             "Send and complete a chat message before generating a report.",
         )
 
-    if thread.status != "idle":
+    if thread.status not in {"idle", "answered"}:
         code_by_status = {
             "processing": "report_chat_processing",
             "awaiting_followup": "report_followup_pending",

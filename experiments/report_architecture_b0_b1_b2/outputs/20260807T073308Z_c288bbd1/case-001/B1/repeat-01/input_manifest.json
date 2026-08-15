@@ -1,0 +1,102 @@
+{
+  "case_id": "case-001",
+  "case_sha256": "390a369369ac5e23430a92c0917d576d34a6e151d842def3c7844c5bebc520e3",
+  "chunk_configuration": {
+    "estimated_full_case_tokens": 292,
+    "max_chunk_tokens": 256
+  },
+  "condition": "B1",
+  "decoding_settings": {
+    "extraction_max_output_tokens": 4096,
+    "report_max_output_tokens": 8192,
+    "temperature": 0.0
+  },
+  "experiment_base_sha": "ee6d8b47967937f55e44a422b13a88ded4b2c389",
+  "model": "claude-haiku-4-5-20251001",
+  "prompt_versions": {
+    "relationship_extraction": "relationship_extraction_prompt_v1",
+    "report": "report_architecture_report_prompt_v1"
+  },
+  "provider": "anthropic",
+  "reference_context_ids": [
+    "REF-001"
+  ],
+  "relationship_extraction_inputs": [
+    {
+      "chunk_id": "CHUNK-0001",
+      "payload": {
+        "case_id": "case-001",
+        "language": "en",
+        "reference_context": [
+          {
+            "content": "A frozen reference row describes phishing as a possible technical category. It is reference knowledge, not case evidence.",
+            "locator": "mitre://T1566",
+            "mitre_technique_ids": [
+              "T1566"
+            ],
+            "reference_id": "REF-001",
+            "reference_type": "frozen_mitre_context"
+          }
+        ],
+        "sources": [
+          {
+            "char_end": 148,
+            "char_start": 0,
+            "content": "On 2026-08-01 at approximately 10:20, an investigator received a report that an employee account employee@example.org received a suspicious message.",
+            "content_sha256": "1cb6875e6a184b71e5ad61b6b73c76e81280c24283874bf30f61f375e5f251b8",
+            "parent_source_id": "SRC-001",
+            "source_id": "SRC-001",
+            "source_locator": "statement://case-001/1",
+            "source_type": "investigator_statement"
+          },
+          {
+            "char_end": 174,
+            "char_start": 0,
+            "content": "A bank record description states that a transfer of USD 4,200 was reported from the employee account to account ACCT-77. The record does not establish who controlled ACCT-77.",
+            "content_sha256": "8f7e865ea02726e8ca0f1ffafe55c2f1d695269a073b49ee7dcdb379d6439483",
+            "parent_source_id": "SRC-002",
+            "source_id": "SRC-002",
+            "source_locator": "record://case-001/bank-1",
+            "source_type": "bank_record_description"
+          }
+        ]
+      }
+    },
+    {
+      "chunk_id": "CHUNK-0002",
+      "payload": {
+        "case_id": "case-001",
+        "language": "en",
+        "reference_context": [
+          {
+            "content": "A frozen reference row describes phishing as a possible technical category. It is reference knowledge, not case evidence.",
+            "locator": "mitre://T1566",
+            "mitre_technique_ids": [
+              "T1566"
+            ],
+            "reference_id": "REF-001",
+            "reference_type": "frozen_mitre_context"
+          }
+        ],
+        "sources": [
+          {
+            "char_end": 151,
+            "char_start": 0,
+            "content": "The investigator reported that device HOST-7 was used to access the employee account. Ownership of HOST-7 and attribution of the access remain unknown.",
+            "content_sha256": "d8f013d75531f7184399724ace672363da59f7ea9e89f92bc3e6a8f1621087c3",
+            "parent_source_id": "SRC-003",
+            "source_id": "SRC-003",
+            "source_locator": "observation://case-001/device-1",
+            "source_type": "device_observation"
+          }
+        ]
+      }
+    }
+  ],
+  "repeat": 1,
+  "source_ids": [
+    "SRC-001",
+    "SRC-002",
+    "SRC-003"
+  ]
+}

@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case_state import CaseStateVersion
 from app.models.chat import ChatMessage, ChatRun, ChatThread
 from app.schemas.chat import ChatMessageCreate, ChatMessageRead
 from app.services.chat.followup_policy import (
@@ -169,8 +170,11 @@ class ChatMessageService:
         thread_id: UUID,
         request: ChatMessageCreate,
     ) -> tuple[ChatMessage, ChatRun]:
+        fingerprint_content = request.content
+        if request.action is not None:
+            fingerprint_content = f"{request.content}\x00{request.action}"
         request_fingerprint = hashlib.sha256(
-            request.content.encode("utf-8")
+            fingerprint_content.encode("utf-8")
         ).hexdigest()
         async with self.db.begin():
             statement = (
@@ -277,7 +281,39 @@ class ChatMessageService:
             rag_query = request.content
             followup_root_ordinal = ordinal
             followup_round = 0
-            if thread.status == "awaiting_followup":
+            post_answer_action = (
+                request.action if thread.status == "answered" else None
+            )
+            post_answer_parent_version_id = None
+            if thread.status == "answered":
+                if post_answer_action is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        detail=(
+                            "An explicit action of 'ask' or 'add_case_info' "
+                            "is required after a terminal answer"
+                        ),
+                    )
+                if thread.current_case_state_version_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="The answered thread has no current case state",
+                    )
+                case_state_result = await self.db.execute(
+                    select(CaseStateVersion).where(
+                        CaseStateVersion.id
+                        == thread.current_case_state_version_id,
+                        CaseStateVersion.thread_id == thread.id,
+                    )
+                )
+                case_state = case_state_result.scalar_one_or_none()
+                if case_state is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="The current case state could not be loaded",
+                    )
+                post_answer_parent_version_id = thread.current_case_state_version_id
+            elif thread.status == "awaiting_followup":
                 history_result = await self.db.execute(
                     select(ChatMessage)
                     .where(ChatMessage.thread_id == thread.id)
@@ -314,6 +350,19 @@ class ChatMessageService:
 
             await self.db.flush()
 
+            request_payload = {
+                "content": request.content,
+                "rag_query": rag_query,
+                "followup_root_ordinal": followup_root_ordinal,
+                "followup_round": followup_round,
+            }
+            if post_answer_action is not None:
+                request_payload["action"] = post_answer_action
+                if post_answer_parent_version_id is not None:
+                    request_payload["case_state_version_id"] = str(
+                        post_answer_parent_version_id
+                    )
+
             run = ChatRun(
                 thread_id=thread.id,
                 request_message_id=message.id,
@@ -321,12 +370,7 @@ class ChatMessageService:
                 input_rag_session_id=None,
                 idempotency_key=request.idempotency_key,
                 request_fingerprint=request_fingerprint,
-                request_payload={
-                    "content": request.content,
-                    "rag_query": rag_query,
-                    "followup_root_ordinal": followup_root_ordinal,
-                    "followup_round": followup_round,
-                },
+                request_payload=request_payload,
             )
 
             self.db.add(run)

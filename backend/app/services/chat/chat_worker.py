@@ -2,51 +2,78 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import re
-import time
-import unicodedata
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Sequence
+from typing import Any
 from uuid import UUID, uuid4
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session
-from app.config import settings
+from app.models.case_state import CaseStateVersion
 from app.models.chat import ChatMessage, ChatRun, ChatThread
+from app.models.rag_context import RagContext
 from app.schemas.chat.rag import QueryResponse
-from app.services.chat.chat_message import reconstruct_clarification_chain
-from app.services.extraction.demo_extraction import add_demo_chat_extraction
-from app.services.llm.core_llm import resolve_core_llm_target
-from app.services.chat.followup_policy import (
-    AnthropicFollowUpPolicy,
-    ClarificationExchange,
-    FOLLOWUP_POLICY_VERSION,
-    FOLLOWUP_PROMPT_VERSION,
-    FollowUpDecision,
-    FollowUpPolicy,
-    FollowUpPolicyResult,
-    build_clarified_query,
+from app.services.case_analysis import (
+    CaseAnalysisFailure,
+    request_case_analysis,
 )
+from app.services.chat.chat_message import reconstruct_clarification_chain
+from app.services.chat.case_state_retrieval import (
+    project_case_state_to_retrieval_query,
+)
+from app.services.chat.case_state_mutation import (
+    MUTATION_METADATA_KEY,
+    CaseStateDelta,
+    CaseStateMutationFailure,
+    CaseStateDeltaInput,
+    apply_case_state_delta,
+    run_case_state_delta_extraction,
+)
+from app.services.chat.clarification_gate import (
+    FollowUpResolution,
+    _answer_indicates_unavailable,
+    _coerce_policy_result,
+    _followup_failure_code,
+    _followup_metadata,
+    _mark_followup_rag_invoked,
+    _mark_followup_rag_invoked_metadata,
+    _normalized_question,
+    _safe_token_count,
+    evaluate_followup_outcome,
+    resolve_followup_outcome,
+)
+from app.services.chat.extraction_stage import (
+    ExtractionStageFailure,
+    attach_llm_extraction,
+    run_validated_case_state_extraction,
+)
+from app.services.chat.followup_policy import (
+    ClarificationExchange,
+    FollowUpPolicy,
+)
+from app.services.chat.outcome_mapper import (
+    AssistantOutcome,
+    RagContextPayload,
+    _validated_rag_context_payload,
+    map_case_analysis_response,
+    map_case_state_mutation_response,
+    map_case_state_no_change_response,
+    map_initial_case_analysis_response,
+    map_rag_response,
+)
+from app.services.chat.rag_client import RagCallFailure, request_rag
 from app.services.extraction.llm_extraction import (
-    BASELINE_EXTRACTION_MODE,
-    BASELINE_EXTRACTION_PROMPT_VERSION,
-    BASELINE_EXTRACTION_VERSION,
     EXTRACTION_METADATA_KEY,
     ExtractionInput,
     ExtractionModelAdapter,
     ExtractionSourceMessage,
     build_extraction_input,
-    run_baseline_extraction,
 )
-from app.services.chat.rag_client import RagCallFailure, request_rag
 
 logger = logging.getLogger("app.chat")
 RUN_LEASE_DURATION = timedelta(minutes=6)
@@ -65,22 +92,11 @@ class ClaimedChatRun:
     clarification_exchanges: tuple[ClarificationExchange, ...]
     followup_root_ordinal: int
     extraction_input: ExtractionInput | None = None
-
-@dataclass(frozen=True)
-class AssistantOutcome:
-    content: str
-    retrieval_context_id: str | None
-    metadata_json: dict[str, Any]
-    thread_status: str
-    active_rag_session_id: str | None
-
-
-@dataclass(frozen=True)
-class FollowUpResolution:
-    """The gate result and the audit record carried into the final message."""
-
-    outcome: AssistantOutcome | None
-    metadata_json: dict[str, Any]
+    post_answer_action: str | None = None
+    request_message_id: UUID | None = None
+    case_state_version_id: UUID | None = None
+    case_state_json: dict[str, object] | None = None
+    analysis_context: dict[str, object] | None = None
 
 
 class ChatRunWorker:
@@ -154,6 +170,77 @@ class ChatRunWorker:
                 if isinstance(request_payload, dict)
                 else False
             )
+            post_answer_action = (
+                request_payload.get('action')
+                if isinstance(request_payload, dict)
+                else None
+            )
+            if post_answer_action not in (None, 'ask', 'add_case_info'):
+                post_answer_action = None
+
+            case_state_json: dict[str, object] | None = None
+            analysis_context: dict[str, object] | None = None
+            case_state_version_id: UUID | None = None
+            requested_parent_version_id: UUID | None = None
+            if isinstance(request_payload, dict):
+                raw_parent_version_id = request_payload.get("case_state_version_id")
+                if raw_parent_version_id is not None:
+                    try:
+                        requested_parent_version_id = UUID(str(raw_parent_version_id))
+                    except (TypeError, ValueError, AttributeError):
+                        requested_parent_version_id = None
+            if post_answer_action in ('ask', 'add_case_info'):
+                pointer_result = await self.db.execute(
+                    select(ChatThread.current_case_state_version_id).where(
+                        ChatThread.id == run.thread_id,
+                    )
+                )
+                current_state_version_id = pointer_result.scalar_one_or_none()
+                state_lookup_id = (
+                    requested_parent_version_id
+                    if post_answer_action == "add_case_info"
+                    and requested_parent_version_id is not None
+                    else current_state_version_id
+                )
+                if state_lookup_id is not None:
+                    case_state_version_id = state_lookup_id
+                    state_result = await self.db.execute(
+                        select(CaseStateVersion).where(
+                            CaseStateVersion.id == state_lookup_id,
+                            CaseStateVersion.thread_id == run.thread_id,
+                        )
+                    )
+                    case_state = state_result.scalar_one_or_none()
+                    if case_state is not None and isinstance(
+                        case_state.state_json,
+                        dict,
+                    ):
+                        case_state_json = deepcopy(case_state.state_json)
+                        if post_answer_action == 'ask':
+                            rag_context_result = await self.db.execute(
+                                select(RagContext).where(
+                                    RagContext.thread_id == run.thread_id,
+                                    RagContext.case_state_version_id
+                                    == state_lookup_id,
+                                )
+                            )
+                            rag_context = rag_context_result.scalar_one_or_none()
+                            if rag_context is not None:
+                                mitre_table = rag_context.mitre_table
+                                analysis_context = {
+                                    'retrieved_context': (
+                                        rag_context.context
+                                        if isinstance(rag_context.context, str)
+                                        else ''
+                                    ),
+                                    'retrieval_context_id': rag_context.retrieval_context_id,
+                                    'mitre_table': (
+                                        deepcopy(mitre_table)
+                                        if isinstance(mitre_table, list)
+                                        else []
+                                    ),
+                                    'previous_analysis': None,
+                                }
 
             original_user_content: object = content
             clarification_exchanges: tuple[
@@ -239,31 +326,32 @@ class ChatRunWorker:
                 followup_root_ordinal = 1
 
             extraction_input: ExtractionInput | None = None
-            try:
-                if history is not None:
-                    extraction_input = build_extraction_input(
-                        thread_id=run.thread_id,
-                        messages=history,
-                        root_ordinal=followup_root_ordinal,
+            if post_answer_action is None:
+                try:
+                    if history is not None:
+                        extraction_input = build_extraction_input(
+                            thread_id=run.thread_id,
+                            messages=history,
+                            root_ordinal=followup_root_ordinal,
+                        )
+                    elif isinstance(content, str):
+                        extraction_input = ExtractionInput(
+                            thread_id=run.thread_id,
+                            messages=[
+                                ExtractionSourceMessage(
+                                    message_id=run.request_message_id,
+                                    ordinal=followup_root_ordinal,
+                                    source_type="user_case_statement",
+                                    content=content,
+                                )
+                            ],
+                        )
+                except (TypeError, ValueError):
+                    logger.warning(
+                        "Chat extraction source packet could not be built "
+                        "run_id=%s",
+                        run.id,
                     )
-                elif isinstance(content, str):
-                    extraction_input = ExtractionInput(
-                        thread_id=run.thread_id,
-                        messages=[
-                            ExtractionSourceMessage(
-                                message_id=run.request_message_id,
-                                ordinal=followup_root_ordinal,
-                                source_type="user_case_statement",
-                                content=content,
-                            )
-                        ],
-                    )
-            except (TypeError, ValueError):
-                logger.warning(
-                    "Chat extraction source packet could not be built "
-                    "run_id=%s",
-                    run.id,
-                )
 
             claimed_run = ClaimedChatRun(
                 id=run.id,
@@ -275,6 +363,11 @@ class ChatRunWorker:
                 clarification_exchanges=clarification_exchanges,
                 followup_root_ordinal=followup_root_ordinal,
                 extraction_input=extraction_input,
+                post_answer_action=post_answer_action,
+                request_message_id=run.request_message_id,
+                case_state_version_id=case_state_version_id,
+                case_state_json=case_state_json,
+                analysis_context=analysis_context,
             )
             await self.db.flush()
 
@@ -297,6 +390,121 @@ class ChatRunWorker:
             run = await self._lock_owned_running_run(run_id, worker_id)
             if run is None or run.thread_id != thread.id:
                 return False
+
+            has_case_state = outcome.validated_case_state_json is not None
+            has_rag_context = outcome.rag_context_payload is not None
+            if has_case_state != has_rag_context:
+                raise ValueError(
+                    "A successful initial analysis must persist Case State and "
+                    "durable RAG context together"
+                )
+
+            has_mutation = (
+                outcome.case_state_delta_json is not None
+                or outcome.expected_parent_case_state_version_id is not None
+            )
+            if has_mutation and (
+                not has_case_state
+                or not has_rag_context
+                or outcome.case_state_delta_json is None
+                or outcome.expected_parent_case_state_version_id is None
+            ):
+                raise ValueError(
+                    "A Case State mutation must include its merged snapshot, "
+                    "delta, and fresh RAG context"
+                )
+
+            case_state_version: CaseStateVersion | None = None
+            if has_mutation:
+                expected_parent_id = outcome.expected_parent_case_state_version_id
+                if thread.current_case_state_version_id != expected_parent_id:
+                    raise CaseStateMutationFailure(
+                        "case_state_stale_parent",
+                        "The Case State changed before this mutation completed",
+                    )
+                parent_result = await self.db.execute(
+                    select(CaseStateVersion)
+                    .where(
+                        CaseStateVersion.id == expected_parent_id,
+                        CaseStateVersion.thread_id == thread.id,
+                    )
+                    .with_for_update()
+                )
+                parent_version = parent_result.scalar_one_or_none()
+                if parent_version is None:
+                    raise CaseStateMutationFailure(
+                        "case_state_parent_missing",
+                        "The mutation parent Case State could not be loaded",
+                    )
+                try:
+                    delta = CaseStateDelta.model_validate(
+                        outcome.case_state_delta_json
+                    )
+                    if not delta.changes:
+                        raise ValueError("an empty delta cannot create a child version")
+                    merged_state = apply_case_state_delta(
+                        parent_version.state_json,
+                        delta,
+                        source_message_id=run.request_message_id,
+                    )
+                except Exception as exc:
+                    if isinstance(exc, CaseStateMutationFailure):
+                        raise
+                    raise CaseStateMutationFailure(
+                        "case_state_delta_invalid",
+                        "The persisted mutation delta failed deterministic validation",
+                    ) from exc
+                if merged_state != outcome.validated_case_state_json:
+                    raise CaseStateMutationFailure(
+                        "case_state_delta_invalid",
+                        "The merged Case State does not match its delta",
+                    )
+                case_state_version = CaseStateVersion(
+                    id=uuid4(),
+                    thread_id=thread.id,
+                    version=parent_version.version + 1,
+                    parent_version_id=parent_version.id,
+                    trigger_message_id=run.request_message_id,
+                    delta_json=delta.model_dump(mode="json"),
+                    state_json=deepcopy(outcome.validated_case_state_json),
+                )
+                self.db.add(case_state_version)
+                await self.db.flush()
+            elif (
+                outcome.validated_case_state_json is not None
+                and thread.current_case_state_version_id is None
+            ):
+                case_state_version = CaseStateVersion(
+                    id=uuid4(),
+                    thread_id=thread.id,
+                    version=1,
+                    parent_version_id=None,
+                    trigger_message_id=run.request_message_id,
+                    delta_json={},
+                    state_json=outcome.validated_case_state_json,
+                )
+                self.db.add(case_state_version)
+                await self.db.flush()
+                thread.current_case_state_version_id = case_state_version.id
+
+            if outcome.rag_context_payload is not None:
+                if case_state_version is None:
+                    raise ValueError(
+                        "A durable RAG context requires a new case-state version"
+                    )
+                payload = outcome.rag_context_payload
+                self.db.add(
+                    RagContext(
+                        retrieval_context_id=payload.retrieval_context_id,
+                        thread_id=thread.id,
+                        case_state_version_id=case_state_version.id,
+                        context=payload.context,
+                        mitre_table=deepcopy(list(payload.mitre_table)),
+                    )
+                )
+
+            if has_mutation and case_state_version is not None:
+                thread.current_case_state_version_id = case_state_version.id
 
             assistant_message = ChatMessage(
                 thread_id=thread.id,
@@ -345,9 +553,15 @@ class ChatRunWorker:
             request_payload = run.request_payload
             if followup_metadata_json:
                 updated_payload = dict(request_payload or {})
-                followup_trace = followup_metadata_json.get("chat_followup")
-                if isinstance(followup_trace, dict):
-                    updated_payload["chat_followup"] = followup_trace
+                for audit_key in (
+                    "chat_followup",
+                    EXTRACTION_METADATA_KEY,
+                    MUTATION_METADATA_KEY,
+                ):
+                    audit_value = followup_metadata_json.get(audit_key)
+                    if isinstance(audit_value, dict):
+                        updated_payload[audit_key] = audit_value
+                if updated_payload != dict(request_payload or {}):
                     run.request_payload = updated_payload
             followup_round = (
                 request_payload.get('followup_round')
@@ -408,399 +622,12 @@ class ChatRunWorker:
         return run
 
 
-def map_rag_response(response: QueryResponse) -> AssistantOutcome:
-    '''Map the validated RAG wire response into one durable assistant result.'''
-
-    if response.answer.strip():
-        return AssistantOutcome(
-            content=response.answer,
-            retrieval_context_id=(
-                str(response.retrieval_context_id)
-                if response.retrieval_context_id is not None
-                else None
-            ),
-            metadata_json={
-                'mitre_table': [
-                    row.model_dump(mode='json')
-                    for row in response.mitre_table
-                ]
-            },
-            thread_status='idle',
-            active_rag_session_id=None,
-        )
-
-    raise RagCallFailure(
-        'rag_invalid_response',
-        'RAG service returned an invalid response',
-    )
-
-
-async def evaluate_followup_outcome(
-    *,
-    original_user_content: str,
-    clarification_exchanges: Sequence[ClarificationExchange],
-    followup_root_ordinal: int,
-    source_run_id: UUID,
-    policy: FollowUpPolicy | None = None,
-) -> FollowUpResolution:
-    """Run the generic pre-RAG gate and return an auditable resolution."""
-
-    round_number = len(clarification_exchanges) + 1
-    prior_exchange_count = len(clarification_exchanges)
-
-    if not settings.chat_followup_policy_enabled:
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="followup_policy_disabled",
-                stop_reason="policy_disabled",
-            ),
-        )
-    if len(clarification_exchanges) >= settings.chat_followup_max_rounds:
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="max_rounds_reached",
-                stop_reason="max_rounds_reached",
-            ),
-        )
-    if clarification_exchanges and _answer_indicates_unavailable(
-        clarification_exchanges[-1].answer
-    ):
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="answer_unavailable",
-                stop_reason="answer_unavailable",
-            ),
-        )
-
-    started = time.perf_counter()
-    try:
-        active_policy = policy() if isinstance(policy, type) else (policy or AnthropicFollowUpPolicy())
-        if hasattr(active_policy, "decide_with_metadata") and callable(getattr(active_policy, "decide_with_metadata")):
-            raw_result = await active_policy.decide_with_metadata(
-                original_user_content=original_user_content,
-                clarification_exchanges=clarification_exchanges,
-            )
-        else:
-            raw_result = await active_policy.decide(
-                original_user_content=original_user_content,
-                clarification_exchanges=clarification_exchanges,
-            )
-        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
-        result = _coerce_policy_result(raw_result, elapsed_ms=elapsed_ms)
-        decision = result.decision
-    except Exception as exc:
-        elapsed_ms = round((time.perf_counter() - started) * 1000, 3)
-        failure_code = _followup_failure_code(exc)
-        logger.warning(
-            "Chat follow-up policy failed open source_run_id=%s failure_code=%s",
-            source_run_id,
-            failure_code,
-        )
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="policy_failed_open",
-                stop_reason="policy_failed_open",
-                latency_ms=elapsed_ms,
-                failure_code=failure_code,
-            ),
-        )
-
-    if decision.action == "proceed":
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action=decision.action,
-                question=decision.question,
-                reason_code=decision.reason_code,
-                stop_reason="policy_proceed",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-            ),
-        )
-
-    normalized_question = _normalized_question(decision.question)
-    if any(
-        _normalized_question(exchange.question) == normalized_question
-        for exchange in clarification_exchanges
-    ):
-        return FollowUpResolution(
-            outcome=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action="proceed",
-                question="",
-                reason_code="duplicate_question",
-                stop_reason="duplicate_question",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-            ),
-        )
-    return FollowUpResolution(
-        outcome=AssistantOutcome(
-            content=decision.question,
-            retrieval_context_id=None,
-            metadata_json=_followup_metadata(
-                source_run_id=source_run_id,
-                followup_root_ordinal=followup_root_ordinal,
-                round_number=round_number,
-                prior_exchange_count=prior_exchange_count,
-                action=decision.action,
-                question=decision.question,
-                reason_code=decision.reason_code,
-                stop_reason="ask_followup",
-                latency_ms=result.latency_ms,
-                input_tokens=result.input_tokens,
-                output_tokens=result.output_tokens,
-                provider=result.provider,
-                model=result.model,
-                rag_skipped=True,
-            ),
-            thread_status="awaiting_followup",
-            active_rag_session_id=None,
-        ),
-        metadata_json={},
-    )
-
-
-async def resolve_followup_outcome(
-    *,
-    original_user_content: str,
-    clarification_exchanges: Sequence[ClarificationExchange],
-    followup_root_ordinal: int,
-    source_run_id: UUID,
-    policy: FollowUpPolicy | None = None,
-) -> AssistantOutcome | None:
-    """Compatibility wrapper returning only the pending assistant outcome."""
-
-    resolution = await evaluate_followup_outcome(
-        original_user_content=original_user_content,
-        clarification_exchanges=clarification_exchanges,
-        followup_root_ordinal=followup_root_ordinal,
-        source_run_id=source_run_id,
-        policy=policy,
-    )
-    return resolution.outcome
-
-
-def _coerce_policy_result(
-    raw_result: object,
-    *,
-    elapsed_ms: float,
-) -> FollowUpPolicyResult:
-    if isinstance(raw_result, FollowUpPolicyResult):
-        return FollowUpPolicyResult(
-            decision=FollowUpDecision.model_validate(raw_result.decision),
-            latency_ms=(
-                raw_result.latency_ms
-                if raw_result.latency_ms is not None
-                else elapsed_ms
-            ),
-            input_tokens=_safe_token_count(raw_result.input_tokens),
-            output_tokens=_safe_token_count(raw_result.output_tokens),
-            provider=raw_result.provider,
-            model=raw_result.model,
-        )
-    return FollowUpPolicyResult(
-        decision=FollowUpDecision.model_validate(raw_result),
-        latency_ms=elapsed_ms,
-    )
-
-
-def _safe_token_count(value: object) -> int | None:
-    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-        return value
-    return None
-
-
-def _followup_failure_code(error: Exception) -> str:
-    if isinstance(error, (asyncio.TimeoutError, httpx.TimeoutException)):
-        return "policy_timeout"
-    if isinstance(error, (json.JSONDecodeError, ValueError, TypeError)):
-        return "policy_invalid_output"
-    return "policy_error"
-
-
-def _followup_metadata(
-    *,
-    source_run_id: UUID,
-    followup_root_ordinal: int,
-    round_number: int,
-    prior_exchange_count: int,
-    action: str,
-    question: str,
-    reason_code: str,
-    stop_reason: str,
-    latency_ms: float | None = None,
-    input_tokens: int | None = None,
-    output_tokens: int | None = None,
-    provider: str | None = None,
-    model: str | None = None,
-    failure_code: str | None = None,
-    rag_skipped: bool = True,
-    rag_invoked: bool = False,
-) -> dict[str, Any]:
-    target = resolve_core_llm_target(
-        settings.chat_followup_policy_model,
-        require_key=False,
-    )
-    return {
-        "chat_followup": {
-            "kind": "clarification" if action == "ask_followup" else "decision",
-            "policy_version": FOLLOWUP_POLICY_VERSION,
-            "prompt_version": FOLLOWUP_PROMPT_VERSION,
-            "provider": provider or target.provider,
-            "model": model or target.model,
-            "action": action,
-            "question": question,
-            "reason_code": reason_code,
-            "source_run_id": str(source_run_id),
-            "root_ordinal": followup_root_ordinal,
-            "round": round_number,
-            "prior_exchange_count": prior_exchange_count,
-            "latency_ms": latency_ms,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "failure_code": failure_code,
-            "stop_reason": stop_reason,
-            "rag_skipped": rag_skipped,
-            "rag_invoked": rag_invoked,
-        }
-    }
-
-
-def _mark_followup_rag_invoked(
-    outcome: AssistantOutcome,
-    metadata_json: dict[str, Any],
-) -> AssistantOutcome:
-    merged_metadata = _mark_followup_rag_invoked_metadata(metadata_json)
-    if not merged_metadata:
-        return outcome
-    output_metadata = dict(outcome.metadata_json)
-    output_metadata["chat_followup"] = merged_metadata["chat_followup"]
-    return replace(outcome, metadata_json=output_metadata)
-
-
-def _mark_followup_rag_invoked_metadata(
-    metadata_json: dict[str, Any],
-) -> dict[str, Any]:
-    trace = metadata_json.get("chat_followup")
-    if not isinstance(trace, dict):
-        return {}
-    return {
-        **metadata_json,
-        "chat_followup": {
-            **trace,
-            "rag_skipped": False,
-            "rag_invoked": True,
-        },
-    }
-
-
-def _normalized_question(question: str) -> str:
-    normalized = unicodedata.normalize("NFKC", question)
-    normalized = " ".join(normalized.split()).casefold()
-    while normalized and unicodedata.category(normalized[-1]).startswith("P"):
-        normalized = normalized[:-1].rstrip()
-    return normalized
-
-
-_UNAVAILABLE_ANSWER_PHRASES = (
-    "unknown",
-    "unavailable",
-    "not available",
-    "not provided",
-    "not known",
-    "no information",
-    "cannot be obtained",
-    "can't be obtained",
-    "could not be obtained",
-    "couldn't be obtained",
-    "cannot be determined",
-    "can't be determined",
-    "could not be determined",
-    "couldn't be determined",
-    "i don't know",
-    "i do not know",
-    "we don't know",
-    "we do not know",
-    "absent",
-    "missing",
-    "n/a",
-    "ไม่ทราบ",
-    "ไม่รู้",
-    "ไม่มีข้อมูล",
-    "ไม่สามารถระบุได้",
-    "ไม่สามารถยืนยันได้",
-    "หาไม่ได้",
-    "ไม่พร้อมใช้งาน",
-)
-
-
-def _answer_indicates_unavailable(answer: str) -> bool:
-    normalized = unicodedata.normalize("NFKC", answer)
-    normalized = " ".join(normalized.split()).casefold()
-    if not normalized:
-        return False
-    normalized = normalized.strip(" .,!?:;()[]{}")
-    if normalized in {"none", "not known", "not available", "unavailable"}:
-        return True
-    if re.search(r"\bnot\s+unavailable\b", normalized):
-        return False
-    for phrase in _UNAVAILABLE_ANSWER_PHRASES:
-        if any(ord(character) > 127 for character in phrase):
-            if phrase in normalized:
-                return True
-        elif re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", normalized):
-            return True
-    return False
-
-
 async def process_chat_run(
     run_id: UUID,
     *,
     policy: FollowUpPolicy | None = None,
     rag_call: Callable[[str], Awaitable[QueryResponse]] | None = None,
+    ask_call: Callable[..., Awaitable[str]] | None = None,
     extraction_adapter: ExtractionModelAdapter | None = None,
 ) -> None:
     '''Process one run in-process; queued work is lost if this process exits.'''
@@ -823,6 +650,130 @@ async def process_chat_run(
         if claimed_run.operation != 'query':
             raise ValueError('Chat run operation is invalid')
 
+        if claimed_run.post_answer_action == 'add_case_info':
+            if not isinstance(claimed_run.case_state_json, dict):
+                raise CaseStateMutationFailure(
+                    'case_state_parent_missing',
+                    'The current Case State could not be loaded for mutation',
+                )
+            if claimed_run.case_state_version_id is None:
+                raise CaseStateMutationFailure(
+                    'case_state_parent_missing',
+                    'The current Case State version could not be loaded for mutation',
+                )
+            if claimed_run.request_message_id is None:
+                raise CaseStateMutationFailure(
+                    'case_state_mutation_input_missing',
+                    'The mutation source message could not be identified',
+                )
+
+            try:
+                delta_input = CaseStateDeltaInput(
+                    current_case_state=deepcopy(claimed_run.case_state_json),
+                    new_user_message=claimed_run.content,
+                    source_message_id=claimed_run.request_message_id,
+                    mutation_intent='add_case_info',
+                )
+            except (TypeError, ValueError) as exc:
+                raise CaseStateMutationFailure(
+                    'case_state_mutation_input_invalid',
+                    'The explicit mutation message could not be prepared',
+                ) from exc
+            delta, mutation_metadata = await run_case_state_delta_extraction(
+                delta_input,
+                adapter=extraction_adapter,
+            )
+            followup_metadata_json = {MUTATION_METADATA_KEY: mutation_metadata}
+            if delta is None:
+                raise CaseStateMutationFailure(
+                    str(mutation_metadata.get('failure_code', 'case_state_delta_failed')),
+                    str(
+                        mutation_metadata.get(
+                            'failure_message',
+                            'The Case State delta failed validation',
+                        )
+                    ),
+                )
+
+            if not delta.changes:
+                outcome = map_case_state_no_change_response(
+                    mutation_metadata=mutation_metadata,
+                )
+            else:
+                merged_case_state_json = apply_case_state_delta(
+                    claimed_run.case_state_json,
+                    delta,
+                    source_message_id=claimed_run.request_message_id,
+                )
+                retrieval_query = project_case_state_to_retrieval_query(
+                    merged_case_state_json,
+                )
+                response = await (rag_call or request_rag)(retrieval_query)
+                rag_context_payload = _validated_rag_context_payload(response)
+                analysis_context = rag_context_payload.to_analysis_context()
+                answer = await (ask_call or request_case_analysis)(
+                    mode='case_overview',
+                    case_state_json=merged_case_state_json,
+                    analysis_context=analysis_context,
+                    question=None,
+                )
+                if not isinstance(answer, str) or not answer.strip():
+                    raise CaseAnalysisFailure(
+                        'analysis_invalid_response',
+                        'The mutation Main Case Analysis returned no answer',
+                    )
+                outcome = map_case_state_mutation_response(
+                    answer.strip(),
+                    rag_context_payload=rag_context_payload,
+                    merged_case_state_json=merged_case_state_json,
+                    delta_json=delta.model_dump(mode='json'),
+                    expected_parent_case_state_version_id=(
+                        claimed_run.case_state_version_id
+                    ),
+                    mutation_metadata=mutation_metadata,
+                )
+            async with async_session() as finalize_db:
+                await ChatRunWorker(finalize_db).complete_run(
+                    run_id,
+                    worker_id,
+                    outcome,
+                )
+            return
+
+        if claimed_run.post_answer_action == 'ask':
+            if not isinstance(claimed_run.case_state_json, dict):
+                raise CaseAnalysisFailure(
+                    'analysis_context_missing',
+                    'The current case state could not be loaded for ASK',
+                )
+            if not isinstance(claimed_run.analysis_context, dict):
+                raise CaseAnalysisFailure(
+                    'analysis_context_missing',
+                    'The latest completed analysis could not be loaded for ASK',
+                )
+            answer = await (ask_call or request_case_analysis)(
+                mode='question_answer',
+                case_state_json=claimed_run.case_state_json,
+                analysis_context=claimed_run.analysis_context,
+                question=claimed_run.content,
+            )
+            if not isinstance(answer, str) or not answer.strip():
+                raise CaseAnalysisFailure(
+                    'analysis_invalid_response',
+                    'The post-answer analysis returned no answer',
+                )
+            outcome = map_case_analysis_response(
+                answer.strip(),
+                analysis_context=claimed_run.analysis_context,
+            )
+            async with async_session() as finalize_db:
+                await ChatRunWorker(finalize_db).complete_run(
+                    run_id,
+                    worker_id,
+                    outcome,
+                )
+            return
+
         followup_resolution = await evaluate_followup_outcome(
             original_user_content=claimed_run.original_user_content,
             clarification_exchanges=claimed_run.clarification_exchanges,
@@ -830,9 +781,7 @@ async def process_chat_run(
             source_run_id=claimed_run.id,
             policy=policy,
         )
-        followup_metadata_json = _mark_followup_rag_invoked_metadata(
-            followup_resolution.metadata_json
-        )
+        followup_metadata_json = followup_resolution.metadata_json
         if followup_resolution.outcome is not None:
             async with async_session() as finalize_db:
                 await ChatRunWorker(finalize_db).complete_run(
@@ -842,22 +791,60 @@ async def process_chat_run(
                 )
             return
 
-        rag_query = claimed_run.rag_query
-        if claimed_run.clarification_exchanges:
-            rag_query = build_clarified_query(
-                original_user_content=claimed_run.original_user_content,
-                clarification_exchanges=claimed_run.clarification_exchanges,
+        validated_case_state_json, extraction_metadata = (
+            await run_validated_case_state_extraction(
+                claimed_run,
+                adapter=extraction_adapter,
             )
-        response = await (rag_call or request_rag)(rag_query)
-        outcome = map_rag_response(response)
-        outcome = _mark_followup_rag_invoked(
-            outcome,
-            followup_metadata_json or {},
         )
-        outcome = await attach_llm_extraction(
-            outcome,
-            claimed_run,
-            adapter=extraction_adapter,
+        followup_metadata_json = {
+            **(followup_metadata_json or {}),
+            EXTRACTION_METADATA_KEY: extraction_metadata,
+        }
+        if validated_case_state_json is None:
+            failure_code = extraction_metadata.get(
+                'failure_code',
+                'extraction_failed',
+            )
+            failure_message = extraction_metadata.get(
+                'failure_message',
+                'The extraction did not produce a validated Case State',
+            )
+            raise ExtractionStageFailure(
+                str(failure_code),
+                str(failure_message),
+                followup_metadata_json,
+            )
+
+        retrieval_query = project_case_state_to_retrieval_query(
+            validated_case_state_json,
+        )
+        followup_metadata_json = {
+            **_mark_followup_rag_invoked_metadata(
+                followup_resolution.metadata_json
+            ),
+            EXTRACTION_METADATA_KEY: extraction_metadata,
+        }
+        response = await (rag_call or request_rag)(retrieval_query)
+        rag_context_payload = _validated_rag_context_payload(response)
+        analysis_context = rag_context_payload.to_analysis_context()
+        answer = await (ask_call or request_case_analysis)(
+            mode='case_overview',
+            case_state_json=validated_case_state_json,
+            analysis_context=analysis_context,
+            question=None,
+        )
+        if not isinstance(answer, str) or not answer.strip():
+            raise CaseAnalysisFailure(
+                'analysis_invalid_response',
+                'The initial Main Case Analysis returned no answer',
+            )
+        outcome = map_initial_case_analysis_response(
+            answer.strip(),
+            rag_context_payload=rag_context_payload,
+            validated_case_state_json=validated_case_state_json,
+            extraction_metadata=extraction_metadata,
+            followup_metadata_json=followup_metadata_json or {},
         )
 
         async with async_session() as finalize_db:
@@ -866,7 +853,31 @@ async def process_chat_run(
                 worker_id,
                 outcome,
             )
+    except ExtractionStageFailure as exc:
+        await _record_failure(
+            run_id,
+            worker_id,
+            exc.code,
+            exc.message,
+            followup_metadata_json=exc.metadata_json,
+        )
     except RagCallFailure as exc:
+        await _record_failure(
+            run_id,
+            worker_id,
+            exc.code,
+            exc.message,
+            followup_metadata_json=followup_metadata_json,
+        )
+    except CaseStateMutationFailure as exc:
+        await _record_failure(
+            run_id,
+            worker_id,
+            exc.code,
+            exc.message,
+            followup_metadata_json=followup_metadata_json,
+        )
+    except CaseAnalysisFailure as exc:
         await _record_failure(
             run_id,
             worker_id,
@@ -901,81 +912,32 @@ async def _record_failure(
         )
 
 
-def attach_demo_extraction(
-    outcome: AssistantOutcome,
-    claimed_run: ClaimedChatRun,
-) -> AssistantOutcome:
-    """Attach demo candidates only to terminal assistant answers."""
-
-    if outcome.thread_status != "idle":
-        return outcome
-
-    source_text = "\n".join(
-        [
-            str(claimed_run.original_user_content),
-            *(exchange.answer for exchange in claimed_run.clarification_exchanges),
-        ]
-    )
-    return replace(
-        outcome,
-        metadata_json=add_demo_chat_extraction(
-            outcome.metadata_json,
-            source_text,
-        ),
-    )
-
-
-async def attach_llm_extraction(
-    outcome: AssistantOutcome,
-    claimed_run: ClaimedChatRun,
-    *,
-    adapter: ExtractionModelAdapter | None = None,
-) -> AssistantOutcome:
-    """Attach a success or explicit failure record after a terminal answer."""
-
-    if (
-        outcome.thread_status != "idle"
-        or claimed_run.extraction_input is None
-    ):
-        return outcome
-
-    extraction_input = claimed_run.extraction_input
-    try:
-        result = await run_baseline_extraction(
-            extraction_input,
-            adapter=adapter,
-        )
-        extraction_metadata = result.metadata(extraction_input)
-    except Exception:
-        # A valid RAG answer must never be lost because the optional baseline
-        # extractor failed outside its normal typed failure paths.
-        logger.exception(
-            "Chat extraction failed outside typed failure handling run_id=%s",
-            claimed_run.id,
-        )
-        target = resolve_core_llm_target(
-            settings.chat_extraction_model,
-            require_key=False,
-        )
-        extraction_metadata = {
-            "version": BASELINE_EXTRACTION_VERSION,
-            "mode": BASELINE_EXTRACTION_MODE,
-            "status": "failed",
-            "prompt_version": BASELINE_EXTRACTION_PROMPT_VERSION,
-            "provider": target.provider,
-            "model": target.model,
-            "validation_status": "failed",
-            "latency_ms": 0.0,
-            "input_tokens": None,
-            "output_tokens": None,
-            "source_message_ids": [
-                str(message.message_id) for message in extraction_input.messages
-            ],
-            "raw_response": None,
-            "failure_code": "extraction_internal_error",
-            "failure_message": "The extraction failed before validation",
-        }
-
-    metadata = dict(outcome.metadata_json)
-    metadata[EXTRACTION_METADATA_KEY] = extraction_metadata
-    return replace(outcome, metadata_json=metadata)
+__all__ = [
+    "ClaimedChatRun",
+    "ChatRunWorker",
+    "process_chat_run",
+    "RagContextPayload",
+    "AssistantOutcome",
+    "map_rag_response",
+    "_validated_rag_context_payload",
+    "map_initial_case_analysis_response",
+    "map_case_analysis_response",
+    "FollowUpResolution",
+    "evaluate_followup_outcome",
+    "resolve_followup_outcome",
+    "_coerce_policy_result",
+    "_safe_token_count",
+    "_followup_failure_code",
+    "_followup_metadata",
+    "_mark_followup_rag_invoked",
+    "_mark_followup_rag_invoked_metadata",
+    "_normalized_question",
+    "_answer_indicates_unavailable",
+    "ExtractionStageFailure",
+    "run_validated_case_state_extraction",
+    "attach_llm_extraction",
+    "CaseStateDelta",
+    "CaseStateMutationFailure",
+    "apply_case_state_delta",
+    "run_case_state_delta_extraction",
+]

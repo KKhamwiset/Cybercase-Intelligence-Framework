@@ -1,0 +1,107 @@
+{
+  "artifact_entity_links": [],
+  "artifact_records": [],
+  "case_id": "case-b",
+  "conflicts": [],
+  "coreference_candidates": [],
+  "entities": [
+    {
+      "aliases": [],
+      "canonical_label": "ACC-B1",
+      "entity_id": "ent-account-acc-b1",
+      "entity_type": "account",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        },
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "stability_basis": "Explicit account identifier ACC-B1 appears in both sources."
+    },
+    {
+      "aliases": [],
+      "canonical_label": "Bob Niran",
+      "entity_id": "ent-person-bob-niran",
+      "entity_type": "person",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "stability_basis": null
+    }
+  ],
+  "events": [],
+  "ir_version": "relationship_ir_v2",
+  "missing_evidence": [
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "No login audit records were provided with the case packet.",
+      "gap_id": "gap-missing-login-audit-records",
+      "known_entity_ids": [],
+      "source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        }
+      ]
+    }
+  ],
+  "missing_information": [
+    {
+      "context_event_ids": [],
+      "derivation": "frozen_case_mandate",
+      "description": "The identity of the owner or controller of account ACC-B1 remains unresolved; further verification is required.",
+      "gap_id": "gap-next-verification-controller-identity",
+      "known_entity_ids": [
+        "ent-account-acc-b1"
+      ],
+      "source_refs": []
+    }
+  ],
+  "relationship_assertions": [
+    {
+      "object_entity_id": "ent-account-acc-b1",
+      "predicate": "controls",
+      "relationship_id": "rel-bob-controls-acc-b1",
+      "source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b/interview/bob/paragraph-2"
+        }
+      ],
+      "statement": "The available information does not establish that Bob Niran controls account ACC-B1.",
+      "status": "not_established",
+      "subject_entity_id": "ent-person-bob-niran"
+    }
+  ],
+  "unknown_counterpart_gaps": [
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "The owner or controller of account ACC-B1 is unknown.",
+      "gap_id": "gap-unknown-account-controller",
+      "known_entity_id": "ent-account-acc-b1",
+      "missing_role": "subject",
+      "predicate_or_participant_role": "controls",
+      "source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b/memo/paragraph-1"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "The control relationship between Bob Niran and account ACC-B1 is explicitly not established; no attribution or ownership conclusion is made.",
+    "Next verification steps are limited by the absence of login audit records and are not themselves incident evidence."
+  ]
+}

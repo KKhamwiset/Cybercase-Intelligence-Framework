@@ -1,0 +1,1046 @@
+{
+  "abort": null,
+  "blocks": [
+    {
+      "arms": [
+        {
+          "condition": "D1",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        },
+        {
+          "condition": "B2",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0001",
+      "case_file": "experiments/report_representation_study/cases_scale/case-a-scale.json",
+      "case_file_sha256": "6dee51165a265324ba8d953dd55843d598eb34886055a453806fa77aa8e89dff",
+      "case_id": "case-a-scale",
+      "d1_parts": [
+        {
+          "case_id": "case-a-scale",
+          "estimated_request_tokens": 2864,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "5f19214c19e1d4f82148cf0be7a9b43f22f538b56d192df28aae8daeb1dfa2a5",
+          "source_spans": [
+            {
+              "char_end": 274,
+              "char_start": 0,
+              "content": "The intake statement reports that Alice Chen is the registered holder of account ACC-100. The statement is an investigator record of what was reported at intake; it does not include an independent account-provider confirmation or a timestamp for when the statement was made.",
+              "content_sha256": "412bad014dda9f87c499bd5d370122901b147cf320a22817ca465cfb976c3652",
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1",
+              "source_type": "investigator_statement"
+            },
+            {
+              "char_end": 275,
+              "char_start": 0,
+              "content": "Transaction record TX-1 reports a transfer of USD 500 from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC. The record names Alice Chen as the initiating user. It identifies the source and destination accounts but contains no field establishing the owner or controller of ACC-200.",
+              "content_sha256": "93a55f089fdca4bf89a69b781713990ab7c9c51b7ef14cb77ccf9d4f9e4aea39",
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1",
+              "source_type": "transaction_log_excerpt"
+            },
+            {
+              "char_end": 321,
+              "char_start": 0,
+              "content": "An account-registry excerpt lists ACC-100 as an active account and repeats the display name Alice Chen. The excerpt does not show the underlying identity-verification result, the date of the last verification, or a provider signature. It should be treated as a source assertion rather than independent proof of ownership.",
+              "content_sha256": "6bb1f8df278e23444eca6bb585fd921c6ec73e6bc93cefd33dc4b6304a2270b5",
+              "source_id": "a-account-001",
+              "source_locator": "case-a-scale/account-registry/record-100",
+              "source_type": "account_registry_excerpt"
+            },
+            {
+              "char_end": 299,
+              "char_start": 0,
+              "content": "A detailed export for TX-1 records status settled, amount USD 500, source ACC-100, destination ACC-200, and an internal processing reference. The export repeats the 2026-01-10 09:00 UTC transaction time and does not identify a beneficiary person, beneficiary organization, or controller for ACC-200.",
+              "content_sha256": "f848c2814467426ecc6dbeddb9c40061afbf3da1a33f76e4c87eab079e28870d",
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail",
+              "source_type": "transaction_log_excerpt"
+            },
+            {
+              "char_end": 236,
+              "char_start": 0,
+              "content": "The evidence-request note says that login and authentication audit records for the transaction window were not included in the case packet. The note requests those records from the service provider, but no provider response is attached.",
+              "content_sha256": "51c1efec7181d7f62ccab196028cf103eb2e19662547450c4ba40e7e83175ccb",
+              "source_id": "a-auth-001",
+              "source_locator": "case-a-scale/evidence-request/login-audit",
+              "source_type": "audit_availability_note"
+            },
+            {
+              "char_end": 272,
+              "char_start": 0,
+              "content": "The device inventory lists device D-17 as observed in the same administrative account context as ACC-100. The inventory does not establish that Alice Chen operated D-17 during TX-1, and it contains no authenticated session identifier linking the device to the transaction.",
+              "content_sha256": "28602d1009a97533490e8eb479cfe57453e3df0af48cffc1de7893455d5d2cae",
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17",
+              "source_type": "device_inventory_excerpt"
+            },
+            {
+              "char_end": 243,
+              "char_start": 0,
+              "content": "A message-export index contains a message reference to TX-1 and states that the export was collected on 2026-01-12. Collection time is not the same as incident time. The index does not add a new participant or establish who controlled ACC-200.",
+              "content_sha256": "db1f5d5e1bb809471cfd6fcd5cef66307103577248e4410221610b1ff8110319",
+              "source_id": "a-message-001",
+              "source_locator": "case-a-scale/message-export/message-77",
+              "source_type": "message_export_excerpt"
+            },
+            {
+              "char_end": 263,
+              "char_start": 0,
+              "content": "The investigator memo repeats that Alice Chen is reported as the holder of ACC-100 and recommends obtaining provider-side account and authentication records. It expressly says that the current packet is insufficient to verify ownership of the destination account.",
+              "content_sha256": "688a8630d12fea2012cb68a90dc3fb137eb0059825175f37e2879dddf63d2e50",
+              "source_id": "a-memo-001",
+              "source_locator": "case-a-scale/memo/paragraph-2",
+              "source_type": "investigation_memo"
+            },
+            {
+              "char_end": 254,
+              "char_start": 0,
+              "content": "A provider-request log records an unanswered request for the account-holder information associated with ACC-200. The request was sent after the transaction review began. No response, account-holder name, or controller identifier is present in the packet.",
+              "content_sha256": "c08ad54bfc97fdda2fe86bfcd43a15537953863199281d205ece9fab44f1b7b4",
+              "source_id": "a-support-001",
+              "source_locator": "case-a-scale/provider-request/request-200",
+              "source_type": "provider_request_log"
+            },
+            {
+              "char_end": 281,
+              "char_start": 0,
+              "content": "A reconciliation note says the two transaction exports appear to refer to the same TX-1 record. This is an administrative comparison, not a second transfer. It preserves the same amount and transaction time and warns that duplicate exports should not be counted as separate events.",
+              "content_sha256": "f1d7d5d4fea27363e0d8931d1c02a2e32252e6b3d9b789d0c9bcfe32586da233",
+              "source_id": "a-ledger-003",
+              "source_locator": "case-a-scale/ledger/reconciliation-note",
+              "source_type": "transaction_log_excerpt"
+            },
+            {
+              "char_end": 273,
+              "char_start": 0,
+              "content": "A relay-server maintenance entry records routine software maintenance on 2026-01-11. It does not mention ACC-100, ACC-200, Alice Chen, TX-1, or any account activity. It is included as a clearly unrelated operational record and should not be promoted to an incident finding.",
+              "content_sha256": "cd73a5b6187fb616ab2eb9529eb75676a8e396c9a7b9d583e42f7c26919b9274",
+              "source_id": "a-ops-001",
+              "source_locator": "case-a-scale/operations/relay-maintenance",
+              "source_type": "operations_log"
+            },
+            {
+              "char_end": 236,
+              "char_start": 0,
+              "content": "The packet index lists the intake statement, ledger exports, device inventory, message-export index, and provider request. It does not certify the accuracy of the records and does not add any identity, ownership, or chronology evidence.",
+              "content_sha256": "3eb6a3a853fc58b7d062f8e0f0e58b6ce3b5f233e58d953acff747959a777377",
+              "source_id": "a-admin-001",
+              "source_locator": "case-a-scale/administration/packet-index",
+              "source_type": "administrative_note"
+            },
+            {
+              "char_end": 263,
+              "char_start": 0,
+              "content": "An office-supplies invoice names a vendor and a payment account used for routine procurement. It is unrelated to ACC-100, ACC-200, TX-1, the reported transfer, and the investigation mandate. No case relationship should be inferred from its presence in the packet.",
+              "content_sha256": "dc89af9e3a6c0eff4984d281b5e0e6ba8b20e6745f7b37a67ff98862c8eff209",
+              "source_id": "a-finance-001",
+              "source_locator": "case-a-scale/unrelated/office-invoice",
+              "source_type": "unrelated_finance_record"
+            },
+            {
+              "char_end": 295,
+              "char_start": 0,
+              "content": "The review note recommends preserving the original statement and ledger exports, obtaining provider account records, requesting login and device telemetry, and checking whether the destination account has a verified controller. These are proposed next steps, not completed investigative results.",
+              "content_sha256": "c0d65171c2dd90edeb075e2001c7ed9bec3079a120efdbac3a468b6a6188f358",
+              "source_id": "a-review-001",
+              "source_locator": "case-a-scale/review/verification-plan",
+              "source_type": "investigator_review_note"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "D1",
+        "B0",
+        "B2"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    },
+    {
+      "arms": [
+        {
+          "condition": "B2",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        },
+        {
+          "condition": "D1",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0002",
+      "case_file": "experiments/report_representation_study/cases_scale/case-b-scale.json",
+      "case_file_sha256": "9e549adeac1362b566ebe6283d8a147056ea4caa2ea1d5580bde10e4d25ad88d",
+      "case_id": "case-b-scale",
+      "d1_parts": [
+        {
+          "case_id": "case-b-scale",
+          "estimated_request_tokens": 2761,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "84eff3d6ecee60d8e79a7b495379af244217c4a87d0d9dd52a9c915d80e8855c",
+          "source_spans": [
+            {
+              "char_end": 240,
+              "char_start": 0,
+              "content": "The owner or controller of account ACC-B1 is unknown. No login audit records were provided with the case packet. The memo treats the absence of audit records as an evidence limitation and does not identify a person who controls the account.",
+              "content_sha256": "8336059179e79402aa6d654fb1ea8f89fc8b54ba7236b4e53e69151a010a7d5b",
+              "source_id": "b-memo-001",
+              "source_locator": "case-b-scale/memo/paragraph-1",
+              "source_type": "investigation_memo"
+            },
+            {
+              "char_end": 248,
+              "char_start": 0,
+              "content": "The interview summary identifies Bob Niran. Investigators state that the available information does not establish that Bob Niran controls account ACC-B1. Bob is described as a person mentioned during the interview, not as a verified account holder.",
+              "content_sha256": "36bf7597c91cfa15e290a384edeb620c5f7f0d88d5df74e829ee43847ee68378",
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2",
+              "source_type": "interview_summary"
+            },
+            {
+              "char_end": 296,
+              "char_start": 0,
+              "content": "The account-registry excerpt lists ACC-B1 as active but leaves the owner and controller fields blank. It contains an internal account label and creation date but no identity-verification record, customer identifier, or provider signature connecting the account to Bob Niran or another individual.",
+              "content_sha256": "b6342516f550a56abab6ba28579429aba24a2d94b35eeb8193a7c44b2b163e2d",
+              "source_id": "b-registry-001",
+              "source_locator": "case-b-scale/account-registry/acc-b1",
+              "source_type": "account_registry_excerpt"
+            },
+            {
+              "char_end": 268,
+              "char_start": 0,
+              "content": "The evidence-request note records that the requested login, authentication, and session audit records were not supplied. The note does not say that no logins occurred; it says only that the records are missing from the packet and should be requested from the provider.",
+              "content_sha256": "2eea4b9218c4b2b7b6b9d229d93a5d0282dc6e88357fcd3695bd28af86033d15",
+              "source_id": "b-audit-001",
+              "source_locator": "case-b-scale/evidence-request/login-audit",
+              "source_type": "audit_availability_note"
+            },
+            {
+              "char_end": 267,
+              "char_start": 0,
+              "content": "A service-desk ticket was submitted using a contact name matching Bob Niran. The ticket asks about access to an account identifier that is partially redacted. The ticket does not show authenticated access to ACC-B1 and cannot by itself establish ownership or control.",
+              "content_sha256": "0c372db1a566ad92f28bc84b47a9f09ba54194050d25368dfc25e5b965953843",
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44",
+              "source_type": "service_desk_excerpt"
+            },
+            {
+              "char_end": 299,
+              "char_start": 0,
+              "content": "An email header includes Bob Niran as a visible sender name in a discussion about account access. The header lacks a verified account-control assertion, authentication context, or complete destination metadata. It supports that Bob was mentioned in the correspondence, not that he controlled ACC-B1.",
+              "content_sha256": "f791f25f6715eec82032568242a459e8acb55c340483b2f587d9b0be1d5a2ddb",
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17",
+              "source_type": "email_header_excerpt"
+            },
+            {
+              "char_end": 254,
+              "char_start": 0,
+              "content": "The device inventory lists laptop B-17 as issued to Bob Niran. No session record links B-17 to ACC-B1, and the inventory does not establish who used the laptop during any relevant event. Device issuance is an association and not proof of account control.",
+              "content_sha256": "b1366563b9716de1323160a06057522633900449f7e0b88abf249b3d69f96577",
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17",
+              "source_type": "device_inventory_excerpt"
+            },
+            {
+              "char_end": 294,
+              "char_start": 0,
+              "content": "The analyst note classifies the relationship between Bob Niran and ACC-B1 as not established. It lists provider account records, login audit data, session identifiers, and authenticated device telemetry as evidence needed for verification. The classification is provisional and source-grounded.",
+              "content_sha256": "3aed7e9539d2d4a46731937b7d863961d2901c4bff217490d42bd147f0611ed0",
+              "source_id": "b-analyst-001",
+              "source_locator": "case-b-scale/analysis/control-status",
+              "source_type": "analyst_note"
+            },
+            {
+              "char_end": 220,
+              "char_start": 0,
+              "content": "A provider request asks for the registration, recovery, and login records for ACC-B1. The request remains unanswered in the packet. No response identifies an owner, controller, recovery address, or authenticated session.",
+              "content_sha256": "80b9a09971b3974b46a3a7682a8e36769e06d23f0201b2a04d2b3b2a8e9e82f0",
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1",
+              "source_type": "provider_request_log"
+            },
+            {
+              "char_end": 231,
+              "char_start": 0,
+              "content": "A witness recalls Bob discussing an account problem during a meeting but cannot identify the account number or say that Bob logged into ACC-B1. The witness account is a contextual observation and does not establish account control.",
+              "content_sha256": "5acb0b9c2562afb3b9c14a23155242a15244ab12ccfe4f13b2a61d6b50e7c679",
+              "source_id": "b-witness-001",
+              "source_locator": "case-b-scale/witness/paragraph-4",
+              "source_type": "witness_statement"
+            },
+            {
+              "char_end": 208,
+              "char_start": 0,
+              "content": "A platform response explains that the supplied account export does not contain a public owner field for ACC-B1. It does not provide a substitute identity and does not confirm or deny any person as controller.",
+              "content_sha256": "dcffeca56e2923e50c70ccf7e550c99823276319bee6c760dbc8f3ef6357174a",
+              "source_id": "b-platform-001",
+              "source_locator": "case-b-scale/platform/field-availability",
+              "source_type": "platform_response_excerpt"
+            },
+            {
+              "char_end": 226,
+              "char_start": 0,
+              "content": "A memo addendum repeats that the owner is unknown and that Bob Niran is mentioned but not established as controller. It is an addendum to the same investigation memo, not an independent confirmation or a new ownership finding.",
+              "content_sha256": "d14817b80876c40d559876cca6ecd8ef64bdae00b01613f0b23eaf257456f5de",
+              "source_id": "b-duplicate-001",
+              "source_locator": "case-b-scale/memo/addendum-1",
+              "source_type": "memo_addendum"
+            },
+            {
+              "char_end": 248,
+              "char_start": 0,
+              "content": "A server-maintenance record describes a routine restart of an internal service. It contains no ACC-B1 identifier, no Bob Niran reference, and no account-access event. It is unrelated operational material and should not be used as incident evidence.",
+              "content_sha256": "eee3965a017a1e710a38035f03ea340a215692b0e884120c0cf75fd54e27f295",
+              "source_id": "b-ops-001",
+              "source_locator": "case-b-scale/unrelated/server-maintenance",
+              "source_type": "operations_log"
+            },
+            {
+              "char_end": 251,
+              "char_start": 0,
+              "content": "The case index lists the memo, interview, registry excerpt, evidence request, device inventory, and provider correspondence. The index records document presence only; it does not validate the claims or fill the missing ownership and audit information.",
+              "content_sha256": "7fe0dd64be22624e07ea88623a3e593a79d13ac4a4bc44852ed968067a54cae8",
+              "source_id": "b-admin-001",
+              "source_locator": "case-b-scale/administration/packet-index",
+              "source_type": "administrative_note"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "B2",
+        "B0",
+        "D1"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    },
+    {
+      "arms": [
+        {
+          "condition": "D1",
+          "status": "planned"
+        },
+        {
+          "condition": "B2",
+          "status": "planned"
+        },
+        {
+          "condition": "B0",
+          "status": "planned"
+        }
+      ],
+      "block_id": "block-0003",
+      "case_file": "experiments/report_representation_study/cases_scale/case-c-scale.json",
+      "case_file_sha256": "812c75b190103abefc4e6cc1d063749974a3f2d2f9369ccc80a52b36b6c36598",
+      "case_id": "case-c-scale",
+      "d1_parts": [
+        {
+          "case_id": "case-c-scale",
+          "estimated_request_tokens": 2728,
+          "estimator_version": "utf8_bytes_div4_v1",
+          "max_request_tokens": 187712,
+          "ordinal": 1,
+          "part_id": "part-0001",
+          "part_sha256": "6b667bb63d754714e89466ff240c255406c010cb265adc3daa1f957cdb8aba59",
+          "source_spans": [
+            {
+              "char_end": 232,
+              "char_start": 0,
+              "content": "The first report states that the handle RedFox belongs to Carol V. and that RedFox sent the message at 2026-03-01 10:00 UTC. The report presents this as the reporting party's account and does not include a platform ownership record.",
+              "content_sha256": "299a017606b96f1ab5e77f396b85e849d2db2e512c7765e1bc2941898fcb408f",
+              "source_id": "c-report-001",
+              "source_locator": "case-c-scale/report/paragraph-3",
+              "source_type": "incident_report"
+            },
+            {
+              "char_end": 223,
+              "char_start": 0,
+              "content": "A witness instead says that RedFox may refer to Carla V. and recalls the message at approximately 2026-03-01 11:00 UTC. The witness says the time is uncertain and does not claim to have seen a verified account-owner record.",
+              "content_sha256": "9f2fbb2581b2964b37aa798263b71ebc08b19d4bd6c052e77c51666a6b0f1230",
+              "source_id": "c-witness-001",
+              "source_locator": "case-c-scale/witness/paragraph-1",
+              "source_type": "witness_statement"
+            },
+            {
+              "char_end": 275,
+              "char_start": 0,
+              "content": "A platform export confirms that a handle named RedFox appeared in the relevant message thread. The account identifier and ownership fields are redacted from the supplied export. The export therefore confirms handle presence but not whether Carol V. or Carla V. controlled it.",
+              "content_sha256": "7d6978c75eaa04b3efd8d15c82ae81f631a1ae98ab6615700eb388ceba7c663d",
+              "source_id": "c-platform-001",
+              "source_locator": "case-c-scale/platform/handle-export/redfox",
+              "source_type": "platform_export_excerpt"
+            },
+            {
+              "char_end": 228,
+              "char_start": 0,
+              "content": "The message metadata identifies message M-77 and records a collection-side timestamp of 2026-03-01 11:02 UTC. The metadata does not provide a reliable sent-at timestamp. Collection time must not be substituted for incident time.",
+              "content_sha256": "bb9d03eef1e79751671a44869b16727676b4f8c4b552f6508bee7f0c32dcbcbd",
+              "source_id": "c-message-001",
+              "source_locator": "case-c-scale/message/metadata/message-77",
+              "source_type": "message_metadata_excerpt"
+            },
+            {
+              "char_end": 239,
+              "char_start": 0,
+              "content": "The analyst note states that Carol V. and Carla V. may be aliases for one person or may be distinct individuals. It marks the coreference as unresolved and recommends obtaining platform account records before choosing a canonical identity.",
+              "content_sha256": "9d22c906fbb1e408df63c061dd21f90c7631ca47ff5a3f15a47ca37e9bd87aab",
+              "source_id": "c-analyst-001",
+              "source_locator": "case-c-scale/analysis/coreference-note",
+              "source_type": "analyst_note"
+            },
+            {
+              "char_end": 266,
+              "char_start": 0,
+              "content": "A supplied profile excerpt uses the display name Carol V. and contains a sentence denying knowledge of the RedFox message. The profile is not authenticated to the platform account in the packet, so the denial is a source claim and not a verified exculpatory finding.",
+              "content_sha256": "60d4a197a5bf9b55573e492049e4d4f817051c64addfbe500b2b512e72f833a1",
+              "source_id": "c-profile-001",
+              "source_locator": "case-c-scale/profile/carol-v",
+              "source_type": "social_profile_excerpt"
+            },
+            {
+              "char_end": 241,
+              "char_start": 0,
+              "content": "A witness addendum says the witness heard the name Carla V. near the time of the message but cannot recall the exact minute or confirm that Carla used the RedFox handle. It adds context to the alternative identity claim without resolving it.",
+              "content_sha256": "f2bab5ab21472b341a5ca03ef31fda08eb5dcb04778ca4b4dfad0a988408bbf5",
+              "source_id": "c-witness-002",
+              "source_locator": "case-c-scale/witness/addendum-1",
+              "source_type": "witness_addendum"
+            },
+            {
+              "char_end": 255,
+              "char_start": 0,
+              "content": "The preservation log records that the platform export was collected on 2026-03-04 15:20 UTC and stored under evidence package E-01. This is a collection and chain-of-custody record; it does not establish when the message was sent or who controlled RedFox.",
+              "content_sha256": "20e09c67ac5f6be9bdbaf3bd8e8d924a21e32845b94da79a89cf6fda1c2d717a",
+              "source_id": "c-preservation-001",
+              "source_locator": "case-c-scale/preservation/export-01",
+              "source_type": "evidence_preservation_log"
+            },
+            {
+              "char_end": 224,
+              "char_start": 0,
+              "content": "A request to the platform asks for the account identifier, registration details, and message send metadata for RedFox and M-77. The request has no response in the packet, leaving the identity and exact event time unresolved.",
+              "content_sha256": "b1d026b5e8852256fb1e9fe5e329798f2daff6b2b0e325d780e264dafa632a3b",
+              "source_id": "c-platform-002",
+              "source_locator": "case-c-scale/platform/request/account-mapping",
+              "source_type": "platform_request_log"
+            },
+            {
+              "char_end": 249,
+              "char_start": 0,
+              "content": "A transcript shows a participant using the name RedFox and discussing the message topic. The transcript contains no verified account identifier, no platform authentication context, and no direct statement that the participant is Carol V. or Carla V.",
+              "content_sha256": "69b640c66a656087c9200f385a737fd7e54e22c5b7387b53e419093fb4ee7cce",
+              "source_id": "c-chat-001",
+              "source_locator": "case-c-scale/chat/thread-12",
+              "source_type": "chat_transcript_excerpt"
+            },
+            {
+              "char_end": 250,
+              "char_start": 0,
+              "content": "The identity comparison note lists the strings Carol V. and Carla V. as separate source mentions. It explicitly warns that spelling similarity is not sufficient for coreference and that the table is a candidate comparison, not an identity resolution.",
+              "content_sha256": "52e2ef4abe65b4e6762e9c94fb0b70351bf38386e437e16af5dd90bc3bf224ed",
+              "source_id": "c-alias-001",
+              "source_locator": "case-c-scale/analysis/alias-table",
+              "source_type": "identity_comparison_note"
+            },
+            {
+              "char_end": 257,
+              "char_start": 0,
+              "content": "The chronology review records two incompatible time descriptions: 10:00 UTC in the first report and approximately 11:00 UTC in the witness account. It states that the discrepancy must remain visible until source metadata or corroborating records resolve it.",
+              "content_sha256": "73b48e6267b547cd8801b0f2e2f107debadc138dd9dab9e22be5872297420859",
+              "source_id": "c-chronology-001",
+              "source_locator": "case-c-scale/analysis/chronology-review",
+              "source_type": "chronology_review_note"
+            },
+            {
+              "char_end": 226,
+              "char_start": 0,
+              "content": "An unrelated maintenance log records a scheduled restart of a message-relay service on 2026-03-02. It does not mention RedFox, M-77, Carol V., Carla V., or the reported message and should not be used to resolve the chronology.",
+              "content_sha256": "7ca9c87ce4839c09a5ff119f3c7c961c6c7d502d7a363efb7845303c282dbfd0",
+              "source_id": "c-ops-001",
+              "source_locator": "case-c-scale/unrelated/maintenance-window",
+              "source_type": "operations_log"
+            },
+            {
+              "char_end": 229,
+              "char_start": 0,
+              "content": "The packet index lists the incident report, witness materials, platform extracts, preservation log, transcript, and analyst notes. It certifies document inclusion only and does not resolve the conflicting identity or time claims.",
+              "content_sha256": "b46e88ee0f680694afc8f7a8db08c4da539d0e7a4eded65be5b38df0d0868658",
+              "source_id": "c-admin-001",
+              "source_locator": "case-c-scale/administration/packet-index",
+              "source_type": "administrative_note"
+            }
+          ]
+        }
+      ],
+      "permutation": [
+        "D1",
+        "B2",
+        "B0"
+      ],
+      "repeat": 1,
+      "status": "planned"
+    }
+  ],
+  "case_inputs": {
+    "case-a-scale": {
+      "case_id": "case-a-scale",
+      "case_packet_sha256": "faab1ec6e67aff85c90e8c215f473a0e03142add846c64f4b9cc8d6992bb81c2",
+      "frozen_case_mandate_sha256": "470891c08217f94a429a571548cccd7be9fa6d8b71864bf16bcf40bbc5480d2c",
+      "ordered_sources": [
+        {
+          "content_sha256": "412bad014dda9f87c499bd5d370122901b147cf320a22817ca465cfb976c3652",
+          "content_utf8_bytes": 274,
+          "ordinal": 1,
+          "source_id": "a-statement-001",
+          "source_locator": "case-a-scale/statement/line-1",
+          "source_type": "investigator_statement"
+        },
+        {
+          "content_sha256": "93a55f089fdca4bf89a69b781713990ab7c9c51b7ef14cb77ccf9d4f9e4aea39",
+          "content_utf8_bytes": 275,
+          "ordinal": 2,
+          "source_id": "a-ledger-001",
+          "source_locator": "case-a-scale/ledger/transaction-TX-1",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "content_sha256": "6bb1f8df278e23444eca6bb585fd921c6ec73e6bc93cefd33dc4b6304a2270b5",
+          "content_utf8_bytes": 321,
+          "ordinal": 3,
+          "source_id": "a-account-001",
+          "source_locator": "case-a-scale/account-registry/record-100",
+          "source_type": "account_registry_excerpt"
+        },
+        {
+          "content_sha256": "f848c2814467426ecc6dbeddb9c40061afbf3da1a33f76e4c87eab079e28870d",
+          "content_utf8_bytes": 299,
+          "ordinal": 4,
+          "source_id": "a-ledger-002",
+          "source_locator": "case-a-scale/ledger/transaction-TX-1-detail",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "content_sha256": "51c1efec7181d7f62ccab196028cf103eb2e19662547450c4ba40e7e83175ccb",
+          "content_utf8_bytes": 236,
+          "ordinal": 5,
+          "source_id": "a-auth-001",
+          "source_locator": "case-a-scale/evidence-request/login-audit",
+          "source_type": "audit_availability_note"
+        },
+        {
+          "content_sha256": "28602d1009a97533490e8eb479cfe57453e3df0af48cffc1de7893455d5d2cae",
+          "content_utf8_bytes": 272,
+          "ordinal": 6,
+          "source_id": "a-device-001",
+          "source_locator": "case-a-scale/device-inventory/device-D17",
+          "source_type": "device_inventory_excerpt"
+        },
+        {
+          "content_sha256": "db1f5d5e1bb809471cfd6fcd5cef66307103577248e4410221610b1ff8110319",
+          "content_utf8_bytes": 243,
+          "ordinal": 7,
+          "source_id": "a-message-001",
+          "source_locator": "case-a-scale/message-export/message-77",
+          "source_type": "message_export_excerpt"
+        },
+        {
+          "content_sha256": "688a8630d12fea2012cb68a90dc3fb137eb0059825175f37e2879dddf63d2e50",
+          "content_utf8_bytes": 263,
+          "ordinal": 8,
+          "source_id": "a-memo-001",
+          "source_locator": "case-a-scale/memo/paragraph-2",
+          "source_type": "investigation_memo"
+        },
+        {
+          "content_sha256": "c08ad54bfc97fdda2fe86bfcd43a15537953863199281d205ece9fab44f1b7b4",
+          "content_utf8_bytes": 254,
+          "ordinal": 9,
+          "source_id": "a-support-001",
+          "source_locator": "case-a-scale/provider-request/request-200",
+          "source_type": "provider_request_log"
+        },
+        {
+          "content_sha256": "f1d7d5d4fea27363e0d8931d1c02a2e32252e6b3d9b789d0c9bcfe32586da233",
+          "content_utf8_bytes": 281,
+          "ordinal": 10,
+          "source_id": "a-ledger-003",
+          "source_locator": "case-a-scale/ledger/reconciliation-note",
+          "source_type": "transaction_log_excerpt"
+        },
+        {
+          "content_sha256": "cd73a5b6187fb616ab2eb9529eb75676a8e396c9a7b9d583e42f7c26919b9274",
+          "content_utf8_bytes": 273,
+          "ordinal": 11,
+          "source_id": "a-ops-001",
+          "source_locator": "case-a-scale/operations/relay-maintenance",
+          "source_type": "operations_log"
+        },
+        {
+          "content_sha256": "3eb6a3a853fc58b7d062f8e0f0e58b6ce3b5f233e58d953acff747959a777377",
+          "content_utf8_bytes": 236,
+          "ordinal": 12,
+          "source_id": "a-admin-001",
+          "source_locator": "case-a-scale/administration/packet-index",
+          "source_type": "administrative_note"
+        },
+        {
+          "content_sha256": "dc89af9e3a6c0eff4984d281b5e0e6ba8b20e6745f7b37a67ff98862c8eff209",
+          "content_utf8_bytes": 263,
+          "ordinal": 13,
+          "source_id": "a-finance-001",
+          "source_locator": "case-a-scale/unrelated/office-invoice",
+          "source_type": "unrelated_finance_record"
+        },
+        {
+          "content_sha256": "c0d65171c2dd90edeb075e2001c7ed9bec3079a120efdbac3a468b6a6188f358",
+          "content_utf8_bytes": 295,
+          "ordinal": 14,
+          "source_id": "a-review-001",
+          "source_locator": "case-a-scale/review/verification-plan",
+          "source_type": "investigator_review_note"
+        }
+      ],
+      "reference_context": []
+    },
+    "case-b-scale": {
+      "case_id": "case-b-scale",
+      "case_packet_sha256": "ef3b012c8ba254e664584c3c492cad4e70d850d808d8020bd7c1ba3c16270a0a",
+      "frozen_case_mandate_sha256": "01a22e0949b14c5091a9f30711e6d3b73854923ca42b87f9e4525c73cf4bec27",
+      "ordered_sources": [
+        {
+          "content_sha256": "8336059179e79402aa6d654fb1ea8f89fc8b54ba7236b4e53e69151a010a7d5b",
+          "content_utf8_bytes": 240,
+          "ordinal": 1,
+          "source_id": "b-memo-001",
+          "source_locator": "case-b-scale/memo/paragraph-1",
+          "source_type": "investigation_memo"
+        },
+        {
+          "content_sha256": "36bf7597c91cfa15e290a384edeb620c5f7f0d88d5df74e829ee43847ee68378",
+          "content_utf8_bytes": 248,
+          "ordinal": 2,
+          "source_id": "b-interview-001",
+          "source_locator": "case-b-scale/interview/bob/paragraph-2",
+          "source_type": "interview_summary"
+        },
+        {
+          "content_sha256": "b6342516f550a56abab6ba28579429aba24a2d94b35eeb8193a7c44b2b163e2d",
+          "content_utf8_bytes": 296,
+          "ordinal": 3,
+          "source_id": "b-registry-001",
+          "source_locator": "case-b-scale/account-registry/acc-b1",
+          "source_type": "account_registry_excerpt"
+        },
+        {
+          "content_sha256": "2eea4b9218c4b2b7b6b9d229d93a5d0282dc6e88357fcd3695bd28af86033d15",
+          "content_utf8_bytes": 268,
+          "ordinal": 4,
+          "source_id": "b-audit-001",
+          "source_locator": "case-b-scale/evidence-request/login-audit",
+          "source_type": "audit_availability_note"
+        },
+        {
+          "content_sha256": "0c372db1a566ad92f28bc84b47a9f09ba54194050d25368dfc25e5b965953843",
+          "content_utf8_bytes": 267,
+          "ordinal": 5,
+          "source_id": "b-support-001",
+          "source_locator": "case-b-scale/service-desk/ticket-44",
+          "source_type": "service_desk_excerpt"
+        },
+        {
+          "content_sha256": "f791f25f6715eec82032568242a459e8acb55c340483b2f587d9b0be1d5a2ddb",
+          "content_utf8_bytes": 299,
+          "ordinal": 6,
+          "source_id": "b-email-001",
+          "source_locator": "case-b-scale/email/header-17",
+          "source_type": "email_header_excerpt"
+        },
+        {
+          "content_sha256": "b1366563b9716de1323160a06057522633900449f7e0b88abf249b3d69f96577",
+          "content_utf8_bytes": 254,
+          "ordinal": 7,
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17",
+          "source_type": "device_inventory_excerpt"
+        },
+        {
+          "content_sha256": "3aed7e9539d2d4a46731937b7d863961d2901c4bff217490d42bd147f0611ed0",
+          "content_utf8_bytes": 294,
+          "ordinal": 8,
+          "source_id": "b-analyst-001",
+          "source_locator": "case-b-scale/analysis/control-status",
+          "source_type": "analyst_note"
+        },
+        {
+          "content_sha256": "80b9a09971b3974b46a3a7682a8e36769e06d23f0201b2a04d2b3b2a8e9e82f0",
+          "content_utf8_bytes": 220,
+          "ordinal": 9,
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1",
+          "source_type": "provider_request_log"
+        },
+        {
+          "content_sha256": "5acb0b9c2562afb3b9c14a23155242a15244ab12ccfe4f13b2a61d6b50e7c679",
+          "content_utf8_bytes": 231,
+          "ordinal": 10,
+          "source_id": "b-witness-001",
+          "source_locator": "case-b-scale/witness/paragraph-4",
+          "source_type": "witness_statement"
+        },
+        {
+          "content_sha256": "dcffeca56e2923e50c70ccf7e550c99823276319bee6c760dbc8f3ef6357174a",
+          "content_utf8_bytes": 208,
+          "ordinal": 11,
+          "source_id": "b-platform-001",
+          "source_locator": "case-b-scale/platform/field-availability",
+          "source_type": "platform_response_excerpt"
+        },
+        {
+          "content_sha256": "d14817b80876c40d559876cca6ecd8ef64bdae00b01613f0b23eaf257456f5de",
+          "content_utf8_bytes": 226,
+          "ordinal": 12,
+          "source_id": "b-duplicate-001",
+          "source_locator": "case-b-scale/memo/addendum-1",
+          "source_type": "memo_addendum"
+        },
+        {
+          "content_sha256": "eee3965a017a1e710a38035f03ea340a215692b0e884120c0cf75fd54e27f295",
+          "content_utf8_bytes": 248,
+          "ordinal": 13,
+          "source_id": "b-ops-001",
+          "source_locator": "case-b-scale/unrelated/server-maintenance",
+          "source_type": "operations_log"
+        },
+        {
+          "content_sha256": "7fe0dd64be22624e07ea88623a3e593a79d13ac4a4bc44852ed968067a54cae8",
+          "content_utf8_bytes": 251,
+          "ordinal": 14,
+          "source_id": "b-admin-001",
+          "source_locator": "case-b-scale/administration/packet-index",
+          "source_type": "administrative_note"
+        }
+      ],
+      "reference_context": []
+    },
+    "case-c-scale": {
+      "case_id": "case-c-scale",
+      "case_packet_sha256": "42cca00039bfa4bb4ab2b56b7616dcbc6176c079327f758ad8703258cbbb7d1b",
+      "frozen_case_mandate_sha256": "3a53bb724d25b5d55e2929600ae1500ed54e517713cf88e5a81b02211e41b343",
+      "ordered_sources": [
+        {
+          "content_sha256": "299a017606b96f1ab5e77f396b85e849d2db2e512c7765e1bc2941898fcb408f",
+          "content_utf8_bytes": 232,
+          "ordinal": 1,
+          "source_id": "c-report-001",
+          "source_locator": "case-c-scale/report/paragraph-3",
+          "source_type": "incident_report"
+        },
+        {
+          "content_sha256": "9f2fbb2581b2964b37aa798263b71ebc08b19d4bd6c052e77c51666a6b0f1230",
+          "content_utf8_bytes": 223,
+          "ordinal": 2,
+          "source_id": "c-witness-001",
+          "source_locator": "case-c-scale/witness/paragraph-1",
+          "source_type": "witness_statement"
+        },
+        {
+          "content_sha256": "7d6978c75eaa04b3efd8d15c82ae81f631a1ae98ab6615700eb388ceba7c663d",
+          "content_utf8_bytes": 275,
+          "ordinal": 3,
+          "source_id": "c-platform-001",
+          "source_locator": "case-c-scale/platform/handle-export/redfox",
+          "source_type": "platform_export_excerpt"
+        },
+        {
+          "content_sha256": "bb9d03eef1e79751671a44869b16727676b4f8c4b552f6508bee7f0c32dcbcbd",
+          "content_utf8_bytes": 228,
+          "ordinal": 4,
+          "source_id": "c-message-001",
+          "source_locator": "case-c-scale/message/metadata/message-77",
+          "source_type": "message_metadata_excerpt"
+        },
+        {
+          "content_sha256": "9d22c906fbb1e408df63c061dd21f90c7631ca47ff5a3f15a47ca37e9bd87aab",
+          "content_utf8_bytes": 239,
+          "ordinal": 5,
+          "source_id": "c-analyst-001",
+          "source_locator": "case-c-scale/analysis/coreference-note",
+          "source_type": "analyst_note"
+        },
+        {
+          "content_sha256": "60d4a197a5bf9b55573e492049e4d4f817051c64addfbe500b2b512e72f833a1",
+          "content_utf8_bytes": 266,
+          "ordinal": 6,
+          "source_id": "c-profile-001",
+          "source_locator": "case-c-scale/profile/carol-v",
+          "source_type": "social_profile_excerpt"
+        },
+        {
+          "content_sha256": "f2bab5ab21472b341a5ca03ef31fda08eb5dcb04778ca4b4dfad0a988408bbf5",
+          "content_utf8_bytes": 241,
+          "ordinal": 7,
+          "source_id": "c-witness-002",
+          "source_locator": "case-c-scale/witness/addendum-1",
+          "source_type": "witness_addendum"
+        },
+        {
+          "content_sha256": "20e09c67ac5f6be9bdbaf3bd8e8d924a21e32845b94da79a89cf6fda1c2d717a",
+          "content_utf8_bytes": 255,
+          "ordinal": 8,
+          "source_id": "c-preservation-001",
+          "source_locator": "case-c-scale/preservation/export-01",
+          "source_type": "evidence_preservation_log"
+        },
+        {
+          "content_sha256": "b1d026b5e8852256fb1e9fe5e329798f2daff6b2b0e325d780e264dafa632a3b",
+          "content_utf8_bytes": 224,
+          "ordinal": 9,
+          "source_id": "c-platform-002",
+          "source_locator": "case-c-scale/platform/request/account-mapping",
+          "source_type": "platform_request_log"
+        },
+        {
+          "content_sha256": "69b640c66a656087c9200f385a737fd7e54e22c5b7387b53e419093fb4ee7cce",
+          "content_utf8_bytes": 249,
+          "ordinal": 10,
+          "source_id": "c-chat-001",
+          "source_locator": "case-c-scale/chat/thread-12",
+          "source_type": "chat_transcript_excerpt"
+        },
+        {
+          "content_sha256": "52e2ef4abe65b4e6762e9c94fb0b70351bf38386e437e16af5dd90bc3bf224ed",
+          "content_utf8_bytes": 250,
+          "ordinal": 11,
+          "source_id": "c-alias-001",
+          "source_locator": "case-c-scale/analysis/alias-table",
+          "source_type": "identity_comparison_note"
+        },
+        {
+          "content_sha256": "73b48e6267b547cd8801b0f2e2f107debadc138dd9dab9e22be5872297420859",
+          "content_utf8_bytes": 257,
+          "ordinal": 12,
+          "source_id": "c-chronology-001",
+          "source_locator": "case-c-scale/analysis/chronology-review",
+          "source_type": "chronology_review_note"
+        },
+        {
+          "content_sha256": "7ca9c87ce4839c09a5ff119f3c7c961c6c7d502d7a363efb7845303c282dbfd0",
+          "content_utf8_bytes": 226,
+          "ordinal": 13,
+          "source_id": "c-ops-001",
+          "source_locator": "case-c-scale/unrelated/maintenance-window",
+          "source_type": "operations_log"
+        },
+        {
+          "content_sha256": "b46e88ee0f680694afc8f7a8db08c4da539d0e7a4eded65be5b38df0d0868658",
+          "content_utf8_bytes": 229,
+          "ordinal": 14,
+          "source_id": "c-admin-001",
+          "source_locator": "case-c-scale/administration/packet-index",
+          "source_type": "administrative_note"
+        }
+      ],
+      "reference_context": []
+    }
+  },
+  "conditions": [
+    "B0",
+    "D1",
+    "B2"
+  ],
+  "frozen_release": {
+    "artifact_count": 62,
+    "manifest_version": "frozen_artifact_manifest_v1",
+    "registry_sha256": "08e65cb050816734f602befb88df3b95c6ee37f0c4e226370aa2fda7c3532da2",
+    "release_id": "4ca6f15993686f3c8717eba42723057e0043bb8fa859f989eacd999565e4e9ae"
+  },
+  "implementation_parent_sha": "513ccfed7881432d7e170e795cfcdbac453bee46",
+  "mode": "dry_run",
+  "pinned_configuration": {
+    "context_window_tokens": 200000,
+    "d1_partition": {
+      "context_window_tokens": 200000,
+      "estimator_version": "utf8_bytes_div4_v1",
+      "intermediate_output_allowance_tokens": 8192,
+      "max_stage1_request_tokens": 187712,
+      "safety_margin_tokens": 4096
+    },
+    "live_pilot_planned_calls": 15,
+    "live_transport": {
+      "accepted_response_model_aliases": [
+        "openai/gpt-5.6-luna"
+      ],
+      "credential_env_name": "OPENROUTER_CYBERCASE",
+      "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+      "provider_output_enforcement": false,
+      "provider_route": {
+        "allow_fallbacks": false,
+        "only": [
+          "openai"
+        ],
+        "order": [
+          "openai"
+        ],
+        "require_parameters": true
+      },
+      "provider_tools": false,
+      "reasoning": {
+        "effort": "none",
+        "exclude": true
+      },
+      "response_cache": "false",
+      "retries": 0,
+      "router_metadata": "enabled",
+      "streaming": false,
+      "temperature_mode": "provider_default",
+      "timeout_seconds": 600.0,
+      "transport_version": "openrouter_chat_completions_http_v1"
+    },
+    "model": "openai/gpt-5.6-luna-20260709",
+    "provider": "openrouter",
+    "relationship_extraction_max_output_tokens": 24000,
+    "report_max_output_tokens": 16000,
+    "retry_policy": "none",
+    "temperature": null
+  },
+  "prompt_registry": {
+    "case-a-scale": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "2f56628c77fdc404ae5ea38062d64b6c344ffcb0b6a41de9241dada69b508fdb",
+        "version": "b2_relationship_extraction_v4_gap_provenance"
+      },
+      "d1_stage1": {
+        "sha256": "3fa43fc1bf7a6241c52e32a1e2f7ccf26209e24dd6fb4aa74479c49501e63d68",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "23cbb6db9e0d95a6a6998a9c36a86430e42e4d729a9eeb328c0d6c9d2818e312",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "b22221a2baeba582e5ba9a804dc6223b1970d206dc504f6c95df8b537df30b5e",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "a3d459aa21d28cb779ef167d2e25a57dee24cd832089c125763800b0685301d6",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    },
+    "case-b-scale": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "151a8f3d791d524023d45ad4e7c2016b3482030d512b873205287096514a8d94",
+        "version": "b2_relationship_extraction_v4_gap_provenance"
+      },
+      "d1_stage1": {
+        "sha256": "dcb68691284a9e2159c32ecaf355931df8d2f766a56cc17fd5efe095b981e884",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "af544d04d2a70dff1b1bd660dad2c7b058258b5b581f639f4baceaaaab803e55",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "85c1515983d6d15e75e4c0560d4868c0d9166329ee0da2ae3d66ee2475e59a3b",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "04739d67f17cf550a5719b6e3b998d234a9c1c5222d92c557a5c1aef61e4d570",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    },
+    "case-c-scale": {
+      "b2_relationship_extraction": {
+        "embedded_schema_sha256": "9788d838946899bb7d0bf44833edbf17f3248b45b162e9da5beea166ce84f4f3",
+        "embedded_schema_version": "relationship_ir_v2",
+        "sha256": "116654ea20e1c7f47d0bbd4c8027c2c6a29586dcf329dfeeb5b24519dbbe8c2a",
+        "version": "b2_relationship_extraction_v4_gap_provenance"
+      },
+      "d1_stage1": {
+        "sha256": "55d9b99d69c5f423c7c7913824c0827e9e6f96dda9e4ab7b26303e799356ec78",
+        "version": "dehing_stage1_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v1"
+      },
+      "reports": {
+        "B0": {
+          "adapter_sha256": "d477a4fb66f51e6b3955fe60e0c69313c8ed0612a9d239797ca679978553f3a6",
+          "adapter_version": "b0_raw_case_adapter_v2",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "066c9c94cf804d2c418351a8e7b527a9b802802695a2cd736baceb0686ee5afa",
+          "version": "b0_common_report_v2"
+        },
+        "B2": {
+          "adapter_sha256": "d2c597a752a76890071973731bf017f455a33f475484ed73633d3e98a10d0a0b",
+          "adapter_version": "b2_relationship_ir_v2_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "9344ac2cbb20cac9b33fa612a6c4293339a312403ffd288713752379973eaf8b",
+          "version": "b2_common_report_v2"
+        },
+        "D1": {
+          "adapter_sha256": "f8d11ac8f69a70872d6fdee9a629a438a515ee6920180c7081a36be744448989",
+          "adapter_version": "d1_dehing_summary_adapter_v1",
+          "common_contract_sha256": "8c4cc1fbf167ee490a7af4ea06032f38d53237b34cd7f53d11db81b0da2ab7e5",
+          "common_contract_version": "common_report_contract_v1",
+          "sha256": "41c2fb9ca32cbe6d7c649587a9425515df2b46babde09dfddbd9b5639bbdda34",
+          "version": "dehing_stage2_adapted_5554ef79a0bce3342fb827da2511366ea71b7390_v2"
+        }
+      }
+    }
+  },
+  "protocol_version": "report_representation_study_v6_openrouter_gpt56luna_gap_provenance",
+  "repeats": 1,
+  "run_id": "scale-dry-plan-20260809",
+  "seed": 20260808,
+  "status": "dry_run"
+}

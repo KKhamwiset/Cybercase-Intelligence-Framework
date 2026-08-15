@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     PrimaryKeyConstraint,
@@ -30,12 +31,19 @@ class ChatThread(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="pk_chat_threads"),
         CheckConstraint(
-            "status IN ('idle', 'processing', 'awaiting_followup', 'failed')",
+            "status IN ('idle', 'processing', 'awaiting_followup', 'answered', 'failed')",
             name="ck_chat_threads_status",
         ),
         CheckConstraint(
             "next_message_ordinal > 0",
             name="ck_chat_threads_next_message_ordinal_positive",
+        ),
+        ForeignKeyConstraint(
+            ["id", "current_case_state_version_id"],
+            ["case_state_versions.thread_id", "case_state_versions.id"],
+            name="fk_chat_threads_current_case_state_version",
+            deferrable=True,
+            initially="DEFERRED",
         ),
         Index("ix_chat_threads_updated_at", "updated_at"),
     )
@@ -59,6 +67,10 @@ class ChatThread(Base):
     )
     active_rag_session_id: Mapped[str | None] = mapped_column(
         String(160),
+        nullable=True,
+    )
+    current_case_state_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
         nullable=True,
     )
     next_message_ordinal: Mapped[int] = mapped_column(
@@ -95,6 +107,22 @@ class ChatThread(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    case_state_versions: Mapped[list["CaseStateVersion"]] = relationship(
+        "CaseStateVersion",
+        back_populates="thread",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        foreign_keys="CaseStateVersion.thread_id",
+        primaryjoin="ChatThread.id == CaseStateVersion.thread_id",
+    )
+    current_case_state_version: Mapped["CaseStateVersion | None"] = relationship(
+        "CaseStateVersion",
+        foreign_keys=[current_case_state_version_id],
+        primaryjoin=(
+            "ChatThread.current_case_state_version_id == CaseStateVersion.id"
+        ),
+        post_update=True,
+    )
 
 
 class ChatMessage(Base):
@@ -105,6 +133,11 @@ class ChatMessage(Base):
             "thread_id",
             "ordinal",
             name="uq_chat_messages_thread_id_ordinal",
+        ),
+        UniqueConstraint(
+            "thread_id",
+            "id",
+            name="uq_chat_messages_thread_id_id",
         ),
         CheckConstraint(
             "ordinal > 0",

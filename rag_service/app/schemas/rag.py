@@ -1,32 +1,48 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from RAG import MitreTableRow
 
 
 class QueryRequest(BaseModel):
-    # Pydantic ignores unknown fields by default, so callers still sending the
-    # old `use_agent` flag (the backend chat client does) keep working.
+    model_config = ConfigDict(extra="forbid")
+
     query: str
+    # Vestigial: GraphRAGAgent is the only pipeline, so this selects nothing.
+    # It cannot be deleted unilaterally — extra="forbid" above means dropping
+    # the field turns the backend's existing `use_agent: true` payload
+    # (services/chat/rag_client.py) into a 422 on every chat request. Remove it
+    # here and in backend/app/schemas/chat/rag.py in the same change, or not
+    # at all.
+    use_agent: bool = True
 
 
 class QueryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     # Always "completed" — the pipeline no longer pauses for clarification.
-    status: str
-    answer: str = ""
-    retrieval_context_id: str = ""
-    # Noise-filtered MITRE ATT&CK mapping table derived from the raw retrieval
-    # results (answer-grounded + score-threshold filtering; see mitre_table.py).
+    status: Literal["completed"]
+    retrieval_context_id: str | None
+    context: str
+    # MITRE ATT&CK mapping table selected inside rag-service. The generated
+    # answer may be used internally for relevance, but never crosses this
+    # response boundary.
     mitre_table: list[MitreTableRow] = Field(default_factory=list)
+
+    @field_validator("retrieval_context_id", mode="before")
+    @classmethod
+    def normalize_empty_retrieval_context_id(cls, value: Any) -> Any:
+        return None if value == "" else value
 
 
 class RetrievalContextSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     retrieval_context_id: str
     query: str = ""
     context: str
     rag_result: dict[str, Any] = Field(default_factory=dict)
-    answer: str = ""
     mitre_table: list[MitreTableRow] = Field(default_factory=list)

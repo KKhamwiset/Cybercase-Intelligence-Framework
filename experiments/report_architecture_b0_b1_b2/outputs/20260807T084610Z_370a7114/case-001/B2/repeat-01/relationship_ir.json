@@ -1,0 +1,187 @@
+{
+  "entities": [
+    {
+      "canonical_name": "employee@example.org",
+      "entity_id": "ENT-001",
+      "entity_type": "account",
+      "reported_role": null,
+      "reported_roles": [
+        "recipient of suspicious message",
+        "source of reported transfer"
+      ],
+      "source_ids": [
+        "SRC-001",
+        "SRC-002"
+      ]
+    },
+    {
+      "canonical_name": "ACCT-77",
+      "entity_id": "ENT-002",
+      "entity_type": "account",
+      "reported_role": null,
+      "reported_roles": [
+        "destination of reported transfer"
+      ],
+      "source_ids": [
+        "SRC-002"
+      ]
+    },
+    {
+      "canonical_name": "HOST-7",
+      "entity_id": "ENT-003",
+      "entity_type": "device",
+      "reported_role": null,
+      "reported_roles": [
+        "device used to access employee account"
+      ],
+      "source_ids": [
+        "SRC-003"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "action": "received suspicious message",
+      "actor_ids": [],
+      "event_id": "EVT-001",
+      "evidence_ids": [],
+      "source_ids": [
+        "SRC-001"
+      ],
+      "status": "reported",
+      "target_ids": [
+        "ENT-001"
+      ],
+      "timestamp": null,
+      "timestamp_text": "2026-08-01 at approximately 10:20"
+    },
+    {
+      "action": "transfer of USD 4,200 reported from employee account to ACCT-77",
+      "actor_ids": [],
+      "event_id": "EVT-002",
+      "evidence_ids": [
+        "EVD-001"
+      ],
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "target_ids": [
+        "ENT-001",
+        "ENT-002"
+      ],
+      "timestamp": null,
+      "timestamp_text": null
+    },
+    {
+      "action": "device HOST-7 used to access employee account",
+      "actor_ids": [
+        "ENT-003"
+      ],
+      "event_id": "EVT-003",
+      "evidence_ids": [
+        "EVD-002"
+      ],
+      "source_ids": [
+        "SRC-003"
+      ],
+      "status": "reported",
+      "target_ids": [
+        "ENT-001"
+      ],
+      "timestamp": null,
+      "timestamp_text": null
+    }
+  ],
+  "evidence": [
+    {
+      "artifact_type": "bank_record_description",
+      "description": "A bank record description states that a transfer of USD 4,200 was reported from the employee account to account ACCT-77.",
+      "evidence_id": "EVD-001",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "title": "Bank Record Description – Transfer to ACCT-77"
+    },
+    {
+      "artifact_type": "device_observation",
+      "description": "The investigator reported that device HOST-7 was used to access the employee account. Ownership and attribution remain unknown.",
+      "evidence_id": "EVD-002",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "status": "reported",
+      "title": "Device Observation – HOST-7 Access"
+    }
+  ],
+  "missing_information": [
+    {
+      "description": "The sender/origin of the suspicious message received by employee@example.org is unknown; no entity was identified in the sources.",
+      "missing_id": "MISS-001",
+      "source_ids": [
+        "SRC-001"
+      ]
+    },
+    {
+      "description": "Ownership of device HOST-7 is unknown and attribution of the access to the employee account remains unknown.",
+      "missing_id": "MISS-002",
+      "source_ids": [
+        "SRC-003"
+      ]
+    },
+    {
+      "description": "The controller or owner of ACCT-77 is unknown; the bank record does not establish this.",
+      "missing_id": "MISS-003",
+      "source_ids": [
+        "SRC-002"
+      ]
+    }
+  ],
+  "missing_relationships": [
+    {
+      "description": "The bank record explicitly states that who controlled ACCT-77 is not established.",
+      "missing_id": "MREL-001",
+      "object_id": "ENT-001",
+      "predicate": "controlled_by",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "subject_id": "ENT-002"
+    }
+  ],
+  "relationships": [
+    {
+      "evidence_ids": [
+        "EVD-001"
+      ],
+      "object_id": "ENT-002",
+      "predicate": "reported_transfer_to",
+      "relationship_id": "REL-001",
+      "source_ids": [
+        "SRC-002"
+      ],
+      "status": "reported",
+      "subject_id": "ENT-001"
+    },
+    {
+      "evidence_ids": [
+        "EVD-002"
+      ],
+      "object_id": "ENT-001",
+      "predicate": "reported_used_to_access",
+      "relationship_id": "REL-002",
+      "source_ids": [
+        "SRC-003"
+      ],
+      "status": "reported",
+      "subject_id": "ENT-003"
+    }
+  ],
+  "version": "relationship_ir_v1",
+  "warnings": [
+    "EVT-001 timestamp set to null because the source states 'approximately 10:20', which is not a precise date-time; wording preserved in timestamp_text.",
+    "REF-001 (frozen MITRE context for T1566/phishing) was not used as case evidence per instructions; it is reference knowledge only.",
+    "No actor_ids assigned to EVT-002 because the source does not identify who initiated the transfer."
+  ]
+}

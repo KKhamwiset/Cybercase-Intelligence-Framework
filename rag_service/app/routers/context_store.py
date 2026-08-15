@@ -36,7 +36,6 @@ def store_retrieval_context(
     query: str,
     context: str,
     rag_result: Any,
-    answer: str = "",
     mitre_table: list[Any] | None = None,
 ) -> str:
     if not context or rag_result is None:
@@ -49,7 +48,6 @@ def store_retrieval_context(
         "query": query,
         "context": context,
         "rag_result": rag_result,
-        "answer": answer,
         "mitre_table": list(mitre_table or []),
         "created_at": now,
         "expires_at": now + RETRIEVAL_CONTEXT_TTL_SECONDS,
@@ -78,6 +76,5 @@ def export_retrieval_context(req: Request, context_id: str) -> dict[str, Any] | 
         "query": cached.get("query", ""),
         "context": cached.get("context", ""),
         "rag_result": jsonable_encoder(cached.get("rag_result") or {}),
-        "answer": cached.get("answer", ""),
         "mitre_table": jsonable_encoder(cached.get("mitre_table") or []),
     }

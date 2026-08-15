@@ -1,0 +1,404 @@
+{
+  "artifact_entity_links": [],
+  "artifact_records": [
+    {
+      "artifact_id": "art-laptop-b17",
+      "artifact_type": "device inventory record",
+      "description": "Device inventory record listing laptop B-17 as issued to Bob Niran.",
+      "source_refs": [
+        {
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17"
+        }
+      ],
+      "temporal_assertions": []
+    }
+  ],
+  "case_id": "case-b-scale",
+  "conflicts": [],
+  "coreference_candidates": [],
+  "entities": [
+    {
+      "aliases": [],
+      "canonical_label": "ACC-B1",
+      "entity_id": "ent-account-acc-b1",
+      "entity_type": "account",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b-scale/memo/paragraph-1"
+        },
+        {
+          "source_id": "b-registry-001",
+          "source_locator": "case-b-scale/account-registry/acc-b1"
+        },
+        {
+          "source_id": "b-analyst-001",
+          "source_locator": "case-b-scale/analysis/control-status"
+        }
+      ],
+      "stability_basis": "Explicit account identifier ACC-B1 appears consistently in the case packet."
+    },
+    {
+      "aliases": [],
+      "canonical_label": "Bob Niran",
+      "entity_id": "ent-person-bob-niran",
+      "entity_type": "person",
+      "identified": true,
+      "source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b-scale/interview/bob/paragraph-2"
+        },
+        {
+          "source_id": "b-support-001",
+          "source_locator": "case-b-scale/service-desk/ticket-44"
+        },
+        {
+          "source_id": "b-email-001",
+          "source_locator": "case-b-scale/email/header-17"
+        },
+        {
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17"
+        },
+        {
+          "source_id": "b-witness-001",
+          "source_locator": "case-b-scale/witness/paragraph-4"
+        }
+      ],
+      "stability_basis": null
+    }
+  ],
+  "events": [
+    {
+      "description": "Interview summary identifies Bob Niran as a person mentioned during the interview in connection with account ACC-B1; the available information does not establish that he controls the account.",
+      "event_id": "evt-interview-mention",
+      "participants": [
+        {
+          "entity_id": "ent-person-bob-niran",
+          "role": "other",
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2"
+            }
+          ],
+          "status": "reported"
+        },
+        {
+          "entity_id": "ent-account-acc-b1",
+          "role": "target_account",
+          "source_refs": [
+            {
+              "source_id": "b-interview-001",
+              "source_locator": "case-b-scale/interview/bob/paragraph-2"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b-scale/interview/bob/paragraph-2"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    },
+    {
+      "description": "A service-desk ticket was submitted using a contact name matching Bob Niran and asked about access to a partially redacted account identifier; the ticket does not show authenticated access to ACC-B1.",
+      "event_id": "evt-support-ticket",
+      "participants": [
+        {
+          "entity_id": "ent-person-bob-niran",
+          "role": "sender",
+          "source_refs": [
+            {
+              "source_id": "b-support-001",
+              "source_locator": "case-b-scale/service-desk/ticket-44"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-support-001",
+          "source_locator": "case-b-scale/service-desk/ticket-44"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    },
+    {
+      "description": "An email header includes Bob Niran as a visible sender name in a discussion about account access; it does not establish control of ACC-B1.",
+      "event_id": "evt-email-discussion",
+      "participants": [
+        {
+          "entity_id": "ent-person-bob-niran",
+          "role": "sender",
+          "source_refs": [
+            {
+              "source_id": "b-email-001",
+              "source_locator": "case-b-scale/email/header-17"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-email-001",
+          "source_locator": "case-b-scale/email/header-17"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    },
+    {
+      "description": "Laptop B-17 was listed as issued to Bob Niran; no session record links it to ACC-B1 and the record does not establish who used it during any relevant event.",
+      "event_id": "evt-device-issuance",
+      "participants": [
+        {
+          "entity_id": "ent-person-bob-niran",
+          "role": "recipient",
+          "source_refs": [
+            {
+              "source_id": "b-device-001",
+              "source_locator": "case-b-scale/device-inventory/laptop-B17"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    },
+    {
+      "description": "A witness recalls Bob discussing an account problem during a meeting but cannot identify the account number or say that Bob logged into ACC-B1.",
+      "event_id": "evt-witness-discussion",
+      "participants": [
+        {
+          "entity_id": "ent-person-bob-niran",
+          "role": "actor",
+          "source_refs": [
+            {
+              "source_id": "b-witness-001",
+              "source_locator": "case-b-scale/witness/paragraph-4"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-witness-001",
+          "source_locator": "case-b-scale/witness/paragraph-4"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    },
+    {
+      "description": "A provider request sought registration, recovery, and login records for ACC-B1; the request remains unanswered in the packet.",
+      "event_id": "evt-provider-request",
+      "participants": [
+        {
+          "entity_id": "ent-account-acc-b1",
+          "role": "target_account",
+          "source_refs": [
+            {
+              "source_id": "b-provider-001",
+              "source_locator": "case-b-scale/provider-request/request-acc-b1"
+            }
+          ],
+          "status": "reported"
+        }
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1"
+        }
+      ],
+      "status": "reported",
+      "temporal_assertions": []
+    }
+  ],
+  "ir_version": "relationship_ir_v2",
+  "missing_evidence": [
+    {
+      "context_event_ids": [
+        "evt-provider-request"
+      ],
+      "derivation": "explicit_source",
+      "description": "Login, authentication, and session audit records for ACC-B1 were not supplied and should be requested from the provider.",
+      "gap_id": "gap-missing-login-audits",
+      "known_entity_ids": [
+        "ent-account-acc-b1"
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-audit-001",
+          "source_locator": "case-b-scale/evidence-request/login-audit"
+        },
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b-scale/memo/paragraph-1"
+        },
+        {
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1"
+        }
+      ]
+    },
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "Provider account records, login audit data, session identifiers, and authenticated device telemetry needed to verify the control relationship are unavailable in the packet.",
+      "gap_id": "gap-missing-verification-records",
+      "known_entity_ids": [
+        "ent-person-bob-niran",
+        "ent-account-acc-b1"
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-analyst-001",
+          "source_locator": "case-b-scale/analysis/control-status"
+        },
+        {
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1"
+        }
+      ]
+    }
+  ],
+  "missing_information": [
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "The account registry does not provide an owner, controller, identity-verification record, customer identifier, or provider signature for ACC-B1.",
+      "gap_id": "gap-missing-owner-identity",
+      "known_entity_ids": [
+        "ent-account-acc-b1"
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-registry-001",
+          "source_locator": "case-b-scale/account-registry/acc-b1"
+        }
+      ]
+    },
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "No session record links laptop B-17 to ACC-B1, and the packet does not establish who used the device during any relevant event.",
+      "gap_id": "gap-missing-session-link",
+      "known_entity_ids": [
+        "ent-account-acc-b1",
+        "ent-person-bob-niran"
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-device-001",
+          "source_locator": "case-b-scale/device-inventory/laptop-B17"
+        }
+      ]
+    },
+    {
+      "context_event_ids": [
+        "evt-provider-request"
+      ],
+      "derivation": "explicit_source",
+      "description": "The provider request remains unanswered and supplies no owner, controller, recovery address, or authenticated session information.",
+      "gap_id": "gap-missing-provider-response",
+      "known_entity_ids": [
+        "ent-account-acc-b1"
+      ],
+      "source_refs": [
+        {
+          "source_id": "b-provider-001",
+          "source_locator": "case-b-scale/provider-request/request-acc-b1"
+        }
+      ]
+    },
+    {
+      "context_event_ids": [],
+      "derivation": "frozen_case_mandate",
+      "description": "Further verification requires provider registration, recovery, login, authentication, session, and authenticated device records.",
+      "gap_id": "gap-verification-next-steps",
+      "known_entity_ids": [
+        "ent-person-bob-niran",
+        "ent-account-acc-b1"
+      ],
+      "source_refs": []
+    }
+  ],
+  "relationship_assertions": [
+    {
+      "object_entity_id": "ent-account-acc-b1",
+      "predicate": "controls",
+      "relationship_id": "rel-bob-controls-acc-b1",
+      "source_refs": [
+        {
+          "source_id": "b-interview-001",
+          "source_locator": "case-b-scale/interview/bob/paragraph-2"
+        },
+        {
+          "source_id": "b-analyst-001",
+          "source_locator": "case-b-scale/analysis/control-status"
+        },
+        {
+          "source_id": "b-duplicate-001",
+          "source_locator": "case-b-scale/memo/addendum-1"
+        }
+      ],
+      "statement": "The relationship between Bob Niran and ACC-B1 is explicitly classified as not established; available information does not establish that Bob controls the account.",
+      "status": "not_established",
+      "subject_entity_id": "ent-person-bob-niran"
+    }
+  ],
+  "unknown_counterpart_gaps": [
+    {
+      "context_event_ids": [],
+      "derivation": "explicit_source",
+      "description": "The owner or controller of ACC-B1 is unknown; no stable counterpart entity is identified.",
+      "gap_id": "gap-unknown-account-controller",
+      "known_entity_id": "ent-account-acc-b1",
+      "missing_role": "subject",
+      "predicate_or_participant_role": "controller",
+      "source_refs": [
+        {
+          "source_id": "b-memo-001",
+          "source_locator": "case-b-scale/memo/paragraph-1"
+        },
+        {
+          "source_id": "b-registry-001",
+          "source_locator": "case-b-scale/account-registry/acc-b1"
+        },
+        {
+          "source_id": "b-platform-001",
+          "source_locator": "case-b-scale/platform/field-availability"
+        },
+        {
+          "source_id": "b-duplicate-001",
+          "source_locator": "case-b-scale/memo/addendum-1"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "Bob Niran's mention in interviews, correspondence, service-desk material, witness testimony, and device issuance is preserved as association or contextual participation, not proof of account control.",
+    "The unrelated server-maintenance record was excluded because it contains no ACC-B1 identifier, Bob Niran reference, or account-access event.",
+    "Source support establishes provenance, not independent verification."
+  ]
+}

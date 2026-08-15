@@ -1,0 +1,79 @@
+import type { SVGProps } from "react";
+
+export type IconName =
+  | "chat"
+  | "evidence"
+  | "details"
+  | "timeline"
+  | "relationships"
+  | "plus"
+  | "report"
+  | "send"
+  | "trash";
+
+const paths: Record<IconName, React.ReactNode> = {
+  chat: <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />,
+  evidence: (
+    <>
+      <path d="M5 4h14v16H5z" />
+      <path d="M8 8h8M8 12h8M8 16h5" />
+    </>
+  ),
+  details: (
+    <>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M7 8h10M7 12h10M7 16h6" />
+    </>
+  ),
+  timeline: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 15" />
+    </>
+  ),
+  relationships: (
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="18" cy="6" r="2.5" />
+      <circle cx="12" cy="18" r="2.5" />
+      <line x1="8.2" y1="7.2" x2="10.8" y2="15.8" />
+      <line x1="15.8" y1="7.2" x2="13.2" y2="15.8" />
+      <line x1="8.5" y1="6" x2="15.5" y2="6" />
+    </>
+  ),
+  plus: <path d="M12 5v14M5 12h14" />,
+  report: (
+    <>
+      <path d="M6 3h9l3 3v15H6z" />
+      <path d="M15 3v4h4M9 12h6M9 16h6" />
+    </>
+  ),
+  send: <path d="m22 2-7 20-4-9-9-4Zm0 0L11 13" />,
+  trash: (
+    <>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6" />
+      <path d="M10 11v5M14 11v5" />
+    </>
+  ),
+};
+
+interface IconProps extends SVGProps<SVGSVGElement> {
+  name: IconName;
+}
+
+export function Icon({ name, ...props }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      {paths[name]}
+    </svg>
+  );
+}

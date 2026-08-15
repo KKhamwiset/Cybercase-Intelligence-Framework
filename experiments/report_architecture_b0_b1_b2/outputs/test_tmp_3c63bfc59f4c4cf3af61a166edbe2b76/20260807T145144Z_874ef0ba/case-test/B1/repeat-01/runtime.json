@@ -1,0 +1,47 @@
+{
+  "calls": [
+    {
+      "chunk_id": "CHUNK-0001",
+      "failure_code": null,
+      "http_status": null,
+      "input_tokens": 7,
+      "latency_ms": 0.419,
+      "output_tokens": 11,
+      "parse_status": "validated",
+      "provider_response_available": false,
+      "response_sha256": null,
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T14:51:44.794401Z"
+    },
+    {
+      "chunk_id": "CHUNK-0002",
+      "failure_code": "provider_error",
+      "http_status": 529,
+      "input_tokens": 17,
+      "latency_ms": 0.246,
+      "output_tokens": 3,
+      "parse_status": "failed",
+      "provider_response_available": true,
+      "response_sha256": "6bc7fc8f14abbbb2bf52cc2bc6160a0da44c88c07f49a8e6391acf5651d1731a",
+      "stage": "relationship_extraction",
+      "started_at": "2026-08-07T14:51:44.795045Z"
+    }
+  ],
+  "case_id": "case-test",
+  "condition": "B1",
+  "failure_code": "provider_error",
+  "input_tokens": 24,
+  "model_calls": 2,
+  "output_tokens": 14,
+  "parse_validation_status": "failed",
+  "raw_extraction_response_availability": {
+    "CHUNK-0001": false,
+    "CHUNK-0002": true
+  },
+  "raw_report_response_available": false,
+  "relationship_ir_available": false,
+  "repeat": 1,
+  "status": "failed",
+  "total_latency_ms": 0.665,
+  "validated_report_available": false
+}

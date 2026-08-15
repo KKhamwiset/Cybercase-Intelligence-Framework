@@ -1,0 +1,519 @@
+{
+  "case_id": "case-a-scale",
+  "report_version": "representation_study_report_v1",
+  "sections": [
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-001",
+          "statement_type": "case_statement",
+          "text": "The intake statement reports that Alice Chen is the registered holder of account ACC-100."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-002",
+          "statement_type": "case_statement",
+          "text": "Transaction record TX-1 reports a USD 500 transfer from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            },
+            {
+              "source_id": "a-memo-001",
+              "source_locator": "case-a-scale/memo/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-003",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The packet does not establish the owner or controller of ACC-200."
+        }
+      ],
+      "heading": "Executive Summary",
+      "section_id": "executive_summary"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-004",
+          "statement_type": "limitation",
+          "text": "The mandate is to describe the reported account relationship, transfer event, involved entities, supporting and limiting records, chronology, and verification steps."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-admin-001",
+              "source_locator": "case-a-scale/administration/packet-index"
+            }
+          ],
+          "statement_id": "stmt-005",
+          "statement_type": "limitation",
+          "text": "The packet index does not certify the accuracy of the included records."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-finance-001",
+              "source_locator": "case-a-scale/unrelated/office-invoice"
+            }
+          ],
+          "statement_id": "stmt-006",
+          "statement_type": "limitation",
+          "text": "The office-supplies invoice is unrelated to the reported transfer and should not be used as an incident finding."
+        }
+      ],
+      "heading": "Case Background and Scope",
+      "section_id": "case_background_scope"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-account-001",
+              "source_locator": "case-a-scale/account-registry/record-100"
+            }
+          ],
+          "statement_id": "stmt-007",
+          "statement_type": "case_statement",
+          "text": "The account-registry excerpt lists ACC-100 as active and repeats the display name Alice Chen."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-account-001",
+              "source_locator": "case-a-scale/account-registry/record-100"
+            }
+          ],
+          "statement_id": "stmt-008",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The account-registry excerpt does not show the underlying identity-verification result, the date of the last verification, or a provider signature."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "statement_id": "stmt-009",
+          "statement_type": "case_statement",
+          "text": "The detailed TX-1 export records settled status, an amount of USD 500, source account ACC-100, destination account ACC-200, and an internal processing reference."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-003",
+              "source_locator": "case-a-scale/ledger/reconciliation-note"
+            }
+          ],
+          "statement_id": "stmt-010",
+          "statement_type": "analysis_candidate",
+          "text": "The two transaction exports appear to refer to the same TX-1 record rather than two separate transfers."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-auth-001",
+              "source_locator": "case-a-scale/evidence-request/login-audit"
+            }
+          ],
+          "statement_id": "stmt-011",
+          "statement_type": "uncertainty_or_gap",
+          "text": "Login and authentication audit records for the transaction window are absent from the packet."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-support-001",
+              "source_locator": "case-a-scale/provider-request/request-200"
+            }
+          ],
+          "statement_id": "stmt-012",
+          "statement_type": "uncertainty_or_gap",
+          "text": "No provider response to the request for account-holder information associated with ACC-200 is included in the packet."
+        }
+      ],
+      "heading": "Evidence Findings",
+      "section_id": "evidence_findings"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-013",
+          "statement_type": "case_statement",
+          "text": "Alice Chen is reported as the holder of ACC-100."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            }
+          ],
+          "statement_id": "stmt-014",
+          "statement_type": "case_statement",
+          "text": "The TX-1 transaction record names Alice Chen as the initiating user."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            },
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "statement_id": "stmt-015",
+          "statement_type": "case_statement",
+          "text": "The transaction records identify ACC-100 as the source account and ACC-200 as the destination account."
+        },
+        {
+          "epistemic_status": "unknown_counterpart",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "statement_id": "stmt-016",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The packet does not identify a beneficiary person, beneficiary organization, or controller for ACC-200."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17"
+            }
+          ],
+          "statement_id": "stmt-017",
+          "statement_type": "case_statement",
+          "text": "Device D-17 was observed in the same administrative account context as ACC-100."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17"
+            }
+          ],
+          "statement_id": "stmt-018",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The device inventory does not establish that Alice Chen operated D-17 during TX-1."
+        }
+      ],
+      "heading": "Individuals, Accounts, Systems, and Reported Roles",
+      "section_id": "individuals_accounts_systems_roles"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            },
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "statement_id": "stmt-019",
+          "statement_type": "case_statement",
+          "text": "TX-1 is recorded at 2026-01-10 09:00 UTC."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-message-001",
+              "source_locator": "case-a-scale/message-export/message-77"
+            }
+          ],
+          "statement_id": "stmt-020",
+          "statement_type": "case_statement",
+          "text": "The message-export index was collected on 2026-01-12."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-message-001",
+              "source_locator": "case-a-scale/message-export/message-77"
+            }
+          ],
+          "statement_id": "stmt-021",
+          "statement_type": "limitation",
+          "text": "The message-export collection date is not the incident or transaction date."
+        },
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-support-001",
+              "source_locator": "case-a-scale/provider-request/request-200"
+            }
+          ],
+          "statement_id": "stmt-022",
+          "statement_type": "case_statement",
+          "text": "The provider request for ACC-200 account-holder information was sent after the transaction review began."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ops-001",
+              "source_locator": "case-a-scale/operations/relay-maintenance"
+            }
+          ],
+          "statement_id": "stmt-023",
+          "statement_type": "limitation",
+          "text": "Routine relay-server maintenance was recorded on 2026-01-11."
+        },
+        {
+          "epistemic_status": "missing_information",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1"
+            }
+          ],
+          "statement_id": "stmt-024",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The packet does not provide a timestamp for when the intake statement was made."
+        }
+      ],
+      "heading": "Chronological Timeline",
+      "section_id": "chronological_timeline"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            },
+            {
+              "source_id": "a-auth-001",
+              "source_locator": "case-a-scale/evidence-request/login-audit"
+            }
+          ],
+          "statement_id": "stmt-025",
+          "statement_type": "analysis_candidate",
+          "text": "The available records support analysis of a reported account-to-account transfer but do not establish how the transaction was authenticated."
+        },
+        {
+          "epistemic_status": "not_established",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-auth-001",
+              "source_locator": "case-a-scale/evidence-request/login-audit"
+            },
+            {
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17"
+            }
+          ],
+          "statement_id": "stmt-026",
+          "statement_type": "analysis_candidate",
+          "text": "No MITRE ATT&CK technique mapping is supported by the supplied records."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-device-001",
+              "source_locator": "case-a-scale/device-inventory/device-D17"
+            }
+          ],
+          "statement_id": "stmt-027",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The available device record does not provide an authenticated session identifier linking D-17 to TX-1."
+        }
+      ],
+      "heading": "Technical Analysis and MITRE ATT&CK Mapping",
+      "section_id": "technical_analysis_mitre"
+    },
+    {
+      "content": [
+        {
+          "epistemic_status": "reported",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-ledger-001",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1"
+            },
+            {
+              "source_id": "a-ledger-002",
+              "source_locator": "case-a-scale/ledger/transaction-TX-1-detail"
+            }
+          ],
+          "statement_id": "stmt-028",
+          "statement_type": "case_statement",
+          "text": "The packet supports a reported USD 500 transfer from ACC-100 to ACC-200 at 2026-01-10 09:00 UTC."
+        },
+        {
+          "epistemic_status": "missing_evidence",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [
+            {
+              "source_id": "a-statement-001",
+              "source_locator": "case-a-scale/statement/line-1"
+            },
+            {
+              "source_id": "a-account-001",
+              "source_locator": "case-a-scale/account-registry/record-100"
+            },
+            {
+              "source_id": "a-memo-001",
+              "source_locator": "case-a-scale/memo/paragraph-2"
+            }
+          ],
+          "statement_id": "stmt-029",
+          "statement_type": "uncertainty_or_gap",
+          "text": "The current packet is insufficient to verify ownership of ACC-100 or ACC-200 through independent provider records."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-030",
+          "statement_type": "next_step",
+          "text": "Preserve the original intake statement and transaction exports in their current form."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-031",
+          "statement_type": "next_step",
+          "text": "Request provider-side account records for ACC-100 and ACC-200, including available ownership or controller information and verification metadata."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-032",
+          "statement_type": "next_step",
+          "text": "Request login, authentication, session, and device telemetry for the transaction window."
+        },
+        {
+          "epistemic_status": "not_applicable",
+          "mitre_technique_ids": [],
+          "reference_ids": [],
+          "source_refs": [],
+          "statement_id": "stmt-033",
+          "statement_type": "next_step",
+          "text": "Verify whether ACC-200 has a provider-confirmed beneficiary or controller."
+        }
+      ],
+      "heading": "Conclusions, Limitations, and Recommended Next Investigative Steps",
+      "section_id": "conclusions_limitations_next_steps"
+    }
+  ],
+  "status": "provisional_unverified",
+  "title": "Provisional Investigative Report: case-a-scale"
+}

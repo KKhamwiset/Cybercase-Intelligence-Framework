@@ -1,9 +1,5 @@
 """Fact & Entity/Relationship Extraction."""
 
-from app.services.extraction.demo_extraction import (
-    add_demo_chat_extraction,
-    build_demo_chat_extraction,
-)
 from app.services.extraction.llm_extraction import (
     ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS,
     BASELINE_EXTRACTION_MODE,
@@ -30,8 +26,6 @@ from app.services.extraction.llm_extraction import (
 )
 
 __all__ = [
-    "add_demo_chat_extraction",
-    "build_demo_chat_extraction",
     "ACCEPTED_BASELINE_EXTRACTION_PROMPT_VERSIONS",
     "BASELINE_EXTRACTION_MODE",
     "BASELINE_EXTRACTION_PROMPT_VERSION",

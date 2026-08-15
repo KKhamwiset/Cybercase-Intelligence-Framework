@@ -332,6 +332,26 @@ Three options:
 that conflict, and (a) walks straight into it.
 
 ### H2. Ollama: is `evaluation/` allowed to keep using it?
+
+**Correction (2026-08-15):** the Phase 1 greps for `use_local` / `ollama`
+excluded `finetune/` as well as `evaluation/`, so this section originally
+missed a consumer. `finetune/compare/run_comparison.py` runs the base-vs-
+fine-tune A/B by setting `LOCAL_LLM_MODEL` in the environment and shelling out
+to `eval_runner --local` twice, and it also drives the `ollama` **CLI binary**
+directly (`ollama stop <model>` between rounds, to stop two 7B models thrashing
+a 4 GB GPU). So the fine-tune module depends on Ollama at two levels — the
+Python package and the installed CLI — and it is a fifth entry point that can
+turn `use_local` on, alongside the three eval scripts listed below.
+
+The full remaining picture is: six sites construct a client
+(`generation_metrics.py:152` unconditionally, for RAGAS `nomic-embed-text`
+embeddings; `crosslingual_generation_benchmark.py:398` on an `ollama:` model
+prefix; and the `if use_local:` branches in `chain.py`, `cross_lingual.py`,
+`query_decomposer.py`, `router.py`), and four entry points can enable them
+(`eval_runner --local`, `crosslingual_benchmark --local`,
+`crosslingual_generation_benchmark --local`, `finetune/compare/run_comparison.py`).
+Nothing in the served pipeline reaches any of them.
+
 If yes (the default reading of your exclusion), then `OLLAMA_BASE_URL`,
 `LOCAL_LLM_MODEL`, `LOCAL_EVAL_MODEL`, and `langchain-ollama` all stay, and
 "drop Ollama" means only "drop the `use_local` plumbing from the pipeline and
