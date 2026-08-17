@@ -74,7 +74,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
             </blockquote>
           ),
           pre: ({ children }) => (
-            <pre className="my-4 max-w-full overflow-x-auto rounded-xl border border-charcoal-pressed bg-charcoal p-4 font-mono text-xs leading-relaxed text-ivory shadow-inner sm:text-sm">
+            <pre className="my-4 max-w-full overflow-x-auto rounded-xl border border-charcoal-pressed bg-primary p-4 font-mono text-xs leading-relaxed text-ivory shadow-inner sm:text-sm">
               {children}
             </pre>
           ),
@@ -134,7 +134,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-ink underline decoration-line-strong underline-offset-2 transition-colors hover:text-charcoal-hover hover:decoration-charcoal"
+              className="font-semibold text-ink underline decoration-line-strong underline-offset-2 transition-colors hover:text-charcoal-hover hover:decoration-primary"
             >
               {children}
             </a>

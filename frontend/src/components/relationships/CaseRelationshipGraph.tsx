@@ -107,8 +107,8 @@ export function CaseRelationshipGraph({
                   onClick={() =>
                     setSelectedRelationshipId(relationship.relationship_id)
                   }
-                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 focus-visible:ring-offset-surface-nested ${selected
-                      ? "border-charcoal bg-surface shadow-[0_2px_8px_rgba(39,39,39,0.07)]"
+                  className={`w-full rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-nested ${selected
+                      ? "border-primary bg-surface shadow-[0_2px_8px_rgba(39,39,39,0.07)]"
                       : "border-line bg-surface hover:border-line-strong hover:bg-surface-hover"
                     }`}
                 >
@@ -236,8 +236,8 @@ function CustomGraphNode({
       data-graph-node-id={data.entityId}
       data-selected={data.selected}
       className={`relative min-w-[172px] max-w-[200px] rounded-xl border p-3 text-center transition-all ${data.selected
-          ? "border-charcoal bg-surface-nested ring-2 ring-charcoal shadow-md"
-          : "border-line-strong bg-surface hover:border-charcoal hover:bg-surface-hover"
+          ? "border-primary bg-surface-nested ring-2 ring-primary shadow-md"
+          : "border-line-strong bg-surface hover:border-primary hover:bg-surface-hover"
         }`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
@@ -428,7 +428,7 @@ function RelationshipCanvas({
                   orient="auto"
                   markerUnits="strokeWidth"
                 >
-                  <path d="M0,0 L8,4 L0,8 Z" fill="var(--color-charcoal)" />
+                  <path d="M0,0 L8,4 L0,8 Z" fill="var(--color-primary)" />
                 </marker>
               </defs>
 
@@ -611,13 +611,13 @@ function GraphEdge({
       <path
         d={pathD}
         fill="none"
-        stroke="var(--color-charcoal)"
+        stroke="var(--color-primary)"
         strokeWidth={strokeWidth}
         strokeDasharray={connectorDashArray(relationship.status)}
         markerEnd={`url(#${markerId})`}
       />
       {relationship.status === "contradicted" && (
-        <g stroke="var(--color-charcoal)" strokeWidth={selected ? 3 : 2}>
+        <g stroke="var(--color-primary)" strokeWidth={selected ? 3 : 2}>
           <line
             x1={midX - badgeWidth / 2 - 10}
             y1={midY - 5}
@@ -640,7 +640,7 @@ function GraphEdge({
           height={badgeHeight}
           rx="9"
           fill="var(--color-ivory)"
-          stroke={selected ? "var(--color-charcoal)" : "var(--color-line-strong)"}
+          stroke={selected ? "var(--color-primary)" : "var(--color-line-strong)"}
           strokeWidth={selected ? 2 : 1}
         />
         <text
@@ -648,7 +648,7 @@ function GraphEdge({
           x={0}
           y={3.5}
           textAnchor="middle"
-          fill="var(--color-charcoal)"
+          fill="var(--color-primary)"
           fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
           fontSize={selected ? 10 : 9}
           fontWeight={selected ? 800 : 600}

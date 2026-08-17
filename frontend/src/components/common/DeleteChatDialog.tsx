@@ -40,7 +40,7 @@ export function DeleteChatDialog({
         event.preventDefault();
         if (!isDeleting) onCancel();
       }}
-      className="m-auto max-w-md rounded-2xl border border-line bg-surface p-6 text-ink shadow-[0_20px_50px_rgba(39,39,39,0.18)] backdrop:bg-charcoal/35 backdrop:backdrop-blur-[1px]"
+      className="m-auto max-w-md rounded-2xl border border-line bg-surface p-6 text-ink shadow-[0_20px_50px_rgba(39,39,39,0.18)] backdrop:bg-primary/35 backdrop:backdrop-blur-[1px]"
     >
       <h2 id="delete-chat-title" className="text-lg font-extrabold tracking-tight">
         Delete this chat?
@@ -62,7 +62,7 @@ export function DeleteChatDialog({
           type="button"
           disabled={isDeleting}
           onClick={onCancel}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-primary hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
         >
           Cancel
         </button>

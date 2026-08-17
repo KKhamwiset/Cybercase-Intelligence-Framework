@@ -1,0 +1,84 @@
+{
+  "case_count": 100,
+  "corruption_counts": {
+    "actor_swap": 50,
+    "attribution_insertion": 50,
+    "causality_insertion": 50,
+    "certainty_strengthening": 50,
+    "negation_flip": 50,
+    "predicate_swap": 50,
+    "target_swap": 50,
+    "timestamp_shift": 50
+  },
+  "gold_fact_slots": [
+    "rel-001",
+    "rel-002",
+    "rel-003",
+    "rel-004",
+    "rel-005",
+    "rel-006",
+    "rel-007",
+    "rel-008",
+    "rel-009",
+    "rel-010",
+    "time-001",
+    "time-002",
+    "time-003",
+    "time-004"
+  ],
+  "integrity_failures": [],
+  "label_counts": {
+    "SUPPORTED": 400,
+    "UNSUPPORTED": 400
+  },
+  "language_counts": {
+    "en": 50,
+    "th": 50
+  },
+  "limitations": [
+    "Cases and labels are synthetic fixtures created from deterministic structured facts.",
+    "Construction validation proves agreement with deterministic proposition renderers, not free-form language understanding.",
+    "No forensic, deployed-system, or model-quality conclusion can be drawn from this dataset."
+  ],
+  "pair_counts": {
+    "negative": 400,
+    "positive": 400,
+    "total": 800
+  },
+  "positive_fact_slots_covered": [
+    "rel-001",
+    "rel-002",
+    "rel-003",
+    "rel-004",
+    "rel-005",
+    "rel-006",
+    "rel-007",
+    "rel-008",
+    "rel-009",
+    "rel-010",
+    "time-001",
+    "time-002",
+    "time-003",
+    "time-004"
+  ],
+  "positive_slot_coverage": 1.0,
+  "scenario_counts": {
+    "email_execution": 25,
+    "forwarded_attachment": 25,
+    "mail_endpoint_review": 25,
+    "received_document": 25
+  },
+  "schema_version": "2.0",
+  "seed": 314159,
+  "template_counts": {
+    "en-layout-1": 13,
+    "en-layout-2": 13,
+    "en-layout-3": 12,
+    "en-layout-4": 12,
+    "th-layout-1": 12,
+    "th-layout-2": 12,
+    "th-layout-3": 13,
+    "th-layout-4": 13
+  },
+  "valid": true
+}

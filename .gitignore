@@ -113,6 +113,12 @@ yarn-error.log*
 # ==============================================================================
 # Experiments & Research Benchmarks
 # ==============================================================================
-experiments/
 backend/experiments/
+
+# The offline semantic-verification fixture is intentionally versioned.
+experiments/*
+!experiments/semantic_verification/
+!experiments/semantic_verification/**
+experiments/semantic_verification/**/__pycache__/
+experiments/semantic_verification/**/*.pyc
 

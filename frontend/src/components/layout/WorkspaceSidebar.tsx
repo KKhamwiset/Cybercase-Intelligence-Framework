@@ -80,9 +80,9 @@ export function WorkspaceSidebar({
       <Link
         href="/"
         aria-label="CyberCase home"
-        className="mx-2 mt-2.5 flex min-h-9 items-center gap-2 rounded-lg px-2 outline-none transition-colors duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 motion-reduce:transition-none"
+        className="mx-2 mt-2.5 flex min-h-9 items-center gap-2 rounded-lg px-2 outline-none transition-colors duration-150 hover:bg-surface focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"
       >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-charcoal text-[11px] font-black text-ivory shadow-sm">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-black text-ivory shadow-sm">
           C
         </span>
         <span className="truncate text-xs font-bold tracking-tight text-ink">
@@ -95,7 +95,7 @@ export function WorkspaceSidebar({
         <button
           type="button"
           onClick={onNewChat}
-          className="flex min-h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-line-strong bg-surface px-2.5 text-xs font-bold text-ink shadow-[0_1px_2px_rgba(39,39,39,0.03)] outline-none transition-all duration-150 hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 motion-reduce:transition-none"
+          className="flex min-h-8 w-full items-center justify-start gap-1.5 rounded-lg border border-line-strong bg-surface px-2.5 text-xs font-bold text-ink shadow-[0_1px_2px_rgba(39,39,39,0.03)] outline-none transition-all duration-150 hover:border-primary hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none"
         >
           <span className="flex h-4 w-4 items-center justify-center rounded bg-surface-nested text-ink">
             <Icon name="plus" className="h-3 w-3" />
@@ -127,7 +127,7 @@ export function WorkspaceSidebar({
                 tabIndex={selected ? 0 : -1}
                 title={workspaceViewDescriptions[view]}
                 onClick={() => onViewChange(view)}
-                className={`group flex min-h-7.5 w-full items-center gap-2 rounded-md border px-2 text-left text-[11.5px] font-semibold outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 motion-reduce:transition-none ${
+                className={`group flex min-h-7.5 w-full items-center gap-2 rounded-md border px-2 text-left text-[11.5px] font-semibold outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none ${
                   selected
                     ? "border-line bg-surface font-bold text-ink shadow-[0_1px_2px_rgba(39,39,39,0.03)]"
                     : "border-transparent text-ink-secondary hover:bg-surface/70 hover:text-ink"
@@ -189,7 +189,7 @@ export function WorkspaceSidebar({
                     aria-label={`${thread.title}, ${statusInfo.label}`}
                     title={thread.title}
                     onClick={() => onSelectThread(thread.id)}
-                    className={`relative flex min-h-8.5 min-w-0 flex-1 flex-col justify-center rounded-md border px-2 py-1 text-left outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 motion-reduce:transition-none ${
+                    className={`relative flex min-h-8.5 min-w-0 flex-1 flex-col justify-center rounded-md border px-2 py-1 text-left outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none ${
                       selected
                         ? "border-line bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(39,39,39,0.03)]"
                         : "border-transparent text-ink-secondary hover:bg-surface/70 hover:text-ink"

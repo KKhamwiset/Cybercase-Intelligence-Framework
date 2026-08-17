@@ -67,8 +67,8 @@ export function ChatPanel({
                 onClick={() => onPostAnswerActionChange("ask")}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition-all ${
                   postAnswerAction === "ask"
-                    ? "border-charcoal bg-charcoal text-ivory shadow-sm"
-                    : "border-line-strong bg-surface text-ink-secondary hover:border-charcoal hover:bg-surface-hover"
+                    ? "border-primary bg-primary text-ivory shadow-sm"
+                    : "border-line-strong bg-surface text-ink-secondary hover:border-primary hover:bg-surface-hover"
                 }`}
               >
                 Ask question
@@ -78,8 +78,8 @@ export function ChatPanel({
                 onClick={() => onPostAnswerActionChange("add_case_info")}
                 className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition-all ${
                   postAnswerAction === "add_case_info"
-                    ? "border-charcoal bg-charcoal text-ivory shadow-sm"
-                    : "border-line-strong bg-surface text-ink-secondary hover:border-charcoal hover:bg-surface-hover"
+                    ? "border-primary bg-primary text-ivory shadow-sm"
+                    : "border-line-strong bg-surface text-ink-secondary hover:border-primary hover:bg-surface-hover"
                 }`}
               >
                 Add case info

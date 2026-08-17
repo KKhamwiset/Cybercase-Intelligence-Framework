@@ -52,7 +52,7 @@ powershell.exe -ExecutionPolicy Bypass
     expect(screen.getByText("This is a blockquote")).toBeInTheDocument();
     expect(screen.getByText("powershell.exe -ExecutionPolicy Bypass")).toBeInTheDocument();
     expect(screen.getByText("powershell.exe -ExecutionPolicy Bypass").closest("pre")).toHaveClass(
-      "bg-charcoal",
+      "bg-primary",
       "text-ivory",
     );
   });
@@ -132,7 +132,7 @@ describe("ChatTranscript Markdown vs Plain Text behavior", () => {
     expect(boldElement.tagName).toBe("STRONG");
 
     expect(screen.getByText("Check this **user message** with `code`.").parentElement).toHaveClass(
-      "bg-charcoal",
+      "bg-primary",
       "text-ivory",
     );
     expect(boldElement.closest(".rounded-2xl")).toHaveClass(

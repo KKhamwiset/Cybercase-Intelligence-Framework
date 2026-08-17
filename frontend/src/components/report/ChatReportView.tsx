@@ -153,7 +153,7 @@ export function ChatReportView({
           <button
             type="button"
             onClick={onOpenChat}
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-charcoal px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2"
+            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Return to Chat
           </button>
@@ -193,7 +193,7 @@ export function ChatReportView({
             type="button"
             onClick={() => void handleGenerate()}
             disabled={!canGenerate}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-charcoal px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-ivory outline-none transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled"
           >
             {isGenerating && (
               <span
@@ -206,7 +206,7 @@ export function ChatReportView({
           <button
             type="button"
             onClick={onOpenChat}
-            className="inline-flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-charcoal hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2"
+            className="inline-flex min-h-11 items-center rounded-xl border border-line-strong bg-surface px-4 text-sm font-bold text-ink outline-none transition-colors hover:border-primary hover:bg-surface-hover active:bg-control-disabled focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Return to Chat
           </button>
@@ -241,10 +241,10 @@ export function ChatReportView({
                     key={report.report_id}
                     type="button"
                     onClick={() => setSelectedReportId(report.report_id)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-charcoal ${
+                    className={`w-full rounded-xl border px-3 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary ${
                       report.report_id === selectedReport?.report_id
-                        ? "border-charcoal bg-charcoal text-ivory"
-                        : "border-line bg-surface text-ink hover:border-charcoal hover:bg-surface-hover"
+                        ? "border-primary bg-primary text-ivory"
+                        : "border-line bg-surface text-ink hover:border-primary hover:bg-surface-hover"
                     }`}
                   >
                     <span className="block text-sm font-extrabold">
@@ -276,7 +276,7 @@ export function ChatReportView({
           </div>
         ) : (
           <div className="mt-8 max-w-3xl rounded-2xl border border-dashed border-line-strong bg-surface p-6 sm:p-8">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-charcoal text-ivory shadow-sm">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-ivory shadow-sm">
               <Icon name="report" className="h-6 w-6" />
             </span>
             <h2 className="mt-5 text-xl font-extrabold tracking-tight text-ink">
@@ -326,7 +326,7 @@ function PersistedReportCard({
                 type="button"
                 onClick={onDownloadPdf}
                 disabled={isDownloading}
-                className="rounded-full border border-charcoal bg-charcoal px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed disabled:cursor-wait disabled:border-control-disabled disabled:bg-control-disabled disabled:text-ink-disabled"
+                className="rounded-full border border-primary bg-primary px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-charcoal-hover active:bg-charcoal-pressed disabled:cursor-wait disabled:border-control-disabled disabled:bg-control-disabled disabled:text-ink-disabled"
               >
                 {isDownloading ? "Preparing PDF..." : "Download PDF"}
               </button>

@@ -59,7 +59,7 @@ export function ChatTranscript({
             <div
               className={`rounded-2xl px-4 py-3.5 shadow-[0_1px_3px_rgba(39,39,39,0.04)] sm:px-5 sm:py-4 ${
                 isUser
-                  ? "max-w-[85%] bg-charcoal text-ivory"
+                  ? "max-w-[85%] bg-primary text-ivory"
                   : "w-full border border-line bg-surface text-ink"
               }`}
             >
@@ -77,7 +77,7 @@ export function ChatTranscript({
 
       {isProcessing && (
         <div className="flex items-center gap-3 px-2 text-xs font-semibold text-ink-secondary">
-          <span className="flex h-2 w-2 rounded-full bg-charcoal animate-ping" />
+          <span className="flex h-2 w-2 rounded-full bg-primary animate-ping" />
           <span>Analyzing incident details &amp; mapping MITRE intelligence...</span>
         </div>
       )}

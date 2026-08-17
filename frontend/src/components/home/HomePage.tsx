@@ -95,31 +95,31 @@ function MiniVisual({ type }: { type: "bars" | "grid" | "line" }) {
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-line-strong text-charcoal">
+    <main className="min-h-screen bg-line-strong text-primary">
       <div className="mx-auto overflow-hidden bg-ivory shadow-2xl">
         {/* Navigation */}
-        <header className="flex items-center justify-between border-b border-charcoal/10 px-5 py-4 md:px-8">
+        <header className="flex items-center justify-between border-b border-primary/10 px-5 py-4 md:px-8">
           <Link
             href="/"
             className="flex items-center gap-2 font-semibold tracking-tight"
           >
-            <span className="grid h-6 w-6 place-items-center bg-charcoal text-xs font-black text-ivory">
+            <span className="grid h-6 w-6 place-items-center bg-primary text-xs font-black text-ivory">
               C
             </span>
             <span>CyberCase Framework</span>
           </Link>
 
-          <nav className="hidden items-center gap-7 text-[11px] font-bold uppercase tracking-widest text-charcoal/60 md:flex">
-            <a href="#platform" className="transition hover:text-charcoal">
+          <nav className="hidden items-center gap-7 text-[11px] font-bold uppercase tracking-widest text-primary/60 md:flex">
+            <a href="#platform" className="transition hover:text-primary">
               Platform
             </a>
-            <a href="#workflow" className="transition hover:text-charcoal">
+            <a href="#workflow" className="transition hover:text-primary">
               Workflow
             </a>
-            <a href="#intelligence" className="transition hover:text-charcoal">
+            <a href="#intelligence" className="transition hover:text-primary">
               Intelligence
             </a>
-            <a href="#about" className="transition hover:text-charcoal">
+            <a href="#about" className="transition hover:text-primary">
               About
             </a>
           </nav>
@@ -127,14 +127,14 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <Link
               href="/chat"
-              className="hidden text-[11px] font-bold uppercase tracking-wider text-charcoal/60 hover:text-charcoal sm:block"
+              className="hidden text-[11px] font-bold uppercase tracking-wider text-primary/60 hover:text-primary sm:block"
             >
               Open chat
             </Link>
 
             <Link
               href="/chat"
-              className="flex items-center gap-3 bg-charcoal px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
+              className="flex items-center gap-3 bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
             >
               Start case
               <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -145,17 +145,17 @@ export default function HomePage() {
         {/* Hero */}
         <section className="relative min-h-180 overflow-hidden px-5 pb-10 pt-20 md:min-h-205 md:px-10 md:pt-28">
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[58%] items-end justify-center gap-0 opacity-80">
-            <div className="h-[32%] w-[14%] border border-charcoal/10" />
-            <div className="h-[48%] w-[14%] border border-charcoal/10" />
-            <div className="h-[68%] w-[14%] border border-charcoal/10" />
-            <div className="h-[94%] w-[14%] border border-charcoal/10" />
-            <div className="h-[74%] w-[14%] border border-charcoal/10" />
-            <div className="h-[90%] w-[14%] border border-charcoal/10" />
-            <div className="h-[46%] w-[14%] border border-charcoal/10" />
+            <div className="h-[32%] w-[14%] border border-primary/10" />
+            <div className="h-[48%] w-[14%] border border-primary/10" />
+            <div className="h-[68%] w-[14%] border border-primary/10" />
+            <div className="h-[94%] w-[14%] border border-primary/10" />
+            <div className="h-[74%] w-[14%] border border-primary/10" />
+            <div className="h-[90%] w-[14%] border border-primary/10" />
+            <div className="h-[46%] w-[14%] border border-primary/10" />
           </div>
 
           <div className="relative z-10 mx-auto max-w-4xl text-center">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal/60">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
               Cyber Threat Intelligence Framework
             </p>
 
@@ -176,14 +176,14 @@ export default function HomePage() {
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
                 href="/chat"
-                className="bg-charcoal px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
+                className="bg-primary px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
               >
                 Start a chat
               </Link>
 
               <a
                 href="#platform"
-                className="border border-charcoal px-5 py-3 text-[11px] font-bold uppercase tracking-widest transition hover:bg-charcoal hover:text-ivory active:bg-charcoal-pressed"
+                className="border border-primary px-5 py-3 text-[11px] font-bold uppercase tracking-widest transition hover:bg-primary hover:text-ivory active:bg-charcoal-pressed"
               >
                 Explore platform
               </a>
@@ -191,7 +191,7 @@ export default function HomePage() {
           </div>
 
           <div className="absolute bottom-7 left-5 z-10 max-w-52.5 md:bottom-10 md:left-10">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal/60">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
               Evidence-led conversation
             </p>
             <p className="mt-2 text-xs leading-relaxed text-ink-secondary">
@@ -201,7 +201,7 @@ export default function HomePage() {
           </div>
 
           <div className="absolute bottom-7 right-5 z-10 text-right md:bottom-10 md:right-10">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal/60">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
               Built for analysts
             </p>
             <p className="mt-2 text-xs text-ink-secondary">
@@ -213,7 +213,7 @@ export default function HomePage() {
         {/* Dark Platform */}
         <section
           id="platform"
-          className="bg-charcoal px-5 py-10 text-ivory md:px-10 md:py-16"
+          className="bg-primary px-5 py-10 text-ivory md:px-10 md:py-16"
         >
           <div className="flex flex-col gap-6 border-b border-ivory/10 pb-8 md:flex-row md:items-end md:justify-between">
             <div>
@@ -270,8 +270,8 @@ export default function HomePage() {
 
         {/* Workflow */}
         <section id="workflow" className="px-5 py-12 md:px-10 md:py-20">
-          <div className="border border-charcoal bg-surface">
-            <div className="flex items-center justify-between border-b border-charcoal px-5 py-4">
+          <div className="border border-primary bg-surface">
+            <div className="flex items-center justify-between border-b border-primary px-5 py-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-light text-red-600">01</span>
                 <span className="text-xs font-bold uppercase tracking-widest">
@@ -281,7 +281,7 @@ export default function HomePage() {
 
               <Link
                 href="/chat"
-                className="border border-charcoal px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition hover:bg-charcoal hover:text-ivory active:bg-charcoal-pressed"
+                className="border border-primary px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition hover:bg-primary hover:text-ivory active:bg-charcoal-pressed"
               >
                 Open chat
               </Link>
@@ -289,14 +289,14 @@ export default function HomePage() {
 
             <div className="grid min-h-132.5 gap-10 px-6 py-16 md:grid-cols-[1.2fr_0.8fr] md:px-14">
               <div className="flex flex-col justify-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-charcoal/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/60">
                   Context first
                 </p>
 
                 <h2 className="mt-5 text-5xl font-light leading-[0.95] tracking-normal md:text-7xl">
                   Keep your
                   <br />
-                  <span className="text-charcoal/25">context together.</span>
+                  <span className="text-primary/25">context together.</span>
                 </h2>
 
                 <p className="mt-7 max-w-md text-sm leading-relaxed text-ink-secondary">
@@ -307,14 +307,14 @@ export default function HomePage() {
 
                 <Link
                   href="/chat"
-                  className="mt-9 inline-flex w-fit items-center gap-3 bg-charcoal px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
+                  className="mt-9 inline-flex w-fit items-center gap-3 bg-primary px-5 py-3 text-[11px] font-bold uppercase tracking-widest text-ivory transition hover:bg-charcoal-hover active:bg-charcoal-pressed"
                 >
                   Start a conversation
                   <span className="text-red-500">●</span>
                 </Link>
               </div>
 
-              <div className="flex flex-col justify-end border-l border-charcoal/10 pl-6 md:pl-10">
+              <div className="flex flex-col justify-end border-l border-primary/10 pl-6 md:pl-10">
                 {[
                   [
                     "01",
@@ -339,7 +339,7 @@ export default function HomePage() {
                 ].map(([number, title, description]) => (
                   <div
                     key={number}
-                    className="border-t border-charcoal/15 py-5 first:border-t-0 first:pt-0"
+                    className="border-t border-primary/15 py-5 first:border-t-0 first:pt-0"
                   >
                     <div className="flex gap-4">
                       <span className="text-xs font-bold text-red-600">
@@ -362,9 +362,9 @@ export default function HomePage() {
         {/* Intelligence */}
         <section
           id="intelligence"
-          className="grid border-t border-charcoal/10 md:grid-cols-2"
+          className="grid border-t border-primary/10 md:grid-cols-2"
         >
-          <div className="bg-charcoal px-6 py-14 text-ivory md:px-12 md:py-20">
+          <div className="bg-primary px-6 py-14 text-ivory md:px-12 md:py-20">
             <p className="text-[10px] font-bold uppercase tracking-widest text-ivory/60">
               Intelligence layer
             </p>
@@ -403,7 +403,7 @@ export default function HomePage() {
               ].map(([title, description], index) => (
                 <article
                   key={title}
-                  className="flex gap-5 border-b border-charcoal/15 pb-6 last:border-b-0"
+                  className="flex gap-5 border-b border-primary/15 pb-6 last:border-b-0"
                 >
                   <span className="text-sm font-light text-red-600">
                     0{index + 1}
@@ -425,14 +425,14 @@ export default function HomePage() {
         {/* Footer */}
         <footer
           id="about"
-          className="flex flex-col gap-5 border-t border-charcoal/10 px-5 py-7 text-xs text-ink-secondary md:flex-row md:items-center md:justify-between md:px-10"
+          className="flex flex-col gap-5 border-t border-primary/10 px-5 py-7 text-xs text-ink-secondary md:flex-row md:items-center md:justify-between md:px-10"
         >
           <p>CyberCase Intelligence Framework</p>
           <div className="flex gap-5">
-            <Link href="/chat" className="hover:text-charcoal">
+            <Link href="/chat" className="hover:text-primary">
               Workspace
             </Link>
-            <a href="#platform" className="hover:text-charcoal">
+            <a href="#platform" className="hover:text-primary">
               Platform
             </a>
           </div>

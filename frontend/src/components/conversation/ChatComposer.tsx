@@ -35,7 +35,7 @@ export function ChatComposer({
 
   return (
     <form ref={formRef} onSubmit={onSubmit} className="relative w-full">
-      <div className="relative flex items-center gap-2 rounded-2xl border border-line-strong bg-surface py-1.5 pl-3.5 pr-1.5 shadow-[0_1px_4px_rgba(39,39,39,0.05)] transition-all focus-within:border-charcoal focus-within:ring-1 focus-within:ring-charcoal">
+      <div className="relative flex items-center gap-2 rounded-2xl border border-line-strong bg-surface py-1.5 pl-3.5 pr-1.5 shadow-[0_1px_4px_rgba(39,39,39,0.05)] transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
         <label htmlFor="chat-composer-input" className="sr-only">
           Chat message
         </label>
@@ -55,7 +55,7 @@ export function ChatComposer({
           type="submit"
           disabled={isSubmitting || !input.trim()}
           aria-label="Send message"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-charcoal text-ivory outline-none transition-all hover:scale-105 hover:bg-charcoal-hover active:scale-95 active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-charcoal focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled disabled:hover:scale-100"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-primary text-ivory outline-none transition-all hover:scale-105 hover:bg-charcoal-hover active:scale-95 active:bg-charcoal-pressed focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-control-disabled disabled:text-ink-disabled disabled:hover:scale-100"
         >
           <Icon name="send" className="h-3.5 w-3.5" />
         </button>
